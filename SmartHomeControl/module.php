@@ -339,10 +339,6 @@ class SmartHomeControl extends IPSModuleStrict
         } elseif (!$vacationFound && $currentMode === 2) {
             $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurück auf Anwesenheit.');
             $this->SetHouseMode(0);
-        } elseif (!$vacationFound) {
-            $this->SLog('DEBUG', 'Kalender geprüft: Aktuell ist kein Urlaub eingetragen.');
-        } else {
-            $this->SLog('DEBUG', 'Kalender geprüft: Urlaub ist aktiv.', 'Ende: ' . date('d.m. H:i', $vacationEndTime));
         }
     }
 
