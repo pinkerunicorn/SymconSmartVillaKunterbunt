@@ -145,11 +145,16 @@ class SmartAlarmManager extends IPSModuleStrict
                     $ident = "Alarm_". $vid;
                     $activeIdents[] = $ident;
                     $this->MaintainVariable($ident, "Status: ". ($item['Message'] ?? 'Alarm'), 0, "", 0, true);
-                    IPS_SetVariableCustomPresentation($this->GetIDForIdent($ident), [
+                    $varID = $this->GetIDForIdent($ident);
+                    IPS_SetVariableCustomPresentation($varID, [
                         'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
                         'ICON'         => 'Alert'
                     ]);
                     $this->EnableAction($ident);
+
+                    // Nur Alarme sichtbar machen, die zu quittieren sind
+                    $isAlarmActive = (bool)$this->GetValue($ident);
+                    IPS_SetHidden($varID, !$isAlarmActive);
                 }
             }
         }
@@ -162,6 +167,8 @@ class SmartAlarmManager extends IPSModuleStrict
                 }
             }
         }
+
+        $this->UpdateStatusVariables();
     }
 
     private function GetActionProfiles($profileID)
@@ -304,7 +311,9 @@ class SmartAlarmManager extends IPSModuleStrict
                 
                 $ident = "Alarm_". $vid;
                 if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID)) {
+                    $varID = $this->GetIDForIdent($ident);
                     $this->SetValue($ident, true);
+                    IPS_SetHidden($varID, false);
                 }
                 
                 $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- ALARM: ". $msg);
@@ -318,6 +327,8 @@ class SmartAlarmManager extends IPSModuleStrict
         if (strpos($Ident, "Alarm_") === 0) {
             if ($Value == false) {
                 $this->SetValue($Ident, false);
+                $varID = $this->GetIDForIdent($Ident);
+                IPS_SetHidden($varID, true);
 
                 $vid = substr($Ident, 6);
                 $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
@@ -357,6 +368,16 @@ class SmartAlarmManager extends IPSModuleStrict
                     $ident = "Alarm_". $vid;
                     if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID)) {
                         $this->SetValue($ident, false);
+                        $varID = $this->GetIDForIdent($ident);
+                        IPS_SetHidden($varID, true);
+                    }
+                }
+
+                foreach (IPS_GetChildrenIDs($this->InstanceID) as $childID) {
+                    $ident = IPS_GetObject($childID)['ObjectIdent'];
+                    if (strpos($ident, "Alarm_") === 0) {
+                        $this->SetValue($ident, false);
+                        IPS_SetHidden($childID, true);
                     }
                 }
                 
@@ -436,6 +457,10 @@ class SmartAlarmManager extends IPSModuleStrict
         $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
         $count = count($alarms);
         $this->SetValue("ActiveAlarmsCount", $count);
+
+        if (@IPS_GetObjectIDByIdent('AcknowledgeAll', $this->InstanceID) !== false) {
+            IPS_SetHidden($this->GetIDForIdent('AcknowledgeAll'), $count === 0);
+        }
         
         if ($count == 0) {
             if ($this->GetValue("SystemStatus") > 1) {
