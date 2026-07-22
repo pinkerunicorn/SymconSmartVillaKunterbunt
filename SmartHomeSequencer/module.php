@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../SmartLog/libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 
 class SmartHomeSequencer extends IPSModuleStrict
 {
