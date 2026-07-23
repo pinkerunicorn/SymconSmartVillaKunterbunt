@@ -2,7 +2,7 @@
     "id": "{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}",
     "name": "SmartAlarmManager",
     "type": 3,
-    "vendor": "SmartAlarm",
+    "vendor": "Florian Graßinger",
     "aliases": [
         "Smart Alarm Manager"
     ],
