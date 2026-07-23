@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/shared/Trait_SmartLog.php';
 
 class SmartHomeControl extends IPSModuleStrict
 {
