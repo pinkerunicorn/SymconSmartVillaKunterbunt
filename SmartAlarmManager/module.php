@@ -325,7 +325,7 @@ class SmartAlarmManager extends IPSModuleStrict
                 $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
 
                 // Lesbaren Namen für das Log ermitteln
-                $alarmName = $alarms[$vid]['message'] ?? null;
+                $alarmName = $alarms[$vid]['item']['Message'] ?? ($alarms[$vid]['message'] ?? null);
                 if (!$alarmName && IPS_VariableExists((int)$vid)) {
                     $alarmName = IPS_GetName((int)$vid);
                 }
@@ -339,12 +339,31 @@ class SmartAlarmManager extends IPSModuleStrict
                     if (empty($profiles) && isset($alarms[$vid]['profile'])) {
                         $profiles = [$alarms[$vid]['profile']];
                     }
-                    foreach ($profiles as $profile) {
-                        $this->TriggerHomematicLEDs($profile, true); 
-                        $this->TriggerHomematicSirens($profile, true); 
-                    }
                     unset($alarms[$vid]);
                     $this->SetBuffer("ActiveAlarms", json_encode($alarms));
+
+                    // Prüfen, ob verbleibende aktive Alarme eines der Aktionsprofile noch benötigen
+                    $remainingProfiles = [];
+                    foreach ($alarms as $remAlarm) {
+                        $remProfs = $remAlarm['profiles'] ?? [];
+                        if (empty($remProfs) && isset($remAlarm['profile'])) {
+                            $remProfs = [$remAlarm['profile']];
+                        }
+                        foreach ($remProfs as $rp) {
+                            $pid = $rp['ProfileID'] ?? '';
+                            if ($pid !== '') {
+                                $remainingProfiles[$pid] = true;
+                            }
+                        }
+                    }
+
+                    foreach ($profiles as $profile) {
+                        $pid = $profile['ProfileID'] ?? '';
+                        if ($pid === '' || !isset($remainingProfiles[$pid])) {
+                            $this->TriggerHomematicLEDs($profile, true); 
+                            $this->TriggerHomematicSirens($profile, true); 
+                        }
+                    }
                 }
                 
                 if (empty($alarms)) {
@@ -443,9 +462,57 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    private function UpdateStatusVariables()
+    private function UpdateStatusVariables(): void
     {
         $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
+
+        // Synchronisiere den Puffer mit den tatsächlich aktiven Alarm-Variablen
+        $monitored = json_decode($this->ReadPropertyString("MonitoredVariables"), true);
+        if (is_array($monitored)) {
+            $monitoredMap = [];
+            foreach ($monitored as $item) {
+                $vid = $item['VariableID'] ?? 0;
+                if ($vid > 0) {
+                    $monitoredMap[$vid] = $item;
+                }
+            }
+
+            // Entferne Alarme aus dem Puffer, falls die Variable quittiert oder nicht mehr überwacht ist
+            foreach ($alarms as $vid => $alarmData) {
+                $ident = "Alarm_" . $vid;
+                if (!isset($monitoredMap[$vid]) || !@IPS_GetObjectIDByIdent($ident, $this->InstanceID) || !$this->GetValue($ident)) {
+                    unset($alarms[$vid]);
+                }
+            }
+
+            // Ergänze Alarme im Puffer, falls eine Alarm-Variable aktiv (true) ist, aber im Puffer fehlt
+            foreach ($monitoredMap as $vid => $item) {
+                if (($item['AlarmType'] ?? 0) == 0 || ($item['AlarmType'] ?? 0) == 2) {
+                    $ident = "Alarm_" . $vid;
+                    if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID) && $this->GetValue($ident)) {
+                        if (!isset($alarms[$vid])) {
+                            $profileIdStr = $item['ProfileID'] ?? '';
+                            $profileIds = array_map('trim', explode(',', $profileIdStr));
+                            $profiles = [];
+                            foreach ($profileIds as $pid) {
+                                if (empty($pid)) continue;
+                                foreach ($this->GetActionProfiles($pid) as $p) {
+                                    $profiles[] = $p;
+                                }
+                            }
+                            $alarms[$vid] = [
+                                "timestamp" => time(),
+                                "level"     => 1,
+                                "item"      => $item,
+                                "profiles"  => $profiles
+                            ];
+                        }
+                    }
+                }
+            }
+            $this->SetBuffer("ActiveAlarms", json_encode($alarms));
+        }
+
         $count = count($alarms);
         $this->SetValue("ActiveAlarmsCount", $count);
 
@@ -454,14 +521,16 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         
         if ($count == 0) {
-            if ($this->GetValue("SystemStatus") > 1) {
+            if ($this->GetValue("SystemStatus") > 0) {
                 $this->SetValue("SystemStatus", 0);
             }
+            $this->SetTimerInterval("EscalationTimer", 0);
         } else {
             $maxLevel = 1;
             foreach ($alarms as $alarm) {
-                if ($alarm['level'] > $maxLevel) {
-                    $maxLevel = $alarm['level'];
+                $lvl = $alarm['level'] ?? 1;
+                if ($lvl > $maxLevel) {
+                    $maxLevel = $lvl;
                 }
             }
             $this->SetValue("SystemStatus", $maxLevel + 1);
