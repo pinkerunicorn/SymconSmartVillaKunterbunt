@@ -10,13 +10,6 @@ class SmartHomeHeating extends IPSModuleStrict
     use SmartLog_Trait;
     use HouseModeAware_Trait;
 
-    private const MODE_PRESENCE = 0;
-    private const MODE_ABSENCE = 1;
-    private const MODE_VACATION = 2;
-    private const MODE_NIGHT = 3;
-    private const MODE_PARTY = 4;
-    private const MODE_SLEEP = 5;
-
     public function Create(): void
     {
         parent::Create();
@@ -168,9 +161,11 @@ class SmartHomeHeating extends IPSModuleStrict
         
         $roomCount = count($heatingInsts);
 
-        // 0=Anwesenheit, 1=Abwesenheit, 2=Urlaub, 3=Party, 4=Heimkino, 5=Schlafen, 6=Putzen
-        $isVacation = ($mode === self::MODE_VACATION);
-        $isAbsence = ($isAbsence || $isSleep || $isVacation || $mode === self::MODE_ABSENCE || $mode === self::MODE_SLEEP);
+        // isAbsence/isSleep kommen vom HouseModeAware-Trait (aus SmartHomeControl-Konfiguration)
+        // Urlaub (ModeID 2) ist ebenfalls Abwesenheit — tiefer absenken
+        $isVacation = ($isAbsence && $mode === 2);
+        // isSleep zählt ebenfalls als Absenkbetrieb
+        $isAbsence = ($isAbsence || $isSleep);
         
         if ($isAbsence || $isVacation) {
             $isHeatingSeason = GetValue($this->GetIDForIdent('HeatingSeason'));

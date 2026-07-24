@@ -25,14 +25,6 @@ declare(strict_types=1);
  */
 trait HouseModeAware_Trait
 {
-    // Standard Mode-Konstanten
-    private const MODE_PRESENT  = 0;  // Anwesenheit
-    private const MODE_ABSENT   = 1;  // Abwesenheit
-    private const MODE_VACATION = 2;  // Urlaub
-    private const MODE_PARTY    = 3;  // Party
-    private const MODE_CINEMA   = 4;  // Heimkino
-    private const MODE_SLEEP    = 5;  // Schlafen
-
     /**
      * Registriert die HouseModeVariableID Property.
      * Aufruf in Create().
@@ -43,7 +35,7 @@ trait HouseModeAware_Trait
     }
 
     /**
-     * Registriert den VM_UPDATE Listener für die HouseMode-Variable.
+     * Registriert den VM_UPDATE Listener und cached den initialen Modus-Status.
      * Aufruf in ApplyChanges().
      */
     private function ApplyHouseModeSubscription(): void
@@ -51,12 +43,17 @@ trait HouseModeAware_Trait
         $id = $this->ReadPropertyInteger('HouseModeVariableID');
         if ($id > 0 && @IPS_VariableExists($id)) {
             $this->RegisterMessage($id, VM_UPDATE);
+            // Initialen Modus cachen
+            $mode = (int)GetValue($id);
+            [$isAbsence, $isSleep] = $this->ResolveModeFlags($mode);
+            $this->SetBuffer('HMA_IsAbsent', $isAbsence ? '1' : '0');
+            $this->SetBuffer('HMA_IsSleep',  $isSleep   ? '1' : '0');
         }
     }
 
     /**
      * Verarbeitet eingehende VM_UPDATE Nachrichten.
-     * Aufruf in MessageSink(): if ($this->HandleHouseModeMessage($MessageID, $Data)) return;
+     * Aufruf in MessageSink(): if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
      *
      * @return bool true wenn die Nachricht verarbeitet wurde
      */
@@ -65,10 +62,46 @@ trait HouseModeAware_Trait
         $houseModeId = $this->ReadPropertyInteger('HouseModeVariableID');
         if ($houseModeId > 0 && $messageID === VM_UPDATE && $senderID === $houseModeId) {
             $mode = (int)GetValue($houseModeId);
-            $this->OnHouseModeChanged($mode, $this->IsAbsent($mode), $this->IsSleep($mode));
+            [$isAbsence, $isSleep] = $this->ResolveModeFlags($mode);
+            // Flags cachen für IsAbsent()/IsSleep()
+            $this->SetBuffer('HMA_IsAbsent', $isAbsence ? '1' : '0');
+            $this->SetBuffer('HMA_IsSleep',  $isSleep   ? '1' : '0');
+            $this->OnHouseModeChanged($mode, $isAbsence, $isSleep);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Liest IsAbsence/IsSleep-Flags aus dem SmartHomeControl HouseModes-Property.
+     * Fallback: Modus 1+2 = Abwesenheit, Modus 5 = Schlafen.
+     *
+     * @return array{bool, bool} [$isAbsence, $isSleep]
+     */
+    private function ResolveModeFlags(int $mode): array
+    {
+        // GUID des SmartHomeControl Moduls
+        $controlInstances = @IPS_GetInstanceListByModuleID('{4C8B2A6D-9E3F-4A7B-8C5D-1F6E2A3B7C4D}');
+        if (is_array($controlInstances)) {
+            foreach ($controlInstances as $instID) {
+                $modesJson = @IPS_GetProperty($instID, 'HouseModes');
+                if ($modesJson) {
+                    $modes = json_decode($modesJson, true);
+                    if (is_array($modes)) {
+                        foreach ($modes as $m) {
+                            if (($m['ModeID'] ?? -1) === $mode) {
+                                return [
+                                    (bool)($m['IsAbsence'] ?? false),
+                                    (bool)($m['IsSleep']   ?? false)
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Fallback
+        return [in_array($mode, [1, 2]), $mode === 5];
     }
 
     /**
@@ -77,37 +110,36 @@ trait HouseModeAware_Trait
     private function GetHouseMode(): int
     {
         $id = $this->ReadPropertyInteger('HouseModeVariableID');
-        return ($id > 0 && @IPS_VariableExists($id)) ? (int)GetValue($id) : self::MODE_PRESENT;
+        return ($id > 0 && @IPS_VariableExists($id)) ? (int)GetValue($id) : 0;
     }
 
     /**
-     * Prüft ob das Haus im Abwesenheits-Modus ist (Abwesenheit oder Urlaub).
+     * Prüft ob das Haus im Abwesenheits-Modus ist (liest gecachten Buffer).
      */
-    private function IsAbsent(?int $mode = null): bool
+    private function IsAbsent(): bool
     {
-        $m = $mode ?? $this->GetHouseMode();
-        return in_array($m, [self::MODE_ABSENT, self::MODE_VACATION]);
+        return $this->GetBuffer('HMA_IsAbsent') === '1';
     }
 
     /**
-     * Prüft ob das Haus im Schlaf-Modus ist.
+     * Prüft ob das Haus im Schlaf-Modus ist (liest gecachten Buffer).
      */
-    private function IsSleep(?int $mode = null): bool
+    private function IsSleep(): bool
     {
-        return ($mode ?? $this->GetHouseMode()) === self::MODE_SLEEP;
+        return $this->GetBuffer('HMA_IsSleep') === '1';
     }
 
     /**
      * Prüft ob jemand zu Hause und wach ist.
      */
-    private function IsPresent(?int $mode = null): bool
+    private function IsPresent(): bool
     {
-        return !$this->IsAbsent($mode) && !$this->IsSleep($mode);
+        return !$this->IsAbsent() && !$this->IsSleep();
     }
 
     /**
      * Liest die verfügbaren Haus-Modi aus dem Variablen-Profil.
-     * Für dynamische Dropdown-Listen in form.json.
+     * Für dynamische Dropdown-Listen in GetConfigurationForm().
      *
      * @return array<int, array{Value: int, Name: string}> Assoziationen aus dem Profil
      */
