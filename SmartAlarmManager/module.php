@@ -778,7 +778,10 @@ class SmartAlarmManager extends IPSModuleStrict
                     break;
             }
             
-            $this->LogMessage("Setze Ziel-Variable $targetId auf Wert: ". var_export($val, true), KL_NOTIFY);
+            $targetName = IPS_ObjectExists($targetId) ? IPS_GetName($targetId) : '';
+            $targetDesc = $targetName !== '' ? "$targetId ('$targetName')" : (string)$targetId;
+
+            $this->LogMessage("Setze Ziel-Variable $targetDesc auf Wert: ". var_export($val, true), KL_NOTIFY);
             try {
                 if (HasAction($targetId)) {
                     RequestAction($targetId, $val);
@@ -786,7 +789,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     SetValue($targetId, $val);
                 }
             } catch (Exception $e) {
-                $this->LogMessage("Fehler beim Setzen der Ziel-Variable $targetId: ". $e->getMessage(), KL_ERROR);
+                $this->LogMessage("Fehler beim Setzen der Ziel-Variable $targetDesc: ". $e->getMessage(), KL_ERROR);
             }
         }
     }
