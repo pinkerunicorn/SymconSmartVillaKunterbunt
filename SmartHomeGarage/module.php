@@ -41,17 +41,16 @@ class SmartHomeGarage extends IPSModuleStrict
         $this->RegisterTimer('OpenAlarmTimer', 0, 'SHG_TriggerOpenAlarm($_IPS[\'TARGET\']);');
 
         // Variables
-        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
-            'ICON' => 'Information',
-            'VALUES' => [
-                ['VALUE' => 0, 'STRING' => 'Zu', 'ICON' => 'LockClosed', 'COLOR' => -1],
-                ['VALUE' => 1, 'STRING' => 'Auf', 'ICON' => 'LockOpen', 'COLOR' => -1],
-                ['VALUE' => 2, 'STRING' => 'Fährt Auf...', 'ICON' => 'ArrowUp', 'COLOR' => -1],
-                ['VALUE' => 3, 'STRING' => 'Fährt Zu...', 'ICON' => 'ArrowDown', 'COLOR' => -1],
-                ['VALUE' => 4, 'STRING' => 'Teiloffen / Gestoppt', 'ICON' => 'Warning', 'COLOR' => 0xFF8000]
-            ]
-        ], 1);
+        if (!IPS_VariableProfileExists('SmartAbsence.DoorState')) {
+            IPS_CreateVariableProfile('SmartAbsence.DoorState', 1);
+            IPS_SetVariableProfileIcon('SmartAbsence.DoorState', 'Information');
+            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 0, 'Zu', 'LockClosed', -1);
+            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 1, 'Auf', 'LockOpen', -1);
+            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 2, 'Fährt Auf...', 'ArrowUp', -1);
+            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 3, 'Fährt Zu...', 'ArrowDown', -1);
+            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 4, 'Teiloffen / Gestoppt', 'Warning', 0xFF8000);
+        }
+        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', 'SmartAbsence.DoorState', 1);
         $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
             'ICON' => 'Window'

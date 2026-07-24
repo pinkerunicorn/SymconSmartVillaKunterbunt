@@ -27,19 +27,17 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->SetBuffer("ActiveDelays", "{}");
 
         // Profiles for Tile UI
-        
+        if (!IPS_VariableProfileExists('SmartAlarm.Status')) {
+            IPS_CreateVariableProfile('SmartAlarm.Status', 1);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 0, 'Alles OK', 'Ok', 0x00FF00);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 1, 'Info / Hinweis', 'Information', 0xFFFF00);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 2, 'ALARM!', 'Warning', 0xFF0000);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 3, 'ESKALATION', 'Warning', 0xFF0000);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 4, 'VOLLALARM', 'Alert', 0xFF0000);
+        }
 
         // Summary Variables for Tile UI
-        $this->RegisterVariableInteger("SystemStatus", "System Status", [
-            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
-            'VALUES' => [
-                ['VALUE' => 0, 'STRING' => 'Alles OK', 'ICON' => 'Ok', 'COLOR' => 0x00FF00],
-                ['VALUE' => 1, 'STRING' => 'Info / Hinweis', 'ICON' => 'Information', 'COLOR' => 0xFFFF00],
-                ['VALUE' => 2, 'STRING' => 'ALARM!', 'ICON' => 'Warning', 'COLOR' => 0xFF0000],
-                ['VALUE' => 3, 'STRING' => 'ESKALATION', 'ICON' => 'Warning', 'COLOR' => 0xFF0000],
-                ['VALUE' => 4, 'STRING' => 'VOLLALARM', 'ICON' => 'Alert', 'COLOR' => 0xFF0000],
-            ]
-        ], 1);
+        $this->RegisterVariableInteger("SystemStatus", "System Status", 'SmartAlarm.Status', 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Warning'
