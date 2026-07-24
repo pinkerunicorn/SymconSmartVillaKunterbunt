@@ -14,12 +14,7 @@ class SmartHomeHeating extends IPSModuleStrict
     {
         parent::Create();
         $this->RegisterHouseModeAwareness();
-        if (function_exists('IPS_SetVariableCustomPresentation')) {
-            foreach(['HeatingSeason', 'AlarmFrostWarning'] as $ident) {
-                $id = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
-                if ($id !== false) @IPS_SetVariableCustomPresentation($id, []);
-            }
-        }
+
 
         // Target temperature during absence (Fallback)
         $this->RegisterPropertyFloat('TargetTemperature', 17.0);
@@ -32,19 +27,30 @@ class SmartHomeHeating extends IPSModuleStrict
         $this->RegisterAttributeString('PreviousStates', '{}');
 
         // GUI Variables
-        $this->RegisterVariableString('HeatingStatus', 'ℹ Status', '', 1);
-        IPS_SetIcon($this->GetIDForIdent('HeatingStatus'), 'Information');
-        $this->RegisterVariableFloat('AverageTemperature', '🌡 Ø Haus-Temperatur', '', 2);
-        IPS_SetIcon($this->GetIDForIdent('AverageTemperature'), 'Temperature');
+        $this->RegisterVariableString('HeatingStatus', 'ℹ Status', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Information'
+        ], 1);
+        $this->RegisterVariableFloat('AverageTemperature', '🌡 Ø Haus-Temperatur', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Temperature',
+            'SUFFIX'      => '°C'
+        ], 2);
         
-        $this->RegisterVariableBoolean('HeatingSeason', '❄ Heizperiode aktiv', '', 10);
-        IPS_SetIcon($this->GetIDForIdent('HeatingSeason'), 'Flame');
+        $this->RegisterVariableBoolean('HeatingSeason', '❄ Heizperiode aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Flame'
+        ], 10);
         $this->EnableAction('HeatingSeason');
         
-        $this->RegisterVariableBoolean('IsAbsenkbetrieb', '📉 Absenkbetrieb', '', 15);
-        IPS_SetIcon($this->GetIDForIdent('IsAbsenkbetrieb'), 'Information');
-        $this->RegisterVariableBoolean('AlarmFrostWarning', 'Alarm: Frostgefahr', '', 20);
-        IPS_SetIcon($this->GetIDForIdent('AlarmFrostWarning'), 'Warning');
+        $this->RegisterVariableBoolean('IsAbsenkbetrieb', '📉 Absenkbetrieb', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'TrendDown'
+        ], 15);
+        $this->RegisterVariableBoolean('AlarmFrostWarning', 'Alarm: Frostgefahr', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Warning'
+        ], 20);
         $this->EnableAction('AlarmFrostWarning');
 
     }
@@ -69,21 +75,7 @@ class SmartHomeHeating extends IPSModuleStrict
         }
         // ---------------------------------
 
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('HeatingStatus'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Information'
-        ]);
 
-        
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('AverageTemperature'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Temperature',
-            'SUFFIX'      => '°C'
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('IsAbsenkbetrieb'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'TrendDown'
-        ]);
 
         // Variable Aggregation (Logging) für Ø Haus-Temperatur aktivieren
         $avgTempId = $this->GetIDForIdent('AverageTemperature');
@@ -144,7 +136,7 @@ class SmartHomeHeating extends IPSModuleStrict
         }
     }
 
-    public function RequestAction(string $Ident, $Value): void
+    public function RequestAction(string $Ident, mixed $Value): void
     {
         if ($Ident === 'HeatingSeason') {
             $this->SetValue($Ident, $Value);

@@ -30,14 +30,28 @@ class SmartAlarmManager extends IPSModuleStrict
         
 
         // Summary Variables for Tile UI
-        $this->RegisterVariableInteger("SystemStatus", "System Status", "SAM.SystemStatus", 1);
-        IPS_SetIcon($this->GetIDForIdent('SystemStatus'), 'Information');
-        $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", "", 2);
-        IPS_SetIcon($this->GetIDForIdent('ActiveAlarmsCount'), 'Warning');
-        $this->RegisterVariableString("LastEvent", "Letztes Ereignis", "", 3);
-        IPS_SetIcon($this->GetIDForIdent('LastEvent'), 'Flag');
-        $this->RegisterVariableBoolean("AcknowledgeAll", "Alle Alarme quittieren", "", 4);
-        IPS_SetIcon($this->GetIDForIdent('AcknowledgeAll'), 'Ok');
+        $this->RegisterVariableInteger("SystemStatus", "System Status", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'VALUES' => [
+                ['VALUE' => 0, 'STRING' => 'Alles OK', 'ICON' => 'Ok', 'COLOR' => 0x00FF00],
+                ['VALUE' => 1, 'STRING' => 'Info / Hinweis', 'ICON' => 'Information', 'COLOR' => 0xFFFF00],
+                ['VALUE' => 2, 'STRING' => 'ALARM!', 'ICON' => 'Warning', 'COLOR' => 0xFF0000],
+                ['VALUE' => 3, 'STRING' => 'ESKALATION', 'ICON' => 'Warning', 'COLOR' => 0xFF0000],
+                ['VALUE' => 4, 'STRING' => 'VOLLALARM', 'ICON' => 'Alert', 'COLOR' => 0xFF0000],
+            ]
+        ], 1);
+        $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Warning'
+        ], 2);
+        $this->RegisterVariableString("LastEvent", "Letztes Ereignis", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Flag'
+        ], 3);
+        $this->RegisterVariableBoolean("AcknowledgeAll", "Alle Alarme quittieren", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON'         => 'Ok'
+        ], 4);
         $this->EnableAction("AcknowledgeAll");
         
         $this->RegisterHouseModeAwareness();
@@ -96,40 +110,8 @@ class SmartAlarmManager extends IPSModuleStrict
             }
         }
         // ---------------------------------
-
-        if (!IPS_VariableProfileExists('SmartAlarm.Status')) {
-            IPS_CreateVariableProfile('SmartAlarm.Status', 1);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 0, 'Alles OK', 'Ok', 0x00FF00);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 1, 'Info / Hinweis', 'Information', 0xFFFF00);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 2, 'ALARM!', 'Warning', 0xFF0000);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 3, 'ESKALATION', 'Warning', 0xFF0000);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 4, 'VOLLALARM', 'Alert', 0xFF0000);
-        }
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), 'SmartAlarm.Status');
         
         $this->ApplyHouseModeSubscription();
-
-        if (@IPS_GetObjectIDByIdent('ActiveAlarmsCount', $this->InstanceID) !== false) {
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('ActiveAlarmsCount'), [
-                'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-                'ICON'         => 'Warning'
-            ]);
-        }
-
-        if (@IPS_GetObjectIDByIdent('LastEvent', $this->InstanceID) !== false) {
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('LastEvent'), [
-                'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-                'ICON'         => 'Flag'
-            ]);
-        }
-
-        if (@IPS_GetObjectIDByIdent('AcknowledgeAll', $this->InstanceID) !== false) {
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('AcknowledgeAll'), [
-                'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-                'ICON'         => 'Ok'
-            ]);
-        }
-
 
         // Unregister all old messages
         foreach ($this->GetMessageList() as $senderID => $messages) {
@@ -243,7 +225,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    public function HandleDelays()
+    public function HandleDelays(): void
     {
         $delays = json_decode($this->GetBuffer("ActiveDelays"), true) ?: [];
         if (empty($delays)) {
@@ -334,7 +316,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    public function RequestAction(string $Ident, $Value): void{
+    public function RequestAction(string $Ident, mixed $Value): void{
         if (strpos($Ident, "Alarm_") === 0) {
             if ($Value == false) {
                 $this->SetValue($Ident, false);
@@ -414,7 +396,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    public function CheckEscalation()
+    public function CheckEscalation(): void
     {
         $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
         if (empty($alarms)) {
@@ -794,7 +776,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    public function TestProfile(string $profileID, bool $turnOff)
+    public function TestProfile(string $profileID, bool $turnOff): void
     {
         $profiles = $this->GetActionProfiles($profileID);
         if (empty($profiles)) {

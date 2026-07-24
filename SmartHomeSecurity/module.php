@@ -14,12 +14,7 @@ class SmartHomeSecurity extends IPSModuleStrict
     {
         parent::Create();
         $this->RegisterHouseModeAwareness();
-        if (function_exists('IPS_SetVariableCustomPresentation')) {
-            foreach(['AlarmWindowsOpenDuringAbsence'] as $ident) {
-                $id = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
-                if ($id !== false) @IPS_SetVariableCustomPresentation($id, []);
-            }
-        }
+
 
         $this->RegisterPropertyString('DoorVariables', '[]');
         $this->RegisterPropertyString('WindowVariables', '[]');
@@ -34,12 +29,19 @@ class SmartHomeSecurity extends IPSModuleStrict
         $this->RegisterTimer('TimerAutoUnlock', 0, 'SHS_TimerAutoUnlock($_IPS[\'TARGET\']);');
 
         // Variablen für den WebFront-Status
-        $this->RegisterVariableInteger('OpenWindowsCount', '🚪 Offene Fenster / Türen (Zähler)', '', 1);
-        IPS_SetIcon($this->GetIDForIdent('OpenWindowsCount'), 'Window');
-        $this->RegisterVariableString('OpenWindowsList', '📝 Offene Fenster / Türen (Namen)', '', 2);
-        IPS_SetIcon($this->GetIDForIdent('OpenWindowsList'), 'Window');
-        $this->RegisterVariableBoolean('AlarmWindowsOpenDuringAbsence', 'Alarm: Fenster/Tür offen bei Abwesenheit', '', 3);
-        IPS_SetIcon($this->GetIDForIdent('AlarmWindowsOpenDuringAbsence'), 'Warning');
+        $this->RegisterVariableInteger('OpenWindowsCount', '🚪 Offene Fenster / Türen (Zähler)', [
+            'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'           => 'Window',
+            'SUFFIX'         => ' offen'
+        ], 1);
+        $this->RegisterVariableString('OpenWindowsList', '📝 Offene Fenster / Türen (Namen)', [
+            'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'           => 'Information'
+        ], 2);
+        $this->RegisterVariableBoolean('AlarmWindowsOpenDuringAbsence', 'Alarm: Fenster/Tür offen bei Abwesenheit', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Warning'
+        ], 3);
         $this->EnableAction('AlarmWindowsOpenDuringAbsence');
         
         $this->RegisterVariableString('VestaboardStatus', 'Kurz-Status (Vestaboard)', '', 4);
@@ -80,16 +82,7 @@ class SmartHomeSecurity extends IPSModuleStrict
         // ---------------------------------
 
 
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('OpenWindowsCount'), [
-            'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'           => 'Window',
-            'SUFFIX'         => ' offen'
-        ]);
 
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('OpenWindowsList'), [
-            'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'           => 'Information'
-        ]);
 
         $this->MaintainVariable('VestaboardStatus', 'Kurz-Status (Vestaboard)', 3, '', 3, true);
 

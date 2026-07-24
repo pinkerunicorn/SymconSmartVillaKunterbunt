@@ -27,8 +27,10 @@ class SmartHomeControl extends IPSModuleStrict
         $this->EnableAction('HouseMode');
         
         // Google Home / Alexa Interface Variable (Boolean)
-        $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', '', 1);
-        IPS_SetIcon($this->GetIDForIdent('PresenceStatus'), 'Information');
+        $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
+            'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
+            'ICON'          => 'Information'
+        ], 1);
         $this->EnableAction('PresenceStatus');
         
         // Timer für Kalender-Check
@@ -70,10 +72,6 @@ class SmartHomeControl extends IPSModuleStrict
         
         IPS_SetVariableCustomProfile($this->GetIDForIdent('HouseMode'), 'SmartAbsence.HouseMode.'. $this->InstanceID);
         
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('PresenceStatus'), [
-            'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH
-        ]);
-        
         $this->MaintainVariable('AbsenceStatus', '', 0, '', 0, false);
 
         // Timer starten (alle 30 Minuten)
@@ -82,7 +80,7 @@ class SmartHomeControl extends IPSModuleStrict
         $this->SetStatus(102);
     }
 
-    public function RequestAction(string $Ident, $Value): void
+    public function RequestAction(string $Ident, mixed $Value): void
     {
         if ($Ident == 'HouseMode') {
             $this->SetHouseMode($Value);

@@ -13,12 +13,7 @@ class SmartHomeShading extends IPSModuleStrict
     {
         parent::Create();
         $this->RegisterHouseModeAwareness();
-        if (function_exists('IPS_SetVariableCustomPresentation')) {
-            foreach(['AlarmWindWarning'] as $ident) {
-                $id = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
-                if ($id !== false) @IPS_SetVariableCustomPresentation($id, []);
-            }
-        }
+
 
         // 1. Globale Sensorik
         $this->RegisterPropertyInteger('AzimuthVariableID', 0);
@@ -41,17 +36,33 @@ class SmartHomeShading extends IPSModuleStrict
         $this->RegisterAttributeString('CurrentState', '{}'); // Aktueller Beschattungs-Zustand pro Rollladen
         
         // Status Variablen
-        $this->RegisterVariableBoolean('AlarmWindWarning', 'Alarm: Sturmschutz aktiv', '', 1);
-        IPS_SetIcon($this->GetIDForIdent('AlarmWindWarning'), 'Warning');
+        $this->RegisterVariableBoolean('AlarmWindWarning', 'Alarm: Sturmschutz aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Warning'
+        ], 1);
         $this->EnableAction('AlarmWindWarning');
         
-        $this->RegisterVariableInteger('ActiveShadingCount', 'Schatten aktiv (Anzahl)', '', 2);
-        IPS_SetIcon($this->GetIDForIdent('ActiveShadingCount'), 'Count');
+        $this->RegisterVariableInteger('ActiveShadingCount', 'Schatten aktiv (Anzahl)', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'WindowBlind'
+        ], 2);
         
-        $this->RegisterVariableBoolean('StatusIsNight', 'Status: Es ist Nacht', '', 10);
-        $this->RegisterVariableBoolean('StatusIsHotAndBright', 'Status: Hitze & Helligkeit erreicht', '', 11);
-        $this->RegisterVariableInteger('StatusSunInSectorCount', 'Status: Rollläden in der Sonne (Anzahl)', '', 12);
-        $this->RegisterVariableInteger('StatusLastEvaluation', 'Status: Letzte Berechnung', '', 13);
+        $this->RegisterVariableBoolean('StatusIsNight', 'Status: Es ist Nacht', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Moon'
+        ], 10);
+        $this->RegisterVariableBoolean('StatusIsHotAndBright', 'Status: Hitze & Helligkeit erreicht', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Sun'
+        ], 11);
+        $this->RegisterVariableInteger('StatusSunInSectorCount', 'Status: Rollläden in der Sonne (Anzahl)', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Count'
+        ], 12);
+        $this->RegisterVariableInteger('StatusLastEvaluation', 'Status: Letzte Berechnung', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_DATE_TIME,
+            'ICON'        => 'Clock'
+        ], 13);
         
         // Timer für Evaluierung (alle 3 Minuten)
         $this->RegisterTimer('ShadingEvaluator', 0, 'SHSH_EvaluateConditions($_IPS[\'TARGET\']);');
@@ -118,28 +129,7 @@ class SmartHomeShading extends IPSModuleStrict
         $this->UpdateMessageRegistrations();
         
         // Variable Profile für Status
-        
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('ActiveShadingCount'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'WindowBlind'
-        ]);
-        
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusIsNight'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Moon'
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusIsHotAndBright'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Sun'
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusSunInSectorCount'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Count'
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusLastEvaluation'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_DATE_TIME,
-            'ICON'        => 'Clock'
-        ]);
+
     }
     
     private function UpdateMessageRegistrations(): void
@@ -201,7 +191,7 @@ class SmartHomeShading extends IPSModuleStrict
         }
     }
     
-    public function RequestAction(string $Ident, $Value): void
+    public function RequestAction(string $Ident, mixed $Value): void
     {
         if ($Ident === 'AlarmWindWarning') {
             $this->SetValue($Ident, false);

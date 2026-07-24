@@ -41,12 +41,25 @@ class SmartHomeGarage extends IPSModuleStrict
         $this->RegisterTimer('OpenAlarmTimer', 0, 'SHG_TriggerOpenAlarm($_IPS[\'TARGET\']);');
 
         // Variables
-        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', '', 1);
-        IPS_SetIcon($this->GetIDForIdent('DoorState'), 'Information');
-        $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', '', 2);
-        IPS_SetIcon($this->GetIDForIdent('DoorControl'), 'Window');
-        $this->RegisterVariableBoolean('AlarmOpenTooLong', 'Alarm: Tor zu lange offen', '', 3);
-        IPS_SetIcon($this->GetIDForIdent('AlarmOpenTooLong'), 'Warning');
+        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'ICON' => 'Information',
+            'VALUES' => [
+                ['VALUE' => 0, 'STRING' => 'Zu', 'ICON' => 'LockClosed', 'COLOR' => -1],
+                ['VALUE' => 1, 'STRING' => 'Auf', 'ICON' => 'LockOpen', 'COLOR' => -1],
+                ['VALUE' => 2, 'STRING' => 'Fährt Auf...', 'ICON' => 'ArrowUp', 'COLOR' => -1],
+                ['VALUE' => 3, 'STRING' => 'Fährt Zu...', 'ICON' => 'ArrowDown', 'COLOR' => -1],
+                ['VALUE' => 4, 'STRING' => 'Teiloffen / Gestoppt', 'ICON' => 'Warning', 'COLOR' => 0xFF8000]
+            ]
+        ], 1);
+        $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Window'
+        ], 2);
+        $this->RegisterVariableBoolean('AlarmOpenTooLong', 'Alarm: Tor zu lange offen', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Warning'
+        ], 3);
         
         $this->EnableAction('DoorControl');
         $this->EnableAction('AlarmOpenTooLong'); // Allow acknowledging
@@ -95,30 +108,7 @@ class SmartHomeGarage extends IPSModuleStrict
 
 
 
-        IPS_SetIcon($this->GetIDForIdent('DoorControl'), 'Window');
-        IPS_SetIcon($this->GetIDForIdent('AlarmOpenTooLong'), 'Warning');
 
-        if (@IPS_GetObjectIDByIdent('DoorControl', $this->InstanceID) !== false) {
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('DoorControl'), [
-                'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH
-            ]);
-        }
-        
-        if (@IPS_GetObjectIDByIdent('AlarmOpenTooLong', $this->InstanceID) !== false) {
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('AlarmOpenTooLong'), [
-                'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH
-            ]);
-        }
-
-        if (!IPS_VariableProfileExists('SmartAbsence.DoorState')) {
-            IPS_CreateVariableProfile('SmartAbsence.DoorState', 1);
-            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 0, 'Zu', 'LockClosed', -1);
-            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 1, 'Auf', 'LockOpen', -1);
-            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 2, 'Fährt Auf...', 'ArrowUp', -1);
-            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 3, 'Fährt Zu...', 'ArrowDown', -1);
-            IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 4, 'Teiloffen / Gestoppt', 'Warning', 0xFF8000);
-        }
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('DoorState'), 'SmartAbsence.DoorState');
 
         // Register messages for sensors
         $sensorClosed = $this->ReadPropertyInteger('SensorClosedID');
@@ -156,7 +146,7 @@ class SmartHomeGarage extends IPSModuleStrict
         $this->CheckSensors();
     }
 
-    public function RequestAction(string $Ident, $Value): void
+    public function RequestAction(string $Ident, mixed $Value): void
     {
         if ($Ident === 'DoorControl') {
             $this->TriggerDoor();

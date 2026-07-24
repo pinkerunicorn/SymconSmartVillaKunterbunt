@@ -22,21 +22,36 @@ class SmartHomeLighting extends IPSModuleStrict
 
         $this->RegisterAttributeString('LightSchedule', '[]');
 
-        $this->RegisterVariableString('LightScheduleStatus', 'ℹ Aktueller KI-Schaltplan', '', 1);
-        IPS_SetIcon($this->GetIDForIdent('LightScheduleStatus'), 'Information');
-        $this->RegisterVariableBoolean('GeminiError', 'Fehler aufgetreten', '', 2);
-        IPS_SetIcon($this->GetIDForIdent('GeminiError'), 'Warning');
+        $this->RegisterVariableString('LightScheduleStatus', 'ℹ Aktueller KI-Schaltplan', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Clock'
+        ], 1);
+        $this->RegisterVariableBoolean('GeminiError', 'Fehler aufgetreten', [
+            'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
+            'ICON'          => 'Warning',
+            'GLOW_COLOR'    => 16711680,
+            'GLOW_INTENSITY'=> 50
+        ], 2);
         
-        $this->RegisterVariableInteger('ActiveLightsCount', '💡 Aktive Lampen (Zähler)', '', 3);
-        IPS_SetIcon($this->GetIDForIdent('ActiveLightsCount'), 'Bulb');
-        $this->RegisterVariableString('ActiveLightsList', '📝 Aktive Lampen (Namen)', '', 4);
-        IPS_SetIcon($this->GetIDForIdent('ActiveLightsList'), 'Bulb');
-        $this->RegisterVariableBoolean('AlarmLightsOnDuringAbsence', 'Alarm: Licht brennt bei Abwesenheit', '', 5);
-        IPS_SetIcon($this->GetIDForIdent('AlarmLightsOnDuringAbsence'), 'Warning');
+        $this->RegisterVariableInteger('ActiveLightsCount', '💡 Aktive Lampen (Zähler)', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Bulb',
+            'SUFFIX'      => ' an'
+        ], 3);
+        $this->RegisterVariableString('ActiveLightsList', '📝 Aktive Lampen (Namen)', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Bulb'
+        ], 4);
+        $this->RegisterVariableBoolean('AlarmLightsOnDuringAbsence', 'Alarm: Licht brennt bei Abwesenheit', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_SWITCH,
+            'ICON'        => 'Warning'
+        ], 5);
         $this->EnableAction('AlarmLightsOnDuringAbsence');
         
-        $this->RegisterVariableString('VestaboardMessage', 'Vestaboard Nachricht', '', 6);
-        IPS_SetIcon($this->GetIDForIdent('VestaboardMessage'), 'Information');
+        $this->RegisterVariableString('VestaboardMessage', 'Vestaboard Nachricht', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Information'
+        ], 6);
 
         $this->RegisterTimer('LightExecutionTimer', 0, 'SHL_CheckAndExecuteLightSchedule($_IPS[\'TARGET\']);');
         $this->RegisterTimer('GeminiRetryTimer', 0, 'SHL_GenerateAiSchedule($_IPS[\'TARGET\'], true);');
@@ -80,33 +95,7 @@ class SmartHomeLighting extends IPSModuleStrict
         // ---------------------------------
 
 
-        $this->MaintainVariable('LightScheduleStatus', 'Aktueller KI-Schaltplan', 3, '', 1, true);
-        $this->MaintainVariable('GeminiError', 'Fehler aufgetreten', 0, '', 2, true);
-        $this->MaintainVariable('ActiveLightsCount', 'Aktive Lampen (Zähler)', 1, '', 3, true);
-        $this->MaintainVariable('ActiveLightsList', 'Aktive Lampen (Namen)', 3, '', 4, true);
-        $this->MaintainVariable('VestaboardMessage', 'Vestaboard Nachricht', 3, '', 5, true);
 
-        IPS_SetIcon($this->GetIDForIdent('LightScheduleStatus'), 'Clock');
-        IPS_SetIcon($this->GetIDForIdent('GeminiError'), 'Warning');
-        IPS_SetIcon($this->GetIDForIdent('ActiveLightsCount'), 'Bulb');
-        IPS_SetIcon($this->GetIDForIdent('ActiveLightsList'), 'Bulb');
-        IPS_SetIcon($this->GetIDForIdent('VestaboardMessage'), 'Information');
-        IPS_SetIcon($this->GetIDForIdent('AlarmLightsOnDuringAbsence'), 'Warning');
-
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('GeminiError'), [
-            'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
-            'GLOW_COLOR'    => 16711680, // Rot
-            'GLOW_INTENSITY'=> 50
-        ]);
-
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('ActiveLightsCount'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'SUFFIX'      => ' an'
-        ]);
-        
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('AlarmLightsOnDuringAbsence'), [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_SWITCH
-        ]);
 
         $geminiInstances = IPS_GetInstanceListByModuleID('{4C8B2A6D-9E3F-4A7B-8C5D-1F6E2A3B7C4D}');
         if (empty($geminiInstances)) {
@@ -539,7 +528,7 @@ class SmartHomeLighting extends IPSModuleStrict
         return $eid;
     }
     
-    public function RequestAction(string $Ident, $Value): void
+    public function RequestAction(string $Ident, mixed $Value): void
     {
         if ($Ident === 'AlarmLightsOnDuringAbsence') {
             $this->SetValue($Ident, false);
