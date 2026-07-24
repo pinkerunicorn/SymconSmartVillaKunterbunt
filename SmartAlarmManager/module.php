@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
+
 class SmartAlarmManager extends IPSModuleStrict
 {
+    use HouseModeAware_Trait;
     public function Create(): void{
         parent::Create();
 
@@ -36,6 +39,8 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->RegisterVariableBoolean("AcknowledgeAll", "Alle Alarme quittieren", "", 4);
         IPS_SetIcon($this->GetIDForIdent('AcknowledgeAll'), 'Ok');
         $this->EnableAction("AcknowledgeAll");
+        
+        $this->RegisterHouseModeAwareness();
     }
 
     public function ApplyChanges(): void{
@@ -101,6 +106,8 @@ class SmartAlarmManager extends IPSModuleStrict
             IPS_SetVariableProfileAssociation('SmartAlarm.Status', 4, 'VOLLALARM', 'Alert', 0xFF0000);
         }
         IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), 'SmartAlarm.Status');
+        
+        $this->ApplyHouseModeSubscription();
 
         if (@IPS_GetObjectIDByIdent('ActiveAlarmsCount', $this->InstanceID) !== false) {
             IPS_SetVariableCustomPresentation($this->GetIDForIdent('ActiveAlarmsCount'), [
@@ -185,7 +192,11 @@ class SmartAlarmManager extends IPSModuleStrict
         return $matches;
     }
 
+    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void {}
+
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void{
+        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
+
         $monitored = json_decode($this->ReadPropertyString("MonitoredVariables"), true);
         if (!is_array($monitored)) return;
 
@@ -492,8 +503,10 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         
         if ($profile['UseSonos'] ?? false) {
-            $this->LogMessage("Sonos: Spiele TTS", KL_NOTIFY);
-            $this->TriggerSonos($message);
+            if (!$this->IsAbsent()) {
+                $this->LogMessage("Sonos: Spiele TTS", KL_NOTIFY);
+                $this->TriggerSonos($message);
+            }
         }
         
         $this->TriggerHomematicMP3($profile);
@@ -629,8 +642,10 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         
         if ($profile['UseSonos'] ?? false) {
-            $this->LogMessage("Sonos: Spiele TTS", KL_NOTIFY);
-            $this->TriggerSonos($message);
+            if (!$this->IsAbsent()) {
+                $this->LogMessage("Sonos: Spiele TTS", KL_NOTIFY);
+                $this->TriggerSonos($message);
+            }
         }
         
         $this->TriggerHomematicMP3($profile);
@@ -645,7 +660,7 @@ class SmartAlarmManager extends IPSModuleStrict
         if ($sonos > 0 && IPS_InstanceExists($sonos)) {
             try {
                 if (function_exists('GSTTS_PlayMessage')) {
-                    GSTTS_PlayMessage($sonos, $message);
+                    GSTTS_PlayMessage($sonos, $message, true);
                 } elseif (function_exists('SNS_PlayText')) {
                     SNS_PlayText($sonos, $message);
                 }
@@ -834,6 +849,11 @@ class SmartAlarmManager extends IPSModuleStrict
         return <<<'EOT'
 {
     "elements": [
+        {
+            "type": "SelectVariable",
+            "name": "HouseModeVariableID",
+            "caption": "Haus-Modus Variable"
+        },
         {
             "type": "ExpansionPanel",
             "caption": "⚙ Globale Einstellungen & Eskalation",

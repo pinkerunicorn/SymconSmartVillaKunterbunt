@@ -3,13 +3,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
 
 class SmartHomeLighting extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HouseModeAware_Trait;
     public function Create(): void
     {
         parent::Create();
+        $this->RegisterHouseModeAwareness();
 
         // Gemini API-Key und Modell werden zentral über SmartGeminiIO konfiguriert.
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
@@ -42,6 +45,8 @@ class SmartHomeLighting extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->ApplyHouseModeSubscription();
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
@@ -133,6 +138,7 @@ class SmartHomeLighting extends IPSModuleStrict
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
+        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $this->CalculateActiveLights();
         }
@@ -197,7 +203,7 @@ class SmartHomeLighting extends IPSModuleStrict
         return [];
     }
 
-    public function SetHouseMode(int $mode, bool $isAbsence = false, bool $isSleep = false): void
+    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
     {
         $isAbsence = ($isAbsence || $mode == 1 || $mode == 2);
         $isSleep = ($isSleep || $mode == 5);
@@ -571,6 +577,11 @@ class SmartHomeLighting extends IPSModuleStrict
                 {
                     "type": "RowLayout",
                     "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "HouseModeVariableID",
+                            "caption": "House Mode Variable"
+                        },
                         {
                             "type": "SelectVariable",
                             "name": "SunsetVariableID",

@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
 
 class SmartHomeGarage extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HouseModeAware_Trait;
 
     private const STATE_CLOSED = 0;
     private const STATE_OPEN = 1;
@@ -17,6 +19,7 @@ class SmartHomeGarage extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
+        $this->RegisterHouseModeAwareness();
 
         // Properties
         $this->RegisterPropertyInteger('MotorVariableID', 0);
@@ -52,6 +55,8 @@ class SmartHomeGarage extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->ApplyHouseModeSubscription();
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
@@ -164,6 +169,7 @@ class SmartHomeGarage extends IPSModuleStrict
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
+        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $sensorClosed = $this->ReadPropertyInteger('SensorClosedID');
             $sensorOpen = $this->ReadPropertyInteger('SensorOpenID');
@@ -384,7 +390,7 @@ class SmartHomeGarage extends IPSModuleStrict
         IPS_SetLinkTargetID($linkID, $targetID);
     }
     
-    public function SetHouseMode(int $mode, bool $isAbsence = false, bool $isSleep = false): void
+    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
     {
         $isAbsence = ($isAbsence || $mode == 1 || $mode == 2);
         
@@ -426,6 +432,11 @@ class SmartHomeGarage extends IPSModuleStrict
             "type": "ExpansionPanel",
             "caption": "⚙ ",
             "items": [
+                {
+                    "type": "SelectVariable",
+                    "name": "HouseModeVariableID",
+                    "caption": "House Mode Variable"
+                },
                 {
                     "type": "RowLayout",
                     "items": [

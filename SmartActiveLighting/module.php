@@ -3,13 +3,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
 
 class SmartActiveLighting extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HouseModeAware_Trait;
     public function Create(): void
     {
         parent::Create();
+        $this->RegisterHouseModeAwareness();
 
         // Properties
         $this->RegisterPropertyString('MotionRules', '[]');
@@ -39,6 +42,8 @@ class SmartActiveLighting extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->ApplyHouseModeSubscription();
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
@@ -263,6 +268,7 @@ class SmartActiveLighting extends IPSModuleStrict
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
+        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $val = $Data[0]; // New value
             $isTrigger = false;
@@ -712,7 +718,7 @@ class SmartActiveLighting extends IPSModuleStrict
         $this->CalculateTwilightTimers();
     }
 
-    public function SetHouseMode(int $mode): void
+    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
     {
         // 0=Anwesenheit, 1=Abwesenheit, 2=Urlaub, 3=Party, 4=Heimkino, 5=Schlafen, 6=Putzen
         // Bei Abwesenheit/Urlaub deaktivieren wir die Bewegungsmelder-Lichter
@@ -757,7 +763,13 @@ class SmartActiveLighting extends IPSModuleStrict
         {
             "type": "ExpansionPanel",
             "caption": "⚙ Bewegungsgesteuerte Beleuchtung",
-            "items": []
+            "items": [
+                {
+                    "type": "SelectVariable",
+                    "name": "HouseModeVariableID",
+                    "caption": "House Mode Variable"
+                }
+            ]
         },
         {
             "type": "List",
