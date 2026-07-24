@@ -721,24 +721,24 @@ class SmartAlarmManager extends IPSModuleStrict
 
     private function TriggerHomematicMP3($profile)
     {
-        $mp3 = $profile['HmIP_MP3_Inst'] ?? 0;
-        if ($mp3 > 0 && IPS_InstanceExists($mp3)) {
-            $soundStr = $profile['MP3_Sounds'] ?? "1";
-            $vol = $profile['MP3_Volume'] ?? 100;
-            $duration = $profile['MP3_Duration'] ?? 0;
-            
-            // Wenn Dauer angegeben, dann DU=0 (Sekunden) und DV=Dauer, R=0 (Keine Wiederholung)
-            // Wenn keine Dauer (0), dann nur 1x abspielen
-            $rep = 0;
-            $dv = ($duration > 0) ? $duration : 0;
-            
-            $string = "L=$vol,DU=0,DV=$dv,RTU=0,RTV=0,R=$rep,SL=". $soundStr;
-            $this->LogMessage("Homematic MP3-Gong (Instanz $mp3): Spiele Tracks '$soundStr'(Lautstärke $vol%, Dauer: $duration s)", KL_NOTIFY);
-            $this->SendDebug("HmIP-MP3", "Sende $string an Instanz $mp3", 0);
-            try {
-                HM_WriteValueString($mp3, 'COMBINED_PARAMETER', $string);
-            } catch (Exception $e) {
-                $this->LogMessage("Fehler bei HM_WriteValueString (MP3): ". $e->getMessage(), KL_ERROR);
+        $mp3InstID = $profile['HmIP_MP3_Inst'] ?? 0;
+        if ($mp3InstID > 0 && IPS_InstanceExists($mp3InstID)) {
+            $soundStr = $profile['MP3_Sounds'] ?? '1';
+            $vol      = (int)($profile['MP3_Volume'] ?? 100);
+            $duration = (int)($profile['MP3_Duration'] ?? 0);
+
+            $this->LogMessage("HmIP_MP3P (Instanz $mp3InstID): Spiele Tracks '$soundStr' (Vol $vol%, Dauer {$duration}s)", KL_NOTIFY);
+
+            if (function_exists('MP3P_PlaySound')) {
+                MP3P_PlaySound($mp3InstID, $soundStr, $vol, $duration);
+            } else {
+                // Fallback: direkter HM-Aufruf falls Modul nicht geladen
+                $param = "L={$vol},DU=0,DV={$duration},RTU=0,RTV=0,R=0,SL={$soundStr}";
+                try {
+                    HM_WriteValueString($mp3InstID, 'COMBINED_PARAMETER', $param);
+                } catch (Exception $e) {
+                    $this->LogMessage('Fehler MP3P Fallback: ' . $e->getMessage(), KL_ERROR);
+                }
             }
         }
     }
@@ -747,34 +747,47 @@ class SmartAlarmManager extends IPSModuleStrict
     {
         $instId = $profile['HmIP_LED_Inst'] ?? 0;
         if ($instId > 0 && IPS_InstanceExists($instId)) {
-            $color = $profile['LED_Color'] ?? 4; 
-            $mode = $profile['LED_Mode'] ?? 1; 
-            $bright = $profile['LED_Brightness'] ?? 100;
-            $isMP3P = $profile['HmIP_LED_IsMP3P'] ?? false;
-            
+            $color  = (int)($profile['LED_Color'] ?? 4);
+            $mode   = (int)($profile['LED_Mode'] ?? 1);
+            $bright = (int)($profile['LED_Brightness'] ?? 100);
+            $isMP3P = (bool)($profile['HmIP_LED_IsMP3P'] ?? false);
+
             if ($isMP3P) {
+                // MP3P-LED über HmIP_MP3P Modul
                 if ($turnOff) {
-                    $string = 'L=100,DV=10,DU=0,RTV=0,RTU=1,C=0';
-                    $this->LogMessage("Homematic MP3P-LED (Instanz $instId): Licht ausgeschaltet", KL_NOTIFY);
+                    $this->LogMessage("HmIP_MP3P LED (Instanz $instId): Licht aus", KL_NOTIFY);
+                    if (function_exists('MP3P_SetLightOff')) {
+                        MP3P_SetLightOff($instId);
+                    } else {
+                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=100,DV=10,DU=0,RTV=0,RTU=1,C=0');
+                    }
                 } else {
-                    $string = "L=$bright,DV=31,DU=2,RTV=0,RTU=1,C=$color";
-                    $this->LogMessage("Homematic MP3P-LED (Instanz $instId): Licht an (Farbe $color, Helligkeit $bright%)", KL_NOTIFY);
+                    $this->LogMessage("HmIP_MP3P LED (Instanz $instId): Farbe $color, Helligkeit $bright%", KL_NOTIFY);
+                    if (function_exists('MP3P_SetLight')) {
+                        MP3P_SetLight($instId, $color, $bright, 0);
+                    } else {
+                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', "L={$bright},DV=31,DU=2,RTV=0,RTU=1,C={$color}");
+                    }
                 }
             } else {
+                // WRC6-LED über HmIP_WRC6 Modul
+                // Hinweis: $instId ist hier die WRC6-Modul-Instanz, nicht ein einzelner Kanal.
+                // SetAllLEDs steuert alle konfigurierten Kanäle.
                 if ($turnOff) {
-                    $string = 'L=0,DV=31,DU=2,RTV=0,RTU=0,C=0,CB=0,RTTOV=0,RTTOU=3';
-                    $this->LogMessage("Homematic LED (Instanz $instId): Licht ausgeschaltet", KL_NOTIFY);
+                    $this->LogMessage("HmIP_WRC6 LED (Instanz $instId): Alle LEDs aus", KL_NOTIFY);
+                    if (function_exists('WRC6_ClearAllLEDs')) {
+                        WRC6_ClearAllLEDs($instId);
+                    } else {
+                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=0,DV=31,DU=2,RTV=0,RTU=0,C=0,CB=0,RTTOV=0,RTTOU=3');
+                    }
                 } else {
-                    $string = "L=$bright,DV=31,DU=2,RTV=0,RTU=0,C=$color,CB=$mode,RTTOV=0,RTTOU=3";
-                    $this->LogMessage("Homematic LED (Instanz $instId): Licht an (Farbe $color, Modus $mode, Helligkeit $bright%)", KL_NOTIFY);
+                    $this->LogMessage("HmIP_WRC6 LED (Instanz $instId): Farbe $color, Modus $mode, Helligkeit $bright%", KL_NOTIFY);
+                    if (function_exists('WRC6_SetAllLEDs')) {
+                        WRC6_SetAllLEDs($instId, $color, $mode, $bright);
+                    } else {
+                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', "L={$bright},DV=31,DU=2,RTV=0,RTU=0,C={$color},CB={$mode},RTTOV=0,RTTOU=3");
+                    }
                 }
-            }
-
-            $this->SendDebug("HmIP-LED", "Sende $string an LED Instanz $instId", 0);
-            try {
-                HM_WriteValueString($instId, 'COMBINED_PARAMETER', $string);
-            } catch (Exception $e) {
-                $this->LogMessage("Fehler bei HM_WriteValueString (LED): ". $e->getMessage(), KL_ERROR);
             }
         }
     }
@@ -783,22 +796,23 @@ class SmartAlarmManager extends IPSModuleStrict
     {
         $instId = $profile['HmIP_Siren_Inst'] ?? 0;
         if ($instId > 0 && IPS_InstanceExists($instId)) {
-            $ac = $profile['Siren_Acoustic'] ?? 1;
-            $opt = $profile['Siren_Optical'] ?? 1;
+            $ac  = (int)($profile['Siren_Acoustic'] ?? 1);
+            $opt = (int)($profile['Siren_Optical'] ?? 1);
 
             if ($turnOff) {
-                $string = "O=0,A=0,DV=31,DU=2";
-                $this->LogMessage("Homematic Sirene (Instanz $instId): Ausgeschaltet", KL_NOTIFY);
+                $this->LogMessage("HmIP_ASIRO (Instanz $instId): Gestoppt", KL_NOTIFY);
+                if (function_exists('ASIRO_Stop')) {
+                    ASIRO_Stop($instId);
+                } else {
+                    HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'O=0,A=0,DV=31,DU=2');
+                }
             } else {
-                $string = "O=$opt,A=$ac,DV=31,DU=2";
-                $this->LogMessage("Homematic Sirene (Instanz $instId): Ausgelöst (Akustik $ac, Optik $opt)", KL_NOTIFY);
-            }
-
-            $this->SendDebug("HmIP-Siren", "Sende $string an Sirenen Instanz $instId", 0);
-            try {
-                HM_WriteValueString($instId, 'COMBINED_PARAMETER', $string);
-            } catch (Exception $e) {
-                $this->LogMessage("Fehler bei HM_WriteValueString (Sirene): ". $e->getMessage(), KL_ERROR);
+                $this->LogMessage("HmIP_ASIRO (Instanz $instId): Ausgelöst (Akustik $ac, Optik $opt)", KL_NOTIFY);
+                if (function_exists('ASIRO_Trigger')) {
+                    ASIRO_Trigger($instId, $ac, $opt, 0);
+                } else {
+                    HM_WriteValueString($instId, 'COMBINED_PARAMETER', "O={$opt},A={$ac},DV=31,DU=2");
+                }
             }
         }
     }
