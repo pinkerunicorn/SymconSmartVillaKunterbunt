@@ -122,6 +122,7 @@ class SmartHomeLighting extends IPSModuleStrict
             }
         }
         $this->CalculateActiveLights();
+        $this->MaintainDailyEvent();
         $this->SetStatus(102);
     }
 
@@ -520,11 +521,11 @@ class SmartHomeLighting extends IPSModuleStrict
             IPS_SetParent($eid, $this->InstanceID);
             IPS_SetIdent($eid, 'DailyScheduleEvent');
             IPS_SetName($eid, 'Täglicher KI Plan (12:00 Uhr)');
-            IPS_SetEventScript($eid, "SHL_GenerateAiSchedule(\$_IPS['TARGET']);");
             IPS_SetEventCyclic($eid, 2, 1, 0, 0, 0, 0); 
             IPS_SetEventCyclicTimeFrom($eid, 12, 0, 0);
             IPS_SetEventActive($eid, false);
         }
+        IPS_SetEventScript($eid, "SHL_GenerateAiSchedule(\$_IPS['TARGET']);");
         return $eid;
     }
     
