@@ -27,10 +27,7 @@ class SmartHomeControl extends IPSModuleStrict
         $this->EnableAction('HouseMode');
         
         // Google Home / Alexa Interface Variable (Boolean)
-        $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Information'
-        ], 1);
+        $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', '', 1);
         $this->EnableAction('PresenceStatus');
         
         // Timer für Kalender-Check
@@ -72,17 +69,31 @@ class SmartHomeControl extends IPSModuleStrict
 
         $this->SetStatus(102);
 
-        $associations = [];
-        foreach ($modes as $mode) {
-            $associations[] = [$mode['ModeID'], $mode['ModeName'], $mode['Icon'] ?? '', $mode['Color'] ?? -1];
-        }
-
-        $this->MaintainVariable('HouseMode', '🏠 Haus Modus', 1, [
-            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ASSOCIATIONS' => $associations
-        ], 2, true);
+        $this->SetupVariablePresentations();
     }
 
+    private function SetupVariablePresentations(): void
+    {
+        $modesJson = $this->ReadPropertyString('HouseModes');
+        $modes = json_decode($modesJson, true);
+        if (!is_array($modes)) {
+            $modes = [];
+        }
+        $associations = [];
+        foreach ($modes as $mode) {
+            $associations[] = [$mode['ModeID'], $mode['ModeName'], $mode['Icon'], $mode['Color']];
+        }
+
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('HouseMode'), [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ASSOCIATIONS' => $associations
+        ]);
+
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('PresenceStatus'), [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Information'
+        ]);
+    }
 
     public function RequestAction(string $Ident, mixed $Value): void
     {

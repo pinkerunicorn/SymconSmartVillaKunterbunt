@@ -41,25 +41,9 @@ class SmartHomeGarage extends IPSModuleStrict
         $this->RegisterTimer('OpenAlarmTimer', 0, 'SHG_TriggerOpenAlarm($_IPS[\'TARGET\']);');
 
         // Variables
-        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information',
-            'ASSOCIATIONS' => [
-                [0, 'Zu', 'LockClosed', -1],
-                [1, 'Auf', 'LockOpen', -1],
-                [2, 'Fährt Auf...', 'ArrowUp', -1],
-                [3, 'Fährt Zu...', 'ArrowDown', -1],
-                [4, 'Teiloffen / Gestoppt', 'Warning', 0xFF8000]
-            ]
-        ], 1);
-        $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Window'
-        ], 2);
-        $this->RegisterVariableBoolean('AlarmOpenTooLong', 'Alarm: Tor zu lange offen', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Warning'
-        ], 3);
+        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', '', 1);
+        $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', '', 2);
+        $this->RegisterVariableBoolean('AlarmOpenTooLong', 'Alarm: Tor zu lange offen', '', 3);
         
         $this->EnableAction('DoorControl');
         $this->EnableAction('AlarmOpenTooLong'); // Allow acknowledging
@@ -145,8 +129,33 @@ class SmartHomeGarage extends IPSModuleStrict
         // Initialize status
         $this->CheckSensors();
 
+        $this->SetupVariablePresentations();
     }
 
+    private function SetupVariablePresentations(): void
+    {
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('DoorState'), [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Information',
+            'ASSOCIATIONS' => [
+                [0, 'Zu', 'LockClosed', -1],
+                [1, 'Auf', 'LockOpen', -1],
+                [2, 'Fährt Auf...', 'ArrowUp', -1],
+                [3, 'Fährt Zu...', 'ArrowDown', -1],
+                [4, 'Teiloffen / Gestoppt', 'Warning', 0xFF8000]
+            ]
+        ]);
+
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('DoorControl'), [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Window'
+        ]);
+
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('AlarmOpenTooLong'), [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Warning'
+        ]);
+    }
 
     public function RequestAction(string $Ident, mixed $Value): void
     {

@@ -128,6 +128,8 @@ class SmartHomeShading extends IPSModuleStrict
         // Nachrichten für Rollläden und Fensterkontakte registrieren
         $this->UpdateMessageRegistrations();
         
+        // Variable Profile für Status
+        $this->SetupVariablePresentations();
     }
     
     private function UpdateMessageRegistrations(): void
@@ -634,5 +636,45 @@ class SmartHomeShading extends IPSModuleStrict
 EOT;
     }
 
+    private function SetupVariablePresentations(): void
+    {
+        if (!function_exists('IPS_SetVariableCustomPresentation')) {
+            return;
+        }
+
+        $presentations = [
+            'AlarmWindWarning' => [
+                'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+                'ICON'         => 'Warning'
+            ],
+            'ActiveShadingCount' => [
+                'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+                'ICON'         => 'WindowBlind'
+            ],
+            'StatusIsNight' => [
+                'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+                'ICON'         => 'Moon'
+            ],
+            'StatusIsHotAndBright' => [
+                'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+                'ICON'         => 'Sun'
+            ],
+            'StatusSunInSectorCount' => [
+                'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+                'ICON'         => 'Count'
+            ],
+            'StatusLastEvaluation' => [
+                'PRESENTATION' => VARIABLE_PRESENTATION_DATE_TIME,
+                'ICON'         => 'Clock'
+            ]
+        ];
+
+        foreach ($presentations as $ident => $presentation) {
+            $varID = @$this->GetIDForIdent($ident);
+            if ($varID !== false && $varID > 0) {
+                IPS_SetVariableCustomPresentation($varID, $presentation);
+            }
+        }
+    }
 }
 
