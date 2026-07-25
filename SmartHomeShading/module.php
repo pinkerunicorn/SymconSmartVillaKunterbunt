@@ -84,8 +84,10 @@ class SmartHomeShading extends IPSModuleStrict
             foreach ($varsToUpdate as $ident => $settings) {
                 $varID = @$this->GetIDForIdent($ident);
                 if ($varID !== false && $varID > 0) {
-                    IPS_SetVariableCustomPresentation($varID, ['PRESENTATION' => $settings[0]]);
-                    IPS_SetIcon($varID, $settings[1]);
+                    IPS_SetVariableCustomPresentation($varID, [
+                        'PRESENTATION' => $settings[0],
+                        'ICON' => $settings[1]
+                    ]);
                 }
             }
         }
