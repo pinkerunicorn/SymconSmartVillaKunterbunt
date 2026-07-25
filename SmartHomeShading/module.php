@@ -71,6 +71,25 @@ class SmartHomeShading extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        
+        // Ensure existing instances get updated presentations
+        if (function_exists('IPS_SetVariableCustomPresentation')) {
+            $varsToUpdate = [
+                'AlarmWindWarning' => [VARIABLE_PRESENTATION_SWITCH, 'Warning'],
+                'ActiveShadingCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'WindowBlind'],
+                'StatusIsNight' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Moon'],
+                'StatusIsHotAndBright' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Sun'],
+                'StatusSunInSectorCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Count']
+            ];
+            foreach ($varsToUpdate as $ident => $settings) {
+                $varID = @$this->GetIDForIdent($ident);
+                if ($varID !== false && $varID > 0) {
+                    IPS_SetVariableCustomPresentation($varID, $settings[0]);
+                    IPS_SetIcon($varID, $settings[1]);
+                }
+            }
+        }
+
         $this->ApplyHouseModeSubscription();
         $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
