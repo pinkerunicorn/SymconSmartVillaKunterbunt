@@ -26,11 +26,18 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->SetBuffer("ActiveAlarms", "{}");
         $this->SetBuffer("ActiveDelays", "{}");
 
-        // Profiles removed in favor of CustomPresentation
-
+        // Profiles for Tile UI
+        if (!IPS_VariableProfileExists('SmartAlarm.Status')) {
+            IPS_CreateVariableProfile('SmartAlarm.Status', 1);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 0, 'Alles OK', 'Ok', 0x00FF00);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 1, 'Info / Hinweis', 'Information', 0xFFFF00);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 2, 'ALARM!', 'Warning', 0xFF0000);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 3, 'ESKALATION', 'Warning', 0xFF0000);
+            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 4, 'VOLLALARM', 'Alert', 0xFF0000);
+        }
 
         // Summary Variables for Tile UI
-        $this->RegisterVariableInteger("SystemStatus", "System Status", "", 1);
+        $this->RegisterVariableInteger("SystemStatus", "System Status", 'SmartAlarm.Status', 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Warning'
@@ -126,6 +133,10 @@ class SmartAlarmManager extends IPSModuleStrict
                     $activeIdents[] = $ident;
                     $this->MaintainVariable($ident, "Status: ". ($item['Message'] ?? 'Alarm'), 0, "", 0, true);
                     $varID = $this->GetIDForIdent($ident);
+                    IPS_SetVariableCustomPresentation($varID, [
+                        'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+                        'ICON'         => 'Alert'
+                    ]);
                     $this->EnableAction($ident);
 
                     // Nur Alarme sichtbar machen, die zu quittieren sind
@@ -145,48 +156,6 @@ class SmartAlarmManager extends IPSModuleStrict
         }
 
         $this->UpdateStatusVariables();
-        $this->SetupVariablePresentations();
-    }
-
-    private function SetupVariablePresentations(): void
-    {
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ASSOCIATIONS' => [
-                [0, 'Alles OK', 'Ok', 0x00FF00],
-                [1, 'Info / Hinweis', 'Information', 0xFFFF00],
-                [2, 'ALARM!', 'Warning', 0xFF0000],
-                [3, 'ESKALATION', 'Warning', 0xFF0000],
-                [4, 'VOLLALARM', 'Alert', 0xFF0000]
-            ]
-        ]);
-
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('ActiveAlarmsCount'), [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Warning'
-        ]);
-
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('LastEvent'), [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Flag'
-        ]);
-
-        if (@IPS_GetObjectIDByIdent('AcknowledgeAll', $this->InstanceID) !== false) {
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('AcknowledgeAll'), [
-                'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-                'ICON'         => 'Ok'
-            ]);
-        }
-
-        foreach (IPS_GetChildrenIDs($this->InstanceID) as $childID) {
-            $ident = IPS_GetObject($childID)['ObjectIdent'];
-            if (strpos($ident, "Alarm_") === 0) {
-                IPS_SetVariableCustomPresentation($childID, [
-                    'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-                    'ICON'         => 'Alert'
-                ]);
-            }
-        }
     }
 
     private function GetActionProfiles($profileID)
