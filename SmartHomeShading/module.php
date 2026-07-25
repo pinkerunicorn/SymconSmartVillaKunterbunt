@@ -79,7 +79,8 @@ class SmartHomeShading extends IPSModuleStrict
                 'ActiveShadingCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'WindowBlind'],
                 'StatusIsNight' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Moon'],
                 'StatusIsHotAndBright' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Sun'],
-                'StatusSunInSectorCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Count']
+                'StatusSunInSectorCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Count'],
+                'StatusLastEvaluation' => [VARIABLE_PRESENTATION_DATE_TIME, 'Clock']
             ];
             foreach ($varsToUpdate as $ident => $settings) {
                 $varID = @$this->GetIDForIdent($ident);
