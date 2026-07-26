@@ -124,6 +124,9 @@ class SmartHomeLighting extends IPSModuleStrict
         $this->CalculateActiveLights();
         $this->MaintainDailyEvent();
         $this->SetStatus(102);
+
+        // Bei laufender Abwesenheit: Simulation wiederherstellen (z.B. nach Reboot)
+        $this->EnsureSimulationIfAbsent();
     }
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
@@ -256,6 +259,15 @@ class SmartHomeLighting extends IPSModuleStrict
 
         $this->SetValue('GeminiError', false);
         $this->SetValue('LightScheduleStatus', 'Starte KI-Generierung... Bitte warten.');
+
+        // Sicherstellen, dass Timer und Event aktiv sind (z.B. nach Reboot oder täglichem Event)
+        if ($this->IsAbsent()) {
+            $this->SetTimerInterval('LightExecutionTimer', 60000);
+            $eid = @IPS_GetObjectIDByIdent('DailyScheduleEvent', $this->InstanceID);
+            if ($eid !== false) {
+                IPS_SetEventActive($eid, true);
+            }
+        }
 
         if ($sunsetVarId == 0 || $archiveId == 0) {
             $this->SetValue('GeminiError', true);
@@ -527,6 +539,41 @@ class SmartHomeLighting extends IPSModuleStrict
         }
         IPS_SetEventScript($eid, "SHL_GenerateAiSchedule(\$_IPS['TARGET']);");
         return $eid;
+    }
+
+    /**
+     * Stellt die Präsenzsimulation wieder her, falls das Haus aktuell abwesend ist.
+     * Wird in ApplyChanges() aufgerufen, um nach einem Reboot/Modulupdate
+     * den Timer und das tägliche Event wiederherzustellen.
+     */
+    private function EnsureSimulationIfAbsent(): void
+    {
+        $mode = $this->GetHouseMode();
+        [$isAbsence, ] = $this->ResolveModeFlags($mode);
+        $isAbsence = ($isAbsence || $mode == 1 || $mode == 2);
+
+        if (!$isAbsence) {
+            return;
+        }
+
+        // Daily Event aktivieren
+        $eid = @IPS_GetObjectIDByIdent('DailyScheduleEvent', $this->InstanceID);
+        if ($eid !== false) {
+            IPS_SetEventActive($eid, true);
+        }
+
+        // Execution Timer starten (jede Minute prüfen)
+        $this->SetTimerInterval('LightExecutionTimer', 60000);
+
+        // Wenn kein Schedule existiert, neuen generieren
+        $scheduleStr = $this->ReadAttributeString('LightSchedule');
+        $schedule = json_decode($scheduleStr, true);
+        if (!is_array($schedule) || count($schedule) == 0) {
+            $this->SLog('INFO', 'Präsenzsimulation nach Neustart wiederhergestellt.', 'Generiere neuen KI-Plan.');
+            $this->GenerateAiSchedule();
+        } else {
+            $this->SLog('INFO', 'Präsenzsimulation nach Neustart wiederhergestellt.', 'Bestehender Plan mit ' . count($schedule) . ' Einträgen aktiv.');
+        }
     }
     
     public function RequestAction(string $Ident, mixed $Value): void
