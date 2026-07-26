@@ -215,7 +215,8 @@ class SmartHomeHeating extends IPSModuleStrict
                     $currentMode = GetValue($controlModeId);
                     if (is_string($currentMode)) {
                         if (!@RequestAction($controlModeId, 'MANUAL')) {
-                            $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $controlModeId | Wert: 'MANUAL'");
+                            $devName = @IPS_GetName($controlModeId) ?: "ID:$controlModeId";
+                            $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $controlModeId | Wert: 'MANUAL'");
                         } else {
                             $this->SLog('INFO', 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 'MANUAL'");
                         }

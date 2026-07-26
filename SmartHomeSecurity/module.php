@@ -44,7 +44,9 @@ class SmartHomeSecurity extends IPSModuleStrict
         ], 3);
         $this->EnableAction('AlarmWindowsOpenDuringAbsence');
         
-        $this->RegisterVariableString('VestaboardStatus', 'Kurz-Status (Vestaboard)', '', 4);
+        $this->RegisterVariableString('VestaboardStatus', 'Kurz-Status (Vestaboard)', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION
+        ], 4);
         IPS_SetIcon($this->GetIDForIdent('VestaboardStatus'), 'Information');
     }
 
@@ -227,7 +229,8 @@ class SmartHomeSecurity extends IPSModuleStrict
                     if ($id > 0 && IPS_VariableExists($id)) {
                         if ($this->IsDoorClosed($door)) {
                             if (!@RequestAction($id, $this->GetActionValue($door, 'LockValue', 1))) {
-                                $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
+                                $devName = @IPS_GetName($id) ?: "ID:$id";
+                                $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
                             } else {
                                 $this->SLog('INFO', 'Aktor verriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
                             }

@@ -37,7 +37,10 @@ class SmartAlarmManager extends IPSModuleStrict
         }
 
         // Summary Variables for Tile UI
-        $this->RegisterVariableInteger("SystemStatus", "System Status", 'SmartAlarm.Status', 1);
+        $this->RegisterVariableInteger("SystemStatus", "System Status", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'PROFILE'      => 'SmartAlarm.Status'
+        ], 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Warning'
@@ -847,7 +850,9 @@ class SmartAlarmManager extends IPSModuleStrict
             $this->LogMessage("Setze Ziel-Variable $targetDesc auf Wert: ". var_export($val, true), KL_NOTIFY);
             try {
                 if (HasAction($targetId)) {
-                    RequestAction($targetId, $val);
+                    if (!@RequestAction($targetId, $val)) {
+                        $this->SLog('WARNING', 'Alarm-Aktor fehlgeschlagen', "ID: $targetId | Wert: " . var_export($val, true));
+                    }
                 } else {
                     SetValue($targetId, $val);
                 }

@@ -22,7 +22,9 @@ class SmartHomeControl extends IPSModuleStrict
         
         $this->RegisterPropertyString('CalendarURL', '');
         
-        $this->RegisterVariableInteger('HouseMode', '🏠 Haus Modus', '', 2);
+        $this->RegisterVariableInteger('HouseMode', '🏠 Haus Modus', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION
+        ], 2);
         IPS_SetIcon($this->GetIDForIdent('HouseMode'), 'Gear');
         $this->EnableAction('HouseMode');
         

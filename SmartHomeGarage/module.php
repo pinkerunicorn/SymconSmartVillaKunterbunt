@@ -50,7 +50,10 @@ class SmartHomeGarage extends IPSModuleStrict
             IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 3, 'Fährt Zu...', 'ArrowDown', -1);
             IPS_SetVariableProfileAssociation('SmartAbsence.DoorState', 4, 'Teiloffen / Gestoppt', 'Warning', 0xFF8000);
         }
-        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', 'SmartAbsence.DoorState', 1);
+        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'PROFILE'      => 'SmartAbsence.DoorState'
+        ], 1);
         $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
             'ICON' => 'Window'
@@ -189,7 +192,8 @@ class SmartHomeGarage extends IPSModuleStrict
         $motorId = $this->ReadPropertyInteger('MotorVariableID');
         if ($motorId > 0 && IPS_VariableExists($motorId)) {
             if (!@RequestAction($motorId, true)) {
-                $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $motorId | Wert: true");
+                $devName = @IPS_GetName($motorId) ?: "ID:$motorId";
+                $this->SLog('WARNING', "Aktor fehlgeschlagen: $devName", "ID: $motorId | Ziel: true");
             } else {
                 $this->SLog('INFO', 'Aktor (Motor) geschaltet.', "ID: $motorId | Wert: true");
             }

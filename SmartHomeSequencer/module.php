@@ -86,7 +86,8 @@ class SmartHomeSequencer extends IPSModuleStrict
             } else {
                 $queue[] = $item;
                 $itemsAdded = true;
-                $this->SLog('INFO', 'Aktion verzögert zur Warteschlange hinzugefügt.', "Ziel-ID: " . $item['TargetID'] . " | Verzögerung: $delay s");
+                $devName = @IPS_GetName($item['TargetID']) ?: "ID:{$item['TargetID']}";
+                $this->SLog('INFO', "Aktion verzögert zur Warteschlange hinzugefügt: $devName", "Ziel-ID: " . $item['TargetID'] . " | Verzögerung: $delay s");
             }
         }
 

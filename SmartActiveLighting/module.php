@@ -766,14 +766,13 @@ class SmartActiveLighting extends IPSModuleStrict
                 }
             }
             $this->WriteAttributeString('ActiveTimers', '[]');
-            $this->SLog('INFO', 'Haus-Modus hat gewechselt. Schalte aktive Bewegungslichter aus.');
+            $this->SLog('INFO', 'Haus-Modus gewechselt — Bewegungslichter aus', "Neuer Modus: $mode");
         }
     }
 
     protected function LogMessage(string $Message, int $Type): bool
     {
         $this->SLog('INFO', $Message);
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartActiveLighting: '. $Message);
         return true;
     }
 
