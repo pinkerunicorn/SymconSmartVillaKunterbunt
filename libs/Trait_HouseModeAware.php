@@ -23,6 +23,7 @@ declare(strict_types=1);
  *       private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void { ... }
  *   }
  */
+if (!trait_exists('HouseModeAware_Trait')) {
 trait HouseModeAware_Trait
 {
     /**
@@ -172,4 +173,5 @@ trait HouseModeAware_Trait
      * Muss vom einbindenden Modul implementiert werden.
      */
     abstract private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void;
+}
 }

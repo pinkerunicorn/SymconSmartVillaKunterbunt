@@ -16,6 +16,7 @@ declare(strict_types=1);
  * Der Trait findet die SmartLog-Instanz automatisch per ModuleID.
  * Falls keine SmartLog-Instanz existiert, wird auf IPS_LogMessage() zurückgefallen.
  */
+if (!trait_exists('SmartLog_Trait')) {
 trait SmartLog_Trait
 {
     /**
@@ -57,4 +58,5 @@ trait SmartLog_Trait
     {
         $this->SLog('ERROR', $message, $details);
     }
+}
 }
