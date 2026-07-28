@@ -94,11 +94,11 @@ class SmartHomeShading extends IPSModuleStrict
         }
 
         $this->ApplyHouseModeSubscription();
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $ref_AzimuthVariableID = $this->ReadPropertyInteger('AzimuthVariableID');
         if ($ref_AzimuthVariableID > 1 && @IPS_ObjectExists($ref_AzimuthVariableID)) {
             $this->RegisterReference($ref_AzimuthVariableID);

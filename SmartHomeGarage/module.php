@@ -71,11 +71,11 @@ class SmartHomeGarage extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->ApplyHouseModeSubscription();
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $ref_MotorVariableID = $this->ReadPropertyInteger('MotorVariableID');
         if ($ref_MotorVariableID > 1 && @IPS_ObjectExists($ref_MotorVariableID)) {
             $this->RegisterReference($ref_MotorVariableID);

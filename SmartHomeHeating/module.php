@@ -59,11 +59,11 @@ class SmartHomeHeating extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->ApplyHouseModeSubscription();
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $list_HeatingInstances = json_decode($this->ReadPropertyString('HeatingInstances'), true);
         if (is_array($list_HeatingInstances)) {
             foreach ($list_HeatingInstances as $item) {

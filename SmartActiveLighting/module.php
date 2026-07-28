@@ -43,11 +43,11 @@ class SmartActiveLighting extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->ApplyHouseModeSubscription();
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $ref_SunsetVariableID = $this->ReadPropertyInteger('SunsetVariableID');
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
             $this->RegisterReference($ref_SunsetVariableID);

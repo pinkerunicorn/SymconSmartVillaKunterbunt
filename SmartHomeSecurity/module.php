@@ -54,11 +54,11 @@ class SmartHomeSecurity extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->ApplyHouseModeSubscription();
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
+        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $list_DoorVariables = json_decode($this->ReadPropertyString('DoorVariables'), true);
         if (is_array($list_DoorVariables)) {
             foreach ($list_DoorVariables as $item) {
