@@ -563,7 +563,7 @@ class SmartHomeLighting extends IPSModuleStrict
             IPS_SetParent($eid, $this->InstanceID);
             IPS_SetIdent($eid, 'DailyScheduleEvent');
             IPS_SetName($eid, 'Täglicher KI Plan (12:00 Uhr)');
-            IPS_SetEventCyclic($eid, 2, 1, 0, 0, 0, 0); 
+            IPS_SetEventCyclic($eid, 0, 0, 0, 0, 0, 0); 
             IPS_SetEventCyclicTimeFrom($eid, 12, 0, 0);
             IPS_SetEventActive($eid, false);
         }

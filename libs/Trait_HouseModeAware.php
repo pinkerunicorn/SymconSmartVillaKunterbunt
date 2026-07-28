@@ -82,7 +82,7 @@ trait HouseModeAware_Trait
     private function ResolveModeFlags(int $mode): array
     {
         // GUID des SmartHomeControl Moduls
-        $controlInstances = @IPS_GetInstanceListByModuleID('{4C8B2A6D-9E3F-4A7B-8C5D-1F6E2A3B7C4D}');
+        $controlInstances = @IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
         if (is_array($controlInstances)) {
             foreach ($controlInstances as $instID) {
                 $modesJson = @IPS_GetProperty($instID, 'HouseModes');
