@@ -186,6 +186,8 @@ class SmartHomeLighting extends IPSModuleStrict
             $suffix = ($count == 1) ? ' Lampe an' : ' Lampen an';
             $this->SetValueIfChanged('VestaboardMessage', $count . $suffix);
         }
+        
+        $this->SortLinkFolders();
     }
 
     public function GetActiveLights(): array
@@ -864,6 +866,62 @@ EOT;
                 IPS_SetName($linkID, $desiredName);
                 IPS_SetIcon($linkID, 'Bulb');
             }
+        }
+    }
+
+    private function SortLinkFolders(): void
+    {
+        $this->SortFolderLinks('FolderLampen');
+        $this->SortFolderLinks('FolderDimmer');
+    }
+
+    private function SortFolderLinks(string $ident): void
+    {
+        $catID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        if ($catID === false) return;
+
+        $children = IPS_GetChildrenIDs($catID);
+        $activeLinks = [];
+        $inactiveLinks = [];
+
+        foreach ($children as $childID) {
+            $obj = IPS_GetObject($childID);
+            if ($obj['ObjectType'] === 6) { // Link
+                $link = IPS_GetLink($childID);
+                $targetID = $link['TargetID'];
+                $isActive = false;
+                
+                if (IPS_VariableExists($targetID)) {
+                    $currentVal = GetValue($targetID);
+                    if (is_bool($currentVal)) {
+                        $isActive = $currentVal;
+                    } else if (is_int($currentVal) || is_float($currentVal)) {
+                        $isActive = ($currentVal > 0);
+                    } else if (is_string($currentVal)) {
+                        $isActive = (strtolower(trim($currentVal)) === 'true' || trim($currentVal) === '1');
+                    }
+                }
+
+                if ($isActive) {
+                    $activeLinks[] = ['id' => $childID, 'name' => $obj['ObjectName']];
+                } else {
+                    $inactiveLinks[] = ['id' => $childID, 'name' => $obj['ObjectName']];
+                }
+            }
+        }
+
+        // Alphabetisch sortieren
+        usort($activeLinks, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+        usort($inactiveLinks, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+
+        // Aktive ganz nach oben, Inaktive nach unten
+        $pos = 10;
+        foreach ($activeLinks as $item) {
+            IPS_SetPosition($item['id'], $pos++);
+        }
+        $pos = 1000;
+        foreach ($inactiveLinks as $item) {
+            IPS_SetPosition($item['id'], $pos++);
         }
     }
 }
