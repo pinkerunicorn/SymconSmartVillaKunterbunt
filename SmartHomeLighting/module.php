@@ -781,11 +781,15 @@ EOT;
             $vars = [];
         }
 
-        $validIDs = [];
+        $validItems = [];
         foreach ($vars as $item) {
             $id = (int)($item['VariableID'] ?? 0);
             if ($id > 0 && IPS_VariableExists($id)) {
-                $validIDs[] = $id;
+                $customName = trim($item['Name'] ?? '');
+                if ($customName === '') {
+                    $customName = IPS_GetName($id);
+                }
+                $validItems[$id] = $customName;
             }
         }
 
@@ -795,14 +799,14 @@ EOT;
             $obj = IPS_GetObject($childID);
             if ($obj['ObjectType'] === 6) { // Link
                 $link = IPS_GetLink($childID);
-                if (!in_array($link['TargetID'], $validIDs)) {
+                if (!isset($validItems[$link['TargetID']])) {
                     IPS_DeleteLink($childID);
                 }
             }
         }
 
         // Neue Links erstellen / Bestehende aktualisieren
-        foreach ($validIDs as $targetID) {
+        foreach ($validItems as $targetID => $desiredName) {
             $linkExists = false;
             foreach (IPS_GetChildrenIDs($catID) as $childID) {
                 $obj = IPS_GetObject($childID);
@@ -811,7 +815,9 @@ EOT;
                     if ($link['TargetID'] === $targetID) {
                         $linkExists = true;
                         // Name synchron halten
-                        IPS_SetName($childID, IPS_GetName($targetID));
+                        if (IPS_GetName($childID) !== $desiredName) {
+                            IPS_SetName($childID, $desiredName);
+                        }
                         break;
                     }
                 }
@@ -820,7 +826,7 @@ EOT;
                 $linkID = IPS_CreateLink();
                 IPS_SetParent($linkID, $catID);
                 IPS_SetLinkTargetID($linkID, $targetID);
-                IPS_SetName($linkID, IPS_GetName($targetID));
+                IPS_SetName($linkID, $desiredName);
                 IPS_SetIcon($linkID, 'Bulb');
             }
         }
