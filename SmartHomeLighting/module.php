@@ -805,7 +805,7 @@ EOT;
             if (!$linkExists) {
                 $linkID = IPS_CreateLink();
                 IPS_SetParent($linkID, $catID);
-                IPS_SetLinkChildID($linkID, $targetID);
+                IPS_SetLinkTargetID($linkID, $targetID);
                 IPS_SetName($linkID, IPS_GetName($targetID));
                 IPS_SetIcon($linkID, 'Bulb');
             }
