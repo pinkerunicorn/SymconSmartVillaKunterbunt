@@ -128,6 +128,7 @@ class SmartHomeLighting extends IPSModuleStrict
         // Bei laufender Abwesenheit: Simulation wiederherstellen (z.B. nach Reboot)
         $this->EnsureSimulationIfAbsent();
 
+        $this->EnsureArchiving();
         $this->UpdateLinkFolders();
     }
 
@@ -744,6 +745,40 @@ class SmartHomeLighting extends IPSModuleStrict
     ]
 }
 EOT;
+    }
+
+    private function EnsureArchiving(): void
+    {
+        $archiveID = $this->ReadPropertyInteger('ArchiveControlID');
+        if ($archiveID <= 1 || !@IPS_InstanceExists($archiveID)) {
+            return;
+        }
+
+        $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+        $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        
+        $vars = [];
+        if (is_array($lightVars)) {
+            $vars = array_merge($vars, $lightVars);
+        }
+        if (is_array($dimmerVars)) {
+            $vars = array_merge($vars, $dimmerVars);
+        }
+
+        $changed = false;
+        foreach ($vars as $item) {
+            $vid = (int)($item['VariableID'] ?? 0);
+            if ($vid > 0 && IPS_VariableExists($vid)) {
+                if (!AC_GetLoggingStatus($archiveID, $vid)) {
+                    AC_SetLoggingStatus($archiveID, $vid, true);
+                    $changed = true;
+                }
+            }
+        }
+        
+        if ($changed) {
+            IPS_ApplyChanges($archiveID);
+        }
     }
 
     private function UpdateLinkFolders(): void
