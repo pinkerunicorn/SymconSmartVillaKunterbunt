@@ -755,8 +755,22 @@ EOT;
     private function SyncFolderLinks(string $ident, string $name, string $propertyName): void
     {
         $catID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        
+        // Wenn es noch eine alte Kategorie (Ordner) ist, löschen wir diese kurz, um sie als Dummy-Modul neu anzulegen
+        if ($catID !== false) {
+            $obj = IPS_GetObject($catID);
+            if ($obj['ObjectType'] === 0) { // 0 = Kategorie
+                foreach (IPS_GetChildrenIDs($catID) as $childID) {
+                    IPS_DeleteLink($childID);
+                }
+                IPS_DeleteCategory($catID);
+                $catID = false;
+            }
+        }
+
         if ($catID === false) {
-            $catID = IPS_CreateCategory();
+            // 485D0419-BE97-4548-AA9C-C083EB82E61E ist die GUID für das Dummy Modul
+            $catID = IPS_CreateInstance('{485D0419-BE97-4548-AA9C-C083EB82E61E}');
             IPS_SetParent($catID, $this->InstanceID);
             IPS_SetIdent($catID, $ident);
             IPS_SetName($catID, $name);
