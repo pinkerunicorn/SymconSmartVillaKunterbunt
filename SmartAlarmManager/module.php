@@ -770,14 +770,24 @@ class SmartAlarmManager extends IPSModuleStrict
                 if ($turnOff) {
                     $this->LogMessage("HmIP_MP3P LED (Instanz $instId): Licht aus", KL_NOTIFY);
                     if (function_exists('MP3P_SetLightOff')) {
-                        MP3P_SetLightOff($instId);
+                        try {
+                            MP3P_SetLightOff($instId);
+                        } catch (Exception $e) {
+                            $this->LogMessage('MP3P_SetLightOff fehlgeschlagen, Fallback: ' . $e->getMessage(), KL_WARNING);
+                            HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=100,DV=10,DU=0,RTV=0,RTU=1,C=0');
+                        }
                     } else {
                         HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=100,DV=10,DU=0,RTV=0,RTU=1,C=0');
                     }
                 } else {
                     $this->LogMessage("HmIP_MP3P LED (Instanz $instId): Farbe $color, Helligkeit $bright%", KL_NOTIFY);
                     if (function_exists('MP3P_SetLight')) {
-                        MP3P_SetLight($instId, $color, $bright, 0);
+                        try {
+                            MP3P_SetLight($instId, $color, $bright, 0);
+                        } catch (Exception $e) {
+                            $this->LogMessage('MP3P_SetLight fehlgeschlagen, Fallback: ' . $e->getMessage(), KL_WARNING);
+                            HM_WriteValueString($instId, 'COMBINED_PARAMETER', "L={$bright},DV=31,DU=2,RTV=0,RTU=1,C={$color}");
+                        }
                     } else {
                         HM_WriteValueString($instId, 'COMBINED_PARAMETER', "L={$bright},DV=31,DU=2,RTV=0,RTU=1,C={$color}");
                     }
