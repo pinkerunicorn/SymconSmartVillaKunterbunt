@@ -28,20 +28,10 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->SetBuffer("ActiveAlarms", "{}");
         $this->SetBuffer("ActiveDelays", "{}");
 
-        // Profiles for Tile UI
-        if (!IPS_VariableProfileExists('SmartAlarm.Status')) {
-            IPS_CreateVariableProfile('SmartAlarm.Status', 1);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 0, 'Alles OK', 'Ok', 0x00FF00);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 1, 'Info / Hinweis', 'Information', 0xFFFF00);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 2, 'ALARM!', 'Warning', 0xFF0000);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 3, 'ESKALATION', 'Warning', 0xFF0000);
-            IPS_SetVariableProfileAssociation('SmartAlarm.Status', 4, 'VOLLALARM', 'Alert', 0xFF0000);
-        }
-
         // Summary Variables for Tile UI
         $this->RegisterVariableInteger("SystemStatus", "System Status", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'PROFILE'      => 'SmartAlarm.Status'
+            'ICON'         => 'Information'
         ], 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
@@ -114,6 +104,24 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         // ---------------------------------
         
+        $systemStatusOptions = json_encode([
+            ['Value' => 0, 'Caption' => 'Alles OK', 'IconValue' => 'Ok', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00FF00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00FF00],
+            ['Value' => 1, 'Caption' => 'Info / Hinweis', 'IconValue' => 'Information', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFFFF00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFFF00],
+            ['Value' => 2, 'Caption' => 'ALARM!', 'IconValue' => 'Warning', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000],
+            ['Value' => 3, 'Caption' => 'ESKALATION', 'IconValue' => 'Warning', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000],
+            ['Value' => 4, 'Caption' => 'VOLLALARM', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
+        ]);
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Information',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => $systemStatusOptions
+        ]);
+
         $this->ApplyHouseModeSubscription();
 
         // Unregister all old messages

@@ -77,8 +77,6 @@ class SmartHomeShading extends IPSModuleStrict
             $varsToUpdate = [
                 'AlarmWindWarning' => [VARIABLE_PRESENTATION_SWITCH, 'Warning'],
                 'ActiveShadingCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'WindowBlind'],
-                'StatusIsNight' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Moon'],
-                'StatusIsHotAndBright' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Sun'],
                 'StatusSunInSectorCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Count'],
                 'StatusLastEvaluation' => [VARIABLE_PRESENTATION_DATE_TIME, 'Clock']
             ];
@@ -91,6 +89,36 @@ class SmartHomeShading extends IPSModuleStrict
                     ]);
                 }
             }
+
+            $nightOptions = json_encode([
+                ['Value' => false, 'Caption' => 'Tag', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFFCC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFCC00],
+                ['Value' => true, 'Caption' => 'Nacht', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x003399, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x003399]
+            ]);
+            IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusIsNight'), [
+                'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+                'ICON' => 'Moon',
+                'COLOR' => -1,
+                'CONTENT_COLOR' => -1,
+                'DISPLAY_TYPE' => 0,
+                'PREVIEW_STYLE' => 1,
+                'SHOW_PREVIEW' => true,
+                'OPTIONS' => $nightOptions
+            ]);
+
+            $hotOptions = json_encode([
+                ['Value' => false, 'Caption' => 'Normal', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
+                ['Value' => true, 'Caption' => 'Heiss & hell!', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF6600, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF6600]
+            ]);
+            IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusIsHotAndBright'), [
+                'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+                'ICON' => 'Sun',
+                'COLOR' => -1,
+                'CONTENT_COLOR' => -1,
+                'DISPLAY_TYPE' => 0,
+                'PREVIEW_STYLE' => 1,
+                'SHOW_PREVIEW' => true,
+                'OPTIONS' => $hotOptions
+            ]);
         }
 
         $this->ApplyHouseModeSubscription();

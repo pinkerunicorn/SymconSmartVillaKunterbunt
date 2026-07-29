@@ -83,10 +83,11 @@ class SmartHomeSecurity extends IPSModuleStrict
         }
         // ---------------------------------
 
-
-
-
-        $this->MaintainVariable('VestaboardStatus', 'Kurz-Status (Vestaboard)', 3, '', 3, true);
+        $this->MaintainVariable('VestaboardStatus', 'Kurz-Status (Vestaboard)', 3, '', 4, true);
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('VestaboardStatus'), [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Information'
+        ]);
 
         $windowVars = json_decode($this->ReadPropertyString('WindowVariables'), true);
         if (is_array($windowVars)) {
