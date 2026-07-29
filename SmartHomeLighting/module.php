@@ -127,6 +127,8 @@ class SmartHomeLighting extends IPSModuleStrict
 
         // Bei laufender Abwesenheit: Simulation wiederherstellen (z.B. nach Reboot)
         $this->EnsureSimulationIfAbsent();
+
+        $this->UpdateLinkFolders();
     }
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
@@ -742,6 +744,70 @@ class SmartHomeLighting extends IPSModuleStrict
     ]
 }
 EOT;
+    private function UpdateLinkFolders(): void
+    {
+        $this->SyncFolderLinks('FolderLampen', 'Lampen', 'LightVariables');
+        $this->SyncFolderLinks('FolderDimmer', 'Dimmer', 'DimmerVariables');
+    }
+
+    private function SyncFolderLinks(string $ident, string $name, string $propertyName): void
+    {
+        $catID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        if ($catID === false) {
+            $catID = IPS_CreateCategory();
+            IPS_SetParent($catID, $this->InstanceID);
+            IPS_SetIdent($catID, $ident);
+            IPS_SetName($catID, $name);
+        }
+
+        $vars = json_decode($this->ReadPropertyString($propertyName), true);
+        if (!is_array($vars)) {
+            $vars = [];
+        }
+
+        $validIDs = [];
+        foreach ($vars as $item) {
+            $id = (int)($item['VariableID'] ?? 0);
+            if ($id > 0 && IPS_VariableExists($id)) {
+                $validIDs[] = $id;
+            }
+        }
+
+        // Veraltete Links löschen
+        $children = IPS_GetChildrenIDs($catID);
+        foreach ($children as $childID) {
+            $obj = IPS_GetObject($childID);
+            if ($obj['ObjectType'] === 6) { // Link
+                $link = IPS_GetLink($childID);
+                if (!in_array($link['TargetID'], $validIDs)) {
+                    IPS_DeleteLink($childID);
+                }
+            }
+        }
+
+        // Neue Links erstellen / Bestehende aktualisieren
+        foreach ($validIDs as $targetID) {
+            $linkExists = false;
+            foreach (IPS_GetChildrenIDs($catID) as $childID) {
+                $obj = IPS_GetObject($childID);
+                if ($obj['ObjectType'] === 6) {
+                    $link = IPS_GetLink($childID);
+                    if ($link['TargetID'] === $targetID) {
+                        $linkExists = true;
+                        // Name synchron halten
+                        IPS_SetName($childID, IPS_GetName($targetID));
+                        break;
+                    }
+                }
+            }
+            if (!$linkExists) {
+                $linkID = IPS_CreateLink();
+                IPS_SetParent($linkID, $catID);
+                IPS_SetLinkChildID($linkID, $targetID);
+                IPS_SetName($linkID, IPS_GetName($targetID));
+                IPS_SetIcon($linkID, 'Bulb');
+            }
+        }
     }
 }
 
