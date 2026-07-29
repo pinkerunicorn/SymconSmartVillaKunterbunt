@@ -744,6 +744,8 @@ class SmartHomeLighting extends IPSModuleStrict
     ]
 }
 EOT;
+    }
+
     private function UpdateLinkFolders(): void
     {
         $this->SyncFolderLinks('FolderLampen', 'Lampen', 'LightVariables');
