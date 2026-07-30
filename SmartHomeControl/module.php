@@ -208,8 +208,10 @@ class SmartHomeControl extends IPSModuleStrict
         if ($mode !== self::PRESENCE_HOME) {
             $currentActivity = (int)$this->GetValue('ActivityMode');
             if ($currentActivity !== self::ACTIVITY_NORMAL) {
+                $this->TriggerSequencer('ActivitySequencers', $currentActivity, false);
+                $this->SetValue('ActivityMode', self::ACTIVITY_NORMAL);
                 $this->SLog('INFO', 'Auto-Reset: Aktivität zurück auf Normal (Haus verlassen).');
-                $this->SetActivityMode(self::ACTIVITY_NORMAL);
+                $this->TriggerSequencer('ActivitySequencers', self::ACTIVITY_NORMAL, true);
             }
         }
 
@@ -223,6 +225,12 @@ class SmartHomeControl extends IPSModuleStrict
     {
         if ($mode < 0 || $mode > 3) {
             $this->SLog('ERROR', 'Ungültiger ActivityMode: ' . $mode);
+            return;
+        }
+
+        // ActivityMode kann nur geändert werden wenn jemand Zuhause ist
+        if ((int)$this->GetValue('PresenceMode') !== self::PRESENCE_HOME) {
+            $this->SLog('WARNING', 'Aktivität kann nur geändert werden wenn jemand Zuhause ist.');
             return;
         }
 
