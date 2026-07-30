@@ -134,6 +134,13 @@ class SmartHomeControl extends IPSModuleStrict
         IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_PARTY, 'Party', 'Party', 0xFF00AA);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('ActivityMode'), $activityProfile);
 
+        // Sync Action state for ActivityMode on startup / apply changes
+        if ((int)$this->GetValue('PresenceMode') === self::PRESENCE_HOME) {
+            $this->EnableAction('ActivityMode');
+        } else {
+            $this->DisableAction('ActivityMode');
+        }
+
         // === CustomPresentation for read-only central state variables ===
         $this->ApplyFireplacePresentation();
         $this->ApplyAlarmLevelPresentation();
@@ -195,6 +202,13 @@ class SmartHomeControl extends IPSModuleStrict
 
         $this->SetValue('PresenceMode', $mode);
         $this->SetValue('PresenceStatus', $mode === self::PRESENCE_HOME);
+
+        // Dynamisch die Steuerung der Aktivität aktivieren/deaktivieren
+        if ($mode === self::PRESENCE_HOME) {
+            $this->EnableAction('ActivityMode');
+        } else {
+            $this->DisableAction('ActivityMode');
+        }
 
         $modeName = match($mode) {
             self::PRESENCE_HOME     => 'Zuhause',
