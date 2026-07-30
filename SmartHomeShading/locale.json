@@ -1,0 +1,10 @@
+﻿{
+    "translations":  {
+                         "de":  {
+                                    "SmartHomeShading":  "Beschattungssteuerung"
+                                },
+                         "en":  {
+                                    "SmartHomeShading":  "Beschattungssteuerung"
+                                }
+                     }
+}

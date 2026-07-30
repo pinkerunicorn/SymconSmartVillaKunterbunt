@@ -29,13 +29,13 @@ class SmartHomeControl extends IPSModuleStrict
         parent::Create();
 
         // === Main Axes ===
-        $this->RegisterVariableInteger('PresenceMode', '📍 Anwesenheit', [
+        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'House'
         ], 1);
         $this->EnableAction('PresenceMode');
 
-        $this->RegisterVariableInteger('ActivityMode', '🎭 Aktivität', [
+        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Gear'
         ], 2);
@@ -49,22 +49,22 @@ class SmartHomeControl extends IPSModuleStrict
         $this->EnableAction('PresenceStatus');
 
         // === Central State Variables (read-only, set by other modules via public API) ===
-        $this->RegisterVariableBoolean('FireplaceActive', '🔥 Kamin aktiv', [
+        $this->RegisterVariableBoolean('FireplaceActive', 'Kamin aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Flame'
         ], 10);
 
-        $this->RegisterVariableInteger('AlarmLevel', '🚨 Alarm-Stufe', [
+        $this->RegisterVariableInteger('AlarmLevel', 'Alarm-Stufe', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Alert'
         ], 11);
 
-        $this->RegisterVariableBoolean('MediaPlaying', '🎵 Medien aktiv', [
+        $this->RegisterVariableBoolean('MediaPlaying', 'Medien aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Speaker'
         ], 12);
 
-        $this->RegisterVariableBoolean('IrrigationActive', '💧 Bewässerung aktiv', [
+        $this->RegisterVariableBoolean('IrrigationActive', 'Bewässerung aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Drops'
         ], 13);

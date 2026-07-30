@@ -1,0 +1,10 @@
+﻿{
+    "translations":  {
+                         "de":  {
+                                    "SmartHomeHeating":  "Heizungssteuerung"
+                                },
+                         "en":  {
+                                    "SmartHomeHeating":  "Heizungssteuerung"
+                                }
+                     }
+}

@@ -1,0 +1,10 @@
+﻿{
+    "translations":  {
+                         "de":  {
+                                    "SmartHomeControl":  "SmartHome Controller"
+                                },
+                         "en":  {
+                                    "SmartHomeControl":  "SmartHome Controller"
+                                }
+                     }
+}

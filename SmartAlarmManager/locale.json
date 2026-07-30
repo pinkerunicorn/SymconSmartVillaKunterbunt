@@ -1,0 +1,10 @@
+﻿{
+    "translations":  {
+                         "de":  {
+                                    "SmartAlarmManager":  "Alarm Manager"
+                                },
+                         "en":  {
+                                    "SmartAlarmManager":  "Alarm Manager"
+                                }
+                     }
+}

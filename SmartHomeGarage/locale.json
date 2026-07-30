@@ -1,0 +1,10 @@
+﻿{
+    "translations":  {
+                         "de":  {
+                                    "SmartHomeGarage":  "Garagensteuerung"
+                                },
+                         "en":  {
+                                    "SmartHomeGarage":  "Garagensteuerung"
+                                }
+                     }
+}
