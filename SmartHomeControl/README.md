@@ -1,56 +1,72 @@
-# SmartHomeControl
+# SmartHomeControl v2
 
-Das SmartHomeControl Modul (Villa Kunterbunt Controller) dient als zentraler Orchestrator für das SmartHome. Es verwaltet den globalen Haus-Modus und synchronisiert diesen mit allen anderen relevanten SmartHome-Submodulen.
+Das zentrale Gehirn deines Smart Homes. Verwaltet den Haus-Zustand über zwei unabhängige Achsen und stellt zentrale Status-Variablen für alle anderen Module bereit.
 
-### Inhaltsverzeichnis
+## Zustandsmodell
 
-1. [Funktionsumfang](#1-funktionsumfang)
-2. [Voraussetzungen](#2-voraussetzungen)
-3. [Installation](#3-installation)
-4. [Konfiguration](#4-konfiguration)
-5. [Statusvariablen und Profile](#5-statusvariablen-und-profile)
-6. [PHP-Befehlsreferenz](#6-php-befehlsreferenz)
+### Achse 1: Anwesenheit (`PresenceMode`)
+| Wert | Modus | Icon |
+|------|-------|------|
+| 0 | Zuhause | 🏠 |
+| 1 | Kurz weg | 🚶 |
+| 2 | Urlaub | ✈️ |
 
-### 1. Funktionsumfang
+### Achse 2: Aktivität (`ActivityMode`)
+| Wert | Modus | Icon |
+|------|-------|------|
+| 0 | Normal | ☀️ |
+| 1 | Heimkino | 🎬 |
+| 2 | Schlafen | 🌙 |
+| 3 | Party | 🎉 |
 
-* Zentrale Verwaltung von Haus-Modi (z. B. Anwesenheit, Abwesenheit, Urlaub, Schlafen) inklusive Icon- und Farbanpassungen.
-* Orchestrierung und Status-Weitergabe an Submodule: Heizung, Sicherheit, Beleuchtung (Alltag & Anwesenheitssimulation), Beschattung, Bewässerung und Garagen.
-* Möglichkeit zur Ausführung von Eintritts- und Austritts-Sequenzen über das SmartHomeSequencer Modul.
-* Automatische Urlaubserkennung durch Synchronisation mit einem iCal-Kalender (z. B. Google Kalender).
-* Bereitstellung einer Anwesenheits-Variable (Boolean) für die nahtlose Integration in Sprachassistenten wie Google Home oder Amazon Alexa.
+**Auto-Reset**: Wenn `PresenceMode` auf "Kurz weg" oder "Urlaub" wechselt, wird `ActivityMode` automatisch auf "Normal" zurückgesetzt.
 
-### 2. Voraussetzungen
+### Google Home / Alexa
+Der Boolean-Switch `PresenceStatus` schaltet zwischen Zuhause (true) und Kurz weg (false). Urlaub muss manuell oder per Kalender gesetzt werden.
 
-* IP-Symcon ab Version 9.0
+## Zentrale Status-Variablen
 
-### 3. Installation
+Andere Module setzen diese Variablen über die öffentliche API:
 
-* Über den Module Store das Modul `SmartHomeControl` installieren.
-* Alternativ über das Module Control folgende URL hinzufügen: `https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt`
+| Variable | Typ | Gesetzt von |
+|----------|-----|-------------|
+| `FireplaceActive` | Boolean | FireplaceSafety |
+| `AlarmLevel` | Integer (0-2) | SmartAlarmManager |
+| `MediaPlaying` | Boolean | RoonZone / SonyBeamer / Lyngdorf |
+| `IrrigationActive` | Boolean | SmartLawnAI |
 
-### 4. Konfiguration
+## Energiepreise
 
-Die Konfiguration im WebFront bzw. der Verwaltungskonsole umfasst:
+Statische Referenzpreise als zentrale Konfiguration:
+- `PriceElectricity` (€/kWh)
+- `PriceWater` (€/m³)
+- `PriceGas` (€/kWh)
 
-* **HouseModes**: Detail-Definition der verfügbaren Modi. Hier werden ID, Name, Icon, Farbe sowie Flags (Ist Abwesenheit?, Ist Schlafen?) und das zugehörige Sequenzer-Skript konfiguriert. Zudem lässt sich pro Modus definieren, welche Submodule benachrichtigt werden sollen.
-* **Submodul-Zuweisungen**: Für jedes unterstützte Gewerk (Heating, Security, Lighting, ActiveLighting, Shading, Lawn, Garage) wird die entsprechende Instanz-ID hinterlegt sowie die Steuerung global über eine Checkbox (z. B. `EnableHeating`) aktiviert. Bei Garagen können mehrere Instanzen in einer Liste hinterlegt werden.
-* **CalendarURL**: URL zu einem iCal-Kalender. Findet das Modul hierin Termine mit dem Titel "URLAUB", schaltet es automatisch in den Urlaubs-Modus (und nach Ablauf wieder zurück).
+## API
 
-### 5. Statusvariablen und Profile
-
-| Ident | Name | Typ | Beschreibung |
-|:---|:---|:---|:---|
-| HouseMode | 🏠 Haus Modus | Integer | Beinhaltet den aktuellen Haus-Modus. Das Profil (`SmartAbsence.HouseMode.[InstanzID]`) wird dynamisch aus der Konfiguration generiert. |
-| PresenceStatus | Anwesenheit (Google Home) | Boolean | Schalter zur einfachen Steuerung der Anwesenheit über Sprachassistenten (True = Anwesenheit, False = Abwesenheit/Urlaub). |
-
-### 6. PHP-Befehlsreferenz
-
+### Setter (von anderen Modulen)
 ```php
-SHC_SetHouseMode(int $InstanceID, int $newMode, int $vacationEndTime = 0);
+SHC_SetPresenceMode($id, 0);      // 0=Zuhause, 1=Kurz weg, 2=Urlaub
+SHC_SetActivityMode($id, 3);      // 0=Normal, 1=Heimkino, 2=Schlafen, 3=Party
+SHC_SetFireplaceActive($id, true);
+SHC_SetAlarmLevel($id, 1);        // 0=OK, 1=Warnung, 2=Alarm
+SHC_SetMediaPlaying($id, true);
+SHC_SetIrrigationActive($id, true);
 ```
-Setzt den aktuellen Haus-Modus. Die Änderung wird (sofern in der Modus-Konfiguration aktiviert) an alle angebundenen Submodule (Heizung, Licht, Beschattung etc.) weitergeleitet. Zudem werden ggf. konfigurierte Austritts- bzw. Eintrittssequenzen gestartet.
 
+### Getter
 ```php
-SHC_CheckCalendar(int $InstanceID);
+SHC_GetPresenceMode($id);      // int
+SHC_GetActivityMode($id);      // int
+SHC_GetPriceElectricity($id);  // float
+SHC_GetPriceWater($id);        // float
+SHC_GetPriceGas($id);          // float
 ```
-Ruft den konfigurierten iCal-Kalender ab und sucht nach einem Termin mit dem Titel "URLAUB". Ist ein solcher Termin aktuell aktiv, wird das Haus automatisch in den Urlaubs-Modus versetzt. Diese Funktion wird auch automatisch alle 30 Minuten durch einen internen Timer ausgeführt.
+
+## Sequencer
+
+Jeder Modus (Anwesenheit + Aktivität) kann eine Ein- und Austritts-Sequenz haben. Diese werden über SmartHomeSequencer-Instanzen konfiguriert.
+
+## Kalender-Automatik
+
+Über eine Google Kalender iCal-URL wird automatisch erkannt, ob ein Eintrag "URLAUB" aktiv ist. In diesem Fall wird `PresenceMode` automatisch auf Urlaub (2) gesetzt.

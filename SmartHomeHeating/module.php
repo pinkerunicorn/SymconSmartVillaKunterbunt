@@ -3,17 +3,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
-require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
+require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
 class SmartHomeHeating extends IPSModuleStrict
 {
     use SmartLog_Trait;
-    use HouseModeAware_Trait;
+    use CentralStateAware_Trait;
 
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterHouseModeAwareness();
 
 
         // Target temperature during absence (Fallback)
@@ -58,12 +57,11 @@ class SmartHomeHeating extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->ApplyHouseModeSubscription();
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $list_HeatingInstances = json_decode($this->ReadPropertyString('HeatingInstances'), true);
         if (is_array($list_HeatingInstances)) {
             foreach ($list_HeatingInstances as $item) {
@@ -143,7 +141,7 @@ class SmartHomeHeating extends IPSModuleStrict
     
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
-        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
+        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $this->UpdateAverageTemperature();
         }
@@ -158,7 +156,12 @@ class SmartHomeHeating extends IPSModuleStrict
         }
     }
 
-    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
+    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    {
+        $this->updateHeatingMode();
+    }
+
+    private function updateHeatingMode(): void
     {
         $vacationEndTime = 0;
         $heatingInsts = json_decode($this->ReadPropertyString('HeatingInstances'), true);
@@ -166,11 +169,8 @@ class SmartHomeHeating extends IPSModuleStrict
         
         $roomCount = count($heatingInsts);
 
-        // isAbsence/isSleep kommen vom HouseModeAware-Trait (aus SmartHomeControl-Konfiguration)
-        // Urlaub (ModeID 2) ist ebenfalls Abwesenheit — tiefer absenken
-        $isVacation = ($isAbsence && $mode === 2);
-        // isSleep zählt ebenfalls als Absenkbetrieb
-        $isAbsence = ($isAbsence || $isSleep);
+        $isVacation = $this->IsVacation();
+        $isAbsence = ($this->IsAway() || $isVacation || $this->IsSleeping());
         
         if ($isAbsence || $isVacation) {
             $isHeatingSeason = GetValue($this->GetIDForIdent('HeatingSeason'));
@@ -386,11 +386,6 @@ class SmartHomeHeating extends IPSModuleStrict
                 {
                     "type": "RowLayout",
                     "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "HouseModeVariableID",
-                            "caption": "House Mode Variable"
-                        },
                         {
                             "type": "NumberSpinner",
                             "name": "TargetTemperature",

@@ -3,16 +3,15 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
-require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
+require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
 class SmartHomeLighting extends IPSModuleStrict
 {
     use SmartLog_Trait;
-    use HouseModeAware_Trait;
+    use CentralStateAware_Trait;
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterHouseModeAwareness();
 
         // Gemini API-Key und Modell werden zentral über SmartGeminiIO konfiguriert.
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
@@ -58,12 +57,11 @@ class SmartHomeLighting extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->ApplyHouseModeSubscription();
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $ref_SunsetVariableID = $this->ReadPropertyInteger('SunsetVariableID');
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
             $this->RegisterReference($ref_SunsetVariableID);
@@ -144,7 +142,7 @@ class SmartHomeLighting extends IPSModuleStrict
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
-        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
+        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $this->CalculateActiveLights();
         }
@@ -211,10 +209,15 @@ class SmartHomeLighting extends IPSModuleStrict
         return [];
     }
 
-    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
+    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
-        $isAbsence = ($isAbsence || $mode == 1 || $mode == 2);
-        $isSleep = ($isSleep || $mode == 5);
+        $this->updateLightingMode();
+    }
+
+    private function updateLightingMode(): void
+    {
+        $isAbsence = ($this->IsAway() || $this->IsVacation());
+        $isSleep = $this->IsSleeping();
         
         $eid = $this->MaintainDailyEvent();
         
@@ -222,7 +225,7 @@ class SmartHomeLighting extends IPSModuleStrict
             $this->GenerateAiSchedule();
             IPS_SetEventActive($eid, true);
             $this->SetTimerInterval('LightExecutionTimer', 60000);
-            $this->SLog('INFO', 'Präsenzsimulation gestartet.', "Hausmodus: $mode");
+            $this->SLog('INFO', 'Präsenzsimulation gestartet.', "Hausmodus: Abwesend");
             $this->TurnOffAllSimulatedLights(); // Zuerst alles aus
             
             // Check if any lights are STILL on (meaning they were manually turned on and forgotten)
@@ -250,7 +253,7 @@ class SmartHomeLighting extends IPSModuleStrict
                 // aber nur wenn die Simulation davor lief.
                 if ($wasActive) {
                     $this->TurnOffAllSimulatedLights(true);
-                    $this->SLog('INFO', 'Präsenzsimulation gestoppt und Lichter aus.', "Hausmodus: $mode");
+                    $this->SLog('INFO', 'Präsenzsimulation gestoppt und Lichter aus.', "Hausmodus: Anwesend");
                 }
             }
         }
@@ -586,16 +589,9 @@ class SmartHomeLighting extends IPSModuleStrict
         return $eid;
     }
 
-    /**
-     * Stellt die Präsenzsimulation wieder her, falls das Haus aktuell abwesend ist.
-     * Wird in ApplyChanges() aufgerufen, um nach einem Reboot/Modulupdate
-     * den Timer und das tägliche Event wiederherzustellen.
-     */
     private function EnsureSimulationIfAbsent(): void
     {
-        $mode = $this->GetHouseMode();
-        [$isAbsence, ] = $this->ResolveModeFlags($mode);
-        $isAbsence = ($isAbsence || $mode == 1 || $mode == 2);
+        $isAbsence = ($this->IsAway() || $this->IsVacation());
 
         if (!$isAbsence) {
             return;
@@ -659,11 +655,6 @@ class SmartHomeLighting extends IPSModuleStrict
                 {
                     "type": "RowLayout",
                     "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "HouseModeVariableID",
-                            "caption": "House Mode Variable"
-                        },
                         {
                             "type": "SelectVariable",
                             "name": "SunsetVariableID",

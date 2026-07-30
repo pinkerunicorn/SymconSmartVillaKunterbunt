@@ -3,16 +3,15 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
-require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
+require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
 class SmartActiveLighting extends IPSModuleStrict
 {
     use SmartLog_Trait;
-    use HouseModeAware_Trait;
+    use CentralStateAware_Trait;
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterHouseModeAwareness();
 
         // Properties
         $this->RegisterPropertyString('MotionRules', '[]');
@@ -42,12 +41,10 @@ class SmartActiveLighting extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->ApplyHouseModeSubscription();
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
-            $this->UnregisterReference($refID);
         }
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $ref_SunsetVariableID = $this->ReadPropertyInteger('SunsetVariableID');
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
             $this->RegisterReference($ref_SunsetVariableID);
@@ -304,7 +301,7 @@ class SmartActiveLighting extends IPSModuleStrict
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
-        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
+        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $val = $Data[0]; // New value
             $isTrigger = false;
@@ -742,32 +739,49 @@ class SmartActiveLighting extends IPSModuleStrict
         $this->CalculateTwilightTimers();
     }
 
-    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
+    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
-        // 0=Anwesenheit, 1=Abwesenheit, 2=Urlaub, 3=Party, 4=Heimkino, 5=Schlafen, 6=Putzen
-        // Bei Abwesenheit/Urlaub deaktivieren wir die Bewegungsmelder-Lichter
-        // Das passiert am einfachsten, indem wir alle Motion-Off-Timer löschen und die aktiven Lichter ausschalten
-        
-        if ($mode == 1 || $mode == 2 || $mode == 5) {
-            $activeTimers = json_decode($this->ReadAttributeString('ActiveTimers'), true);
-            if (is_array($activeTimers)) {
-                foreach ($activeTimers as $timerName => $targetId) {
-                    $this->SetTimerInterval($timerName, 0);
-                    if ($targetId > 0 && IPS_VariableExists($targetId)) {
-                        $var = IPS_GetVariable($targetId);
-                        if ($var['VariableType'] == 0) {
-                            $res = @RequestAction($targetId, false);
-                            $this->LogSwitch($targetId, false, $res, 'Haus-Modus');
-                        } else {
-                            $res = @RequestAction($targetId, 0);
-                            $this->LogSwitch($targetId, 0, $res, 'Haus-Modus');
-                        }
+        match($stateName) {
+            'PresenceMode' => $this->handlePresenceChange((int)$newValue),
+            'ActivityMode' => $this->handleActivityChange((int)$newValue),
+            default => null
+        };
+    }
+
+    private function handlePresenceChange(int $mode): void
+    {
+        if ($mode === 1 || $mode === 2) {
+            $this->TurnOffMotionLights($mode);
+        }
+    }
+
+    private function handleActivityChange(int $mode): void
+    {
+        if ($mode === 5) {
+            $this->TurnOffMotionLights($mode);
+        }
+    }
+
+    private function TurnOffMotionLights(int $mode): void
+    {
+        $activeTimers = json_decode($this->ReadAttributeString('ActiveTimers'), true);
+        if (is_array($activeTimers)) {
+            foreach ($activeTimers as $timerName => $targetId) {
+                $this->SetTimerInterval($timerName, 0);
+                if ($targetId > 0 && IPS_VariableExists($targetId)) {
+                    $var = IPS_GetVariable($targetId);
+                    if ($var['VariableType'] == 0) {
+                        $res = @RequestAction($targetId, false);
+                        $this->LogSwitch($targetId, false, $res, 'Haus-Modus');
+                    } else {
+                        $res = @RequestAction($targetId, 0);
+                        $this->LogSwitch($targetId, 0, $res, 'Haus-Modus');
                     }
                 }
             }
-            $this->WriteAttributeString('ActiveTimers', '[]');
-            $this->SLog('INFO', 'Haus-Modus gewechselt — Bewegungslichter aus', "Neuer Modus: $mode");
         }
+        $this->WriteAttributeString('ActiveTimers', '[]');
+        $this->SLog('INFO', 'Haus-Modus gewechselt — Bewegungslichter aus', "Neuer Modus: $mode");
     }
 
     protected function LogMessage(string $Message, int $Type): bool
@@ -784,13 +798,7 @@ class SmartActiveLighting extends IPSModuleStrict
         {
             "type": "ExpansionPanel",
             "caption": "⚙ Bewegungsgesteuerte Beleuchtung",
-            "items": [
-                {
-                    "type": "SelectVariable",
-                    "name": "HouseModeVariableID",
-                    "caption": "House Mode Variable"
-                }
-            ]
+            "items": []
         },
         {
             "type": "List",

@@ -3,16 +3,15 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
-require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
+require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
 class SmartHomeShading extends IPSModuleStrict
 {
     use SmartLog_Trait;
-    use HouseModeAware_Trait;
+    use CentralStateAware_Trait;
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterHouseModeAwareness();
 
 
         // 1. Globale Sensorik
@@ -121,12 +120,11 @@ class SmartHomeShading extends IPSModuleStrict
             ]);
         }
 
-        $this->ApplyHouseModeSubscription();
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $ref_AzimuthVariableID = $this->ReadPropertyInteger('AzimuthVariableID');
         if ($ref_AzimuthVariableID > 1 && @IPS_ObjectExists($ref_AzimuthVariableID)) {
             $this->RegisterReference($ref_AzimuthVariableID);
@@ -213,13 +211,13 @@ class SmartHomeShading extends IPSModuleStrict
         }
     }
     
-    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
+    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
     }
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
-        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
+        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $blindsJson = $this->ReadPropertyString('BlindVariables');
             $blinds = json_decode($blindsJson, true);
@@ -475,11 +473,6 @@ class SmartHomeShading extends IPSModuleStrict
                 {
                     "type": "Label",
                     "caption": "1. Globale Sensorik"
-                },
-                {
-                    "type": "SelectVariable",
-                    "name": "HouseModeVariableID",
-                    "caption": "House Mode Variable"
                 },
                 {
                     "type": "Label",

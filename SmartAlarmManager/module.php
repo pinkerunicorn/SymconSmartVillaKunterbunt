@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
+require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 
 class SmartAlarmManager extends IPSModuleStrict
 {
     use SmartLog_Trait;
-    use HouseModeAware_Trait;
+    use CentralStateAware_Trait;
     public function Create(): void{
         parent::Create();
 
@@ -46,8 +46,6 @@ class SmartAlarmManager extends IPSModuleStrict
             'ICON'         => 'Ok'
         ], 4);
         $this->EnableAction("AcknowledgeAll");
-        
-        $this->RegisterHouseModeAwareness();
     }
 
     public function ApplyChanges(): void{
@@ -122,7 +120,7 @@ class SmartAlarmManager extends IPSModuleStrict
             'OPTIONS' => $systemStatusOptions
         ]);
 
-        $this->ApplyHouseModeSubscription();
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
 
         // Unregister all old messages
         foreach ($this->GetMessageList() as $senderID => $messages) {
@@ -185,10 +183,10 @@ class SmartAlarmManager extends IPSModuleStrict
         return $matches;
     }
 
-    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void {}
+    private function OnCentralStateChanged(string $stateName, mixed $newValue): void {}
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void{
-        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
+        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
 
         $monitored = json_decode($this->ReadPropertyString("MonitoredVariables"), true);
         if (!is_array($monitored)) return;
@@ -547,6 +545,17 @@ class SmartAlarmManager extends IPSModuleStrict
                 }
             }
             $this->SetValue("SystemStatus", $maxLevel + 1);
+        }
+        
+        // Notify SmartHomeControl of alarm level change
+        $systemStatus = $this->GetValue("SystemStatus");
+        $shcLevel = 0;
+        if ($systemStatus == 1) $shcLevel = 1;
+        elseif ($systemStatus > 1) $shcLevel = 2;
+        
+        $instances = IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
+        if (count($instances) > 0 && function_exists('SHC_SetAlarmLevel')) {
+            @SHC_SetAlarmLevel($instances[0], $shcLevel);
         }
     }
 

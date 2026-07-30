@@ -8,143 +8,311 @@ class SmartHomeControl extends IPSModuleStrict
 {
     use SmartLog_Trait;
 
+    // PresenceMode constants
+    private const PRESENCE_HOME     = 0;
+    private const PRESENCE_AWAY     = 1;
+    private const PRESENCE_VACATION = 2;
+
+    // ActivityMode constants
+    private const ACTIVITY_NORMAL  = 0;
+    private const ACTIVITY_CINEMA  = 1;
+    private const ACTIVITY_SLEEP   = 2;
+    private const ACTIVITY_PARTY   = 3;
+
+    // AlarmLevel constants
+    private const ALARM_OK      = 0;
+    private const ALARM_WARNING = 1;
+    private const ALARM_ALARM   = 2;
+
     public function Create(): void
     {
         parent::Create();
 
-        $defaultModes = [
-            ['ModeID'=> 0, 'ModeName'=> 'Anwesenheit', 'ICON'=> 'House', 'Color'=> -1, 'IsAbsence'=> false, 'IsSleep'=> false, 'SequencerInstance'=> 0],
-            ['ModeID'=> 1, 'ModeName'=> 'Abwesenheit', 'ICON'=> 'Motion', 'Color'=> -1, 'IsAbsence'=> true, 'IsSleep'=> false, 'SequencerInstance'=> 0],
-            ['ModeID'=> 2, 'ModeName'=> 'Urlaub', 'ICON'=> 'Suitcase', 'Color'=> -1, 'IsAbsence'=> true, 'IsSleep'=> false, 'SequencerInstance'=> 0],
-            ['ModeID'=> 5, 'ModeName'=> 'Schlafen', 'ICON'=> 'Moon', 'Color'=> -1, 'IsAbsence'=> false, 'IsSleep'=> true, 'SequencerInstance'=> 0]
-        ];
-        $this->RegisterPropertyString('HouseModes', json_encode($defaultModes));
-        
-        $this->RegisterPropertyString('CalendarURL', '');
-        
-        $this->RegisterVariableInteger('HouseMode', '🏠 Haus Modus', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION
-        ], 2);
-        IPS_SetIcon($this->GetIDForIdent('HouseMode'), 'Gear');
-        $this->EnableAction('HouseMode');
-        
-        // Google Home / Alexa Interface Variable (Boolean)
-        $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
-            'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
-            'ICON'          => 'Information'
+        // === Main Axes ===
+        $this->RegisterVariableInteger('PresenceMode', '📍 Anwesenheit', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'House'
         ], 1);
+        $this->EnableAction('PresenceMode');
+
+        $this->RegisterVariableInteger('ActivityMode', '🎭 Aktivität', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Gear'
+        ], 2);
+        $this->EnableAction('ActivityMode');
+
+        // Google Home / Alexa Interface (Boolean Toggle)
+        $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Information'
+        ], 3);
         $this->EnableAction('PresenceStatus');
-        
-        // Timer für Kalender-Check
+
+        // === Central State Variables (read-only, set by other modules via public API) ===
+        $this->RegisterVariableBoolean('FireplaceActive', '🔥 Kamin aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Flame'
+        ], 10);
+
+        $this->RegisterVariableInteger('AlarmLevel', '🚨 Alarm-Stufe', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Alert'
+        ], 11);
+
+        $this->RegisterVariableBoolean('MediaPlaying', '🎵 Medien aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Speaker'
+        ], 12);
+
+        $this->RegisterVariableBoolean('IrrigationActive', '💧 Bewässerung aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Drops'
+        ], 13);
+
+        // === Energy Price Properties ===
+        $this->RegisterPropertyFloat('PriceElectricity', 0.32);
+        $this->RegisterPropertyFloat('PriceWater', 4.80);
+        $this->RegisterPropertyFloat('PriceGas', 0.12);
+
+        // === Sequencer Properties ===
+        $this->RegisterPropertyString('PresenceSequencers', json_encode([
+            ['ModeID' => 0, 'ModeName' => 'Zuhause',  'EntrySequencer' => 0, 'ExitSequencer' => 0],
+            ['ModeID' => 1, 'ModeName' => 'Kurz weg', 'EntrySequencer' => 0, 'ExitSequencer' => 0],
+            ['ModeID' => 2, 'ModeName' => 'Urlaub',   'EntrySequencer' => 0, 'ExitSequencer' => 0]
+        ]));
+
+        $this->RegisterPropertyString('ActivitySequencers', json_encode([
+            ['ModeID' => 0, 'ModeName' => 'Normal',   'EntrySequencer' => 0, 'ExitSequencer' => 0],
+            ['ModeID' => 1, 'ModeName' => 'Heimkino', 'EntrySequencer' => 0, 'ExitSequencer' => 0],
+            ['ModeID' => 2, 'ModeName' => 'Schlafen', 'EntrySequencer' => 0, 'ExitSequencer' => 0],
+            ['ModeID' => 3, 'ModeName' => 'Party',    'EntrySequencer' => 0, 'ExitSequencer' => 0]
+        ]));
+
+        // === Calendar ===
+        $this->RegisterPropertyString('CalendarURL', '');
+
+        // Timer for calendar check
         $this->RegisterTimer('CalendarCheck', 0, 'SHC_CheckCalendar($_IPS[\'TARGET\']);');
     }
 
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        // --- Auto-generated References ---
+
+        // === Auto-generated References ===
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $list_HouseModes = json_decode($this->ReadPropertyString('HouseModes'), true);
-        if (is_array($list_HouseModes)) {
-            foreach ($list_HouseModes as $item) {
-                $vid = $item['SequencerInstance'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
-            }
-        }
-        // ---------------------------------
+        $this->RegisterSequencerReferences('PresenceSequencers');
+        $this->RegisterSequencerReferences('ActivitySequencers');
 
+        // === Create PresenceMode Profile (has EnableAction → Legacy Profile) ===
+        $presenceProfile = 'SHC.PresenceMode.' . $this->InstanceID;
+        if (!IPS_VariableProfileExists($presenceProfile)) {
+            IPS_CreateVariableProfile($presenceProfile, 1);
+        }
+        // Clear existing associations
+        foreach (IPS_GetVariableProfile($presenceProfile)['Associations'] as $a) {
+            IPS_SetVariableProfileAssociation($presenceProfile, $a['Value'], '', '', -1);
+        }
+        IPS_SetVariableProfileAssociation($presenceProfile, self::PRESENCE_HOME, 'Zuhause', 'House', 0x00CC00);
+        IPS_SetVariableProfileAssociation($presenceProfile, self::PRESENCE_AWAY, 'Kurz weg', 'Motion', 0xFFAA00);
+        IPS_SetVariableProfileAssociation($presenceProfile, self::PRESENCE_VACATION, 'Urlaub', 'Suitcase', 0xFF4400);
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('PresenceMode'), $presenceProfile);
 
+        // === Create ActivityMode Profile (has EnableAction → Legacy Profile) ===
+        $activityProfile = 'SHC.ActivityMode.' . $this->InstanceID;
+        if (!IPS_VariableProfileExists($activityProfile)) {
+            IPS_CreateVariableProfile($activityProfile, 1);
+        }
+        foreach (IPS_GetVariableProfile($activityProfile)['Associations'] as $a) {
+            IPS_SetVariableProfileAssociation($activityProfile, $a['Value'], '', '', -1);
+        }
+        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_NORMAL, 'Normal', 'Sun', -1);
+        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_CINEMA, 'Heimkino', 'Movie', 0x6644CC);
+        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_SLEEP, 'Schlafen', 'Moon', 0x003388);
+        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_PARTY, 'Party', 'Party', 0xFF00AA);
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('ActivityMode'), $activityProfile);
 
-        $modesJson = $this->ReadPropertyString('HouseModes');
-        $modes = json_decode($modesJson, true);
-        if (!is_array($modes)) {
-            $modes = [];
-        }
-        $associations = [];
-        if (!IPS_VariableProfileExists('SmartAbsence.HouseMode.'. $this->InstanceID)) {
-            IPS_CreateVariableProfile('SmartAbsence.HouseMode.'. $this->InstanceID, 1);
-        }
-        foreach ($modes as $mode) {
-            IPS_SetVariableProfileAssociation('SmartAbsence.HouseMode.'. $this->InstanceID, $mode['ModeID'], $mode['ModeName'], $mode['Icon'], $mode['Color']);
-        }
-        
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('HouseMode'), 'SmartAbsence.HouseMode.'. $this->InstanceID);
-        
+        // === CustomPresentation for read-only central state variables ===
+        $this->ApplyFireplacePresentation();
+        $this->ApplyAlarmLevelPresentation();
+        $this->ApplyMediaPlayingPresentation();
+        $this->ApplyIrrigationPresentation();
+
+        // === Remove old legacy variables ===
+        $this->MaintainVariable('HouseMode', '', 0, '', 0, false);
         $this->MaintainVariable('AbsenceStatus', '', 0, '', 0, false);
 
-        // Timer starten (alle 30 Minuten)
+        // Clean up old profile
+        $oldProfile = 'SmartAbsence.HouseMode.' . $this->InstanceID;
+        if (IPS_VariableProfileExists($oldProfile)) {
+            @IPS_DeleteVariableProfile($oldProfile);
+        }
+
+        // === Start calendar timer (every 30 minutes) ===
         $this->SetTimerInterval('CalendarCheck', 30 * 60 * 1000);
 
         $this->SetStatus(102);
     }
 
+    // =========================================================================
+    // RequestAction (WebFront / Google Home)
+    // =========================================================================
+
     public function RequestAction(string $Ident, mixed $Value): void
     {
-        if ($Ident == 'HouseMode') {
-            $this->SetHouseMode($Value);
-        }
-        
-        // Google Home Toggle
-        if ($Ident == 'PresenceStatus') {
-            $mode = $Value ? 0 : 1; // true = Anwesenheit, false = Abwesenheit
-            $this->SetHouseMode($mode);
+        switch ($Ident) {
+            case 'PresenceMode':
+                $this->SetPresenceMode((int)$Value);
+                break;
+            case 'ActivityMode':
+                $this->SetActivityMode((int)$Value);
+                break;
+            case 'PresenceStatus':
+                // Google Home Toggle: true = Zuhause, false = Kurz weg
+                $this->SetPresenceMode($Value ? self::PRESENCE_HOME : self::PRESENCE_AWAY);
+                break;
         }
     }
 
-    public function SetHouseMode(int $newMode, int $vacationEndTime = 0): void
+    // =========================================================================
+    // Public Setter Methods (called by other modules)
+    // =========================================================================
+
+    public function SetPresenceMode(int $mode): void
     {
-        $oldMode = $this->GetValue('HouseMode');
-        if ($oldMode != $newMode) {
-            $this->TriggerDeactivationSequence($oldMode);
+        if ($mode < 0 || $mode > 2) {
+            $this->SLog('ERROR', 'Ungültiger PresenceMode: ' . $mode);
+            return;
         }
-        $this->SetValue('HouseMode', $newMode);
-        $this->SetValue('PresenceStatus', ($newMode != 1 && $newMode != 2));
-        
-        // Eintritts-Sequenz des neuen Modus
-        $modesJson = $this->ReadPropertyString('HouseModes');
-        $modes = json_decode($modesJson, true);
-        $modeName = 'Unbekannt';
-        if (is_array($modes)) {
-            foreach ($modes as $m) {
-                if ($m['ModeID'] == $newMode) {
-                    $modeName = $m['ModeName'];
-                    $seqInst = $m['SequencerInstance'] ?? 0;
-                    if ($seqInst > 0 && IPS_InstanceExists($seqInst) && function_exists('SHSQ_RunSequence')) {
-                        SHSQ_RunSequence($seqInst);
-                        $this->SLog('INFO', 'Eintritts-Sequenz ausgeführt.');
-                    }
-                    break;
-                }
+
+        $oldMode = (int)$this->GetValue('PresenceMode');
+        if ($oldMode !== $mode) {
+            // Execute exit sequence for old presence mode
+            $this->TriggerSequencer('PresenceSequencers', $oldMode, false);
+        }
+
+        $this->SetValue('PresenceMode', $mode);
+        $this->SetValue('PresenceStatus', $mode === self::PRESENCE_HOME);
+
+        $modeName = match($mode) {
+            self::PRESENCE_HOME     => 'Zuhause',
+            self::PRESENCE_AWAY     => 'Kurz weg',
+            self::PRESENCE_VACATION => 'Urlaub',
+            default                 => 'Unbekannt'
+        };
+        $this->SLog('INFO', 'Anwesenheit gewechselt auf: ' . $modeName);
+
+        // Auto-Reset: ActivityMode → Normal when leaving
+        if ($mode !== self::PRESENCE_HOME) {
+            $currentActivity = (int)$this->GetValue('ActivityMode');
+            if ($currentActivity !== self::ACTIVITY_NORMAL) {
+                $this->SLog('INFO', 'Auto-Reset: Aktivität zurück auf Normal (Haus verlassen).');
+                $this->SetActivityMode(self::ACTIVITY_NORMAL);
             }
         }
-        $this->SLog('INFO', 'Modus gewechselt auf: ' . $modeName);
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeControl: Haus-Modus gewechselt auf ' . $modeName);
-    }
-    
-    private function TriggerDeactivationSequence(int $mode): void
-    {
-        $modesJson = $this->ReadPropertyString('HouseModes');
-        $modes = json_decode($modesJson, true);
-        if (is_array($modes)) {
-            foreach ($modes as $m) {
-                if ($m['ModeID'] == $mode) {
-                    $seqInst = $m['SequencerInstance'] ?? 0;
-                    if ($seqInst > 0 && IPS_InstanceExists($seqInst) && function_exists('SHSQ_RunDeactivationSequence')) {
-                        SHSQ_RunDeactivationSequence($seqInst);
-                        $this->SLog('INFO', "Austritts-Sequenz für Modus '" . $m['ModeName'] . "' ausgeführt.");
-                    }
-                    break;
-                }
-            }
+
+        if ($oldMode !== $mode) {
+            // Execute entry sequence for new presence mode
+            $this->TriggerSequencer('PresenceSequencers', $mode, true);
         }
     }
 
+    public function SetActivityMode(int $mode): void
+    {
+        if ($mode < 0 || $mode > 3) {
+            $this->SLog('ERROR', 'Ungültiger ActivityMode: ' . $mode);
+            return;
+        }
 
-    
+        $oldMode = (int)$this->GetValue('ActivityMode');
+        if ($oldMode !== $mode) {
+            // Execute exit sequence for old activity mode
+            $this->TriggerSequencer('ActivitySequencers', $oldMode, false);
+        }
+
+        $this->SetValue('ActivityMode', $mode);
+
+        $modeName = match($mode) {
+            self::ACTIVITY_NORMAL => 'Normal',
+            self::ACTIVITY_CINEMA => 'Heimkino',
+            self::ACTIVITY_SLEEP  => 'Schlafen',
+            self::ACTIVITY_PARTY  => 'Party',
+            default               => 'Unbekannt'
+        };
+        $this->SLog('INFO', 'Aktivität gewechselt auf: ' . $modeName);
+
+        if ($oldMode !== $mode) {
+            // Execute entry sequence for new activity mode
+            $this->TriggerSequencer('ActivitySequencers', $mode, true);
+        }
+    }
+
+    public function SetFireplaceActive(bool $active): void
+    {
+        $this->SetValue('FireplaceActive', $active);
+        $this->SLog('INFO', 'Kamin: ' . ($active ? 'Aktiv' : 'Aus'));
+    }
+
+    public function SetAlarmLevel(int $level): void
+    {
+        if ($level < 0 || $level > 2) {
+            return;
+        }
+        $this->SetValue('AlarmLevel', $level);
+        $levelName = match($level) {
+            self::ALARM_OK      => 'OK',
+            self::ALARM_WARNING => 'Warnung',
+            self::ALARM_ALARM   => 'Alarm',
+            default             => 'Unbekannt'
+        };
+        $this->SLog('INFO', 'Alarm-Stufe: ' . $levelName);
+    }
+
+    public function SetMediaPlaying(bool $playing): void
+    {
+        $this->SetValue('MediaPlaying', $playing);
+    }
+
+    public function SetIrrigationActive(bool $active): void
+    {
+        $this->SetValue('IrrigationActive', $active);
+    }
+
+    // =========================================================================
+    // Public Getter Methods (called by other modules)
+    // =========================================================================
+
+    public function GetPresenceMode(): int
+    {
+        return (int)$this->GetValue('PresenceMode');
+    }
+
+    public function GetActivityMode(): int
+    {
+        return (int)$this->GetValue('ActivityMode');
+    }
+
+    public function GetPriceElectricity(): float
+    {
+        return $this->ReadPropertyFloat('PriceElectricity');
+    }
+
+    public function GetPriceWater(): float
+    {
+        return $this->ReadPropertyFloat('PriceWater');
+    }
+
+    public function GetPriceGas(): float
+    {
+        return $this->ReadPropertyFloat('PriceGas');
+    }
+
+    // =========================================================================
+    // Calendar Automation
+    // =========================================================================
+
     public function CheckCalendar(): void
     {
         $url = $this->ReadPropertyString('CalendarURL');
@@ -152,7 +320,7 @@ class SmartHomeControl extends IPSModuleStrict
             $this->SLog('DEBUG', 'CheckCalendar: Keine iCal-URL hinterlegt.');
             return;
         }
-        
+
         $ctx = stream_context_create(['http' => ['timeout' => 5]]);
         $icalData = @file_get_contents($url, false, $ctx);
         if ($icalData === false) {
@@ -160,12 +328,12 @@ class SmartHomeControl extends IPSModuleStrict
             $this->SLog('ERROR', 'CheckCalendar: Konnte Kalenderdaten nicht abrufen.', $error['message'] ?? 'Unbekannter Fehler');
             return;
         }
-        
-        // Sehr simpler iCal Parser für VEVENT
+
+        // Simple iCal parser for VEVENT
         $events = [];
         $lines = explode("\n", $icalData);
         $currentEvent = null;
-        
+
         foreach ($lines as $line) {
             $line = trim($line);
             if ($line === 'BEGIN:VEVENT') {
@@ -191,40 +359,165 @@ class SmartHomeControl extends IPSModuleStrict
                 }
             }
         }
-        
+
         $now = time();
         $vacationFound = false;
-        $vacationEndTime = 0;
-        
+
         foreach ($events as $event) {
             if (isset($event['SUMMARY']) && strtoupper(trim($event['SUMMARY'])) === 'URLAUB') {
                 if (isset($event['DTSTART']) && isset($event['DTEND'])) {
                     if ($now >= $event['DTSTART'] && $now <= $event['DTEND']) {
                         $vacationFound = true;
-                        $vacationEndTime = $event['DTEND'];
                         break;
                     }
                 }
             }
         }
-        
-        $currentMode = GetValue($this->GetIDForIdent('HouseMode'));
-        
-        if ($vacationFound && $currentMode !== 2) {
-            $this->SLog('INFO', 'Kalender: Urlaubstermin aktiv! Wechsle in den Urlaubs-Modus.', 'Ende: ' . date('d.m. H:i', $vacationEndTime));
-            $this->SetHouseMode(2, $vacationEndTime);
-        } elseif (!$vacationFound && $currentMode === 2) {
-            $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurück auf Anwesenheit.');
-            $this->SetHouseMode(0);
+
+        $currentPresence = (int)$this->GetValue('PresenceMode');
+
+        if ($vacationFound && $currentPresence !== self::PRESENCE_VACATION) {
+            $this->SLog('INFO', 'Kalender: Urlaubstermin aktiv! Wechsle in den Urlaubs-Modus.');
+            $this->SetPresenceMode(self::PRESENCE_VACATION);
+        } elseif (!$vacationFound && $currentPresence === self::PRESENCE_VACATION) {
+            $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurück auf Zuhause.');
+            $this->SetPresenceMode(self::PRESENCE_HOME);
         }
     }
 
+    // =========================================================================
+    // Private Helpers
+    // =========================================================================
+
+    private function TriggerSequencer(string $property, int $modeID, bool $isEntry): void
+    {
+        $sequencersJson = $this->ReadPropertyString($property);
+        $sequencers = json_decode($sequencersJson, true);
+        if (!is_array($sequencers)) {
+            return;
+        }
+
+        foreach ($sequencers as $seq) {
+            if (($seq['ModeID'] ?? -1) === $modeID) {
+                $key = $isEntry ? 'EntrySequencer' : 'ExitSequencer';
+                $seqInst = $seq[$key] ?? 0;
+                if ($seqInst > 0 && IPS_InstanceExists($seqInst)) {
+                    if ($isEntry && function_exists('SHSQ_RunSequence')) {
+                        SHSQ_RunSequence($seqInst);
+                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
+                    } elseif (!$isEntry && function_exists('SHSQ_RunDeactivationSequence')) {
+                        SHSQ_RunDeactivationSequence($seqInst);
+                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    private function RegisterSequencerReferences(string $property): void
+    {
+        $list = json_decode($this->ReadPropertyString($property), true);
+        if (is_array($list)) {
+            foreach ($list as $item) {
+                foreach (['EntrySequencer', 'ExitSequencer'] as $key) {
+                    $id = $item[$key] ?? 0;
+                    if ($id > 1 && @IPS_ObjectExists($id)) {
+                        $this->RegisterReference($id);
+                    }
+                }
+            }
+        }
+    }
+
+    private function ApplyFireplacePresentation(): void
+    {
+        $options = json_encode([
+            ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Flame', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
+            ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Flame', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
+        ]);
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('FireplaceActive'), [
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Flame', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
+            'OPTIONS' => $options
+        ]);
+    }
+
+    private function ApplyAlarmLevelPresentation(): void
+    {
+        $options = json_encode([
+            ['Value' => 0, 'Caption' => 'OK', 'IconValue' => 'Ok', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
+            ['Value' => 1, 'Caption' => 'Warnung', 'IconValue' => 'Warning', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0xFFAA00, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFAA00],
+            ['Value' => 2, 'Caption' => 'Alarm!', 'IconValue' => 'Alert', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
+        ]);
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('AlarmLevel'), [
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Alert', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
+            'OPTIONS' => $options
+        ]);
+    }
+
+    private function ApplyMediaPlayingPresentation(): void
+    {
+        $options = json_encode([
+            ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Speaker', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
+            ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Speaker', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0x00AAFF, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00AAFF]
+        ]);
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('MediaPlaying'), [
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Speaker', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
+            'OPTIONS' => $options
+        ]);
+    }
+
+    private function ApplyIrrigationPresentation(): void
+    {
+        $options = json_encode([
+            ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Drops', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
+            ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Drops', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0x0088FF, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x0088FF]
+        ]);
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('IrrigationActive'), [
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Drops', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
+            'OPTIONS' => $options
+        ]);
+    }
+
+    // =========================================================================
+    // Logging
+    // =========================================================================
 
     protected function LogMessage(string $Message, int $Type): bool
     {
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeControl: '. $Message);
+        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeControl: ' . $Message);
         return true;
     }
+
+    // =========================================================================
+    // Configuration Form
+    // =========================================================================
 
     public function GetConfigurationForm(): string
     {
@@ -232,99 +525,174 @@ class SmartHomeControl extends IPSModuleStrict
 {
     "elements": [
         {
-            "type": "List",
-            "name": "HouseModes",
-            "caption": "Haus-Modi (Matrix & Zuweisungen)",
-            "add": true,
-            "delete": true,
-            "changeOrder": true,
-            "columns": [
+            "type": "ExpansionPanel",
+            "caption": "📍 Anwesenheits-Sequenzen",
+            "expanded": false,
+            "items": [
                 {
-                    "caption": "ID",
-                    "name": "ModeID",
-                    "width": "60px",
-                    "add": 0,
-                    "edit": {
-                        "type": "NumberSpinner"
-                    }
-                },
-                {
-                    "caption": "Modus Name",
-                    "name": "ModeName",
-                    "width": "auto",
-                    "add": "Neuer Modus",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Icon",
-                    "name": "Icon",
-                    "width": "150px",
-                    "add": "",
-                    "edit": {
-                        "type": "SelectIcon"
-                    }
-                },
-                {
-                    "caption": "Farbe",
-                    "name": "Color",
-                    "width": "80px",
-                    "add": -1,
-                    "edit": {
-                        "type": "SelectColor"
-                    }
-                },
-                {
-                    "caption": "Ist Abwesenheit?",
-                    "name": "IsAbsence",
-                    "width": "110px",
+                    "type": "List",
+                    "name": "PresenceSequencers",
+                    "caption": "",
+                    "rowCount": 3,
                     "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Ist Schlafen?",
-                    "name": "IsSleep",
-                    "width": "100px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Sequencer Skript",
-                    "name": "SequencerInstance",
-                    "width": "150px",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectInstance"
-                    }
+                    "delete": false,
+                    "columns": [
+                        {
+                            "caption": "Modus",
+                            "name": "ModeName",
+                            "width": "120px",
+                            "edit": {
+                                "type": "Label"
+                            }
+                        },
+                        {
+                            "caption": "ID",
+                            "name": "ModeID",
+                            "width": "50px",
+                            "visible": false,
+                            "edit": {
+                                "type": "Label"
+                            }
+                        },
+                        {
+                            "caption": "Eintritts-Sequenz",
+                            "name": "EntrySequencer",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectInstance"
+                            }
+                        },
+                        {
+                            "caption": "Austritts-Sequenz",
+                            "name": "ExitSequencer",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectInstance"
+                            }
+                        }
+                    ]
                 }
             ]
         },
         {
-            "type": "Label",
-            "caption": "Urlaubs-Automatik"
+            "type": "ExpansionPanel",
+            "caption": "🎭 Aktivitäts-Sequenzen",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "List",
+                    "name": "ActivitySequencers",
+                    "caption": "",
+                    "rowCount": 4,
+                    "add": false,
+                    "delete": false,
+                    "columns": [
+                        {
+                            "caption": "Modus",
+                            "name": "ModeName",
+                            "width": "120px",
+                            "edit": {
+                                "type": "Label"
+                            }
+                        },
+                        {
+                            "caption": "ID",
+                            "name": "ModeID",
+                            "width": "50px",
+                            "visible": false,
+                            "edit": {
+                                "type": "Label"
+                            }
+                        },
+                        {
+                            "caption": "Eintritts-Sequenz",
+                            "name": "EntrySequencer",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectInstance"
+                            }
+                        },
+                        {
+                            "caption": "Austritts-Sequenz",
+                            "name": "ExitSequencer",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectInstance"
+                            }
+                        }
+                    ]
+                }
+            ]
         },
         {
-            "type": "ValidationTextBox",
-            "name": "CalendarURL",
-            "caption": "Google Kalender (iCal) URL (privater Link)"
+            "type": "ExpansionPanel",
+            "caption": "💰 Energiepreise",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "NumberSpinner",
+                    "name": "PriceElectricity",
+                    "caption": "Strompreis (€/kWh)",
+                    "digits": 4,
+                    "minimum": 0,
+                    "suffix": "€/kWh"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PriceWater",
+                    "caption": "Wasserpreis (€/m³)",
+                    "digits": 2,
+                    "minimum": 0,
+                    "suffix": "€/m³"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PriceGas",
+                    "caption": "Gaspreis (€/kWh)",
+                    "digits": 4,
+                    "minimum": 0,
+                    "suffix": "€/kWh"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "📅 Urlaubs-Automatik",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "ValidationTextBox",
+                    "name": "CalendarURL",
+                    "caption": "Google Kalender (iCal) URL"
+                }
+            ]
         }
     ],
     "actions": [
         {
-            "type": "Button",
-            "caption": "Manueller Kalender Sync",
-            "onClick": "SHC_CheckCalendar($id);",
-            "icon": "Play"
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "Button",
+                    "caption": "📅 Kalender Sync",
+                    "onClick": "SHC_CheckCalendar($id);",
+                    "icon": "Calendar"
+                }
+            ]
+        }
+    ],
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "SmartHomeControl aktiv"
         }
     ]
 }
 EOT;
     }
 }
-
-

@@ -3,17 +3,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
-require_once __DIR__ . '/../libs/Trait_HouseModeAware.php';
+require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
 class SmartHomeSecurity extends IPSModuleStrict
 {
     use SmartLog_Trait;
-    use HouseModeAware_Trait;
+    use CentralStateAware_Trait;
 
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterHouseModeAwareness();
 
 
         $this->RegisterPropertyString('DoorVariables', '[]');
@@ -53,12 +52,11 @@ class SmartHomeSecurity extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->ApplyHouseModeSubscription();
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $this->RegisterReference($this->ReadPropertyInteger('HouseModeVariableID'));
         $list_DoorVariables = json_decode($this->ReadPropertyString('DoorVariables'), true);
         if (is_array($list_DoorVariables)) {
             foreach ($list_DoorVariables as $item) {
@@ -117,7 +115,7 @@ class SmartHomeSecurity extends IPSModuleStrict
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
-        if ($this->HandleHouseModeMessage($SenderID, $Message, $Data)) return;
+        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $this->CalculateOpenWindows();
         }
@@ -214,9 +212,18 @@ class SmartHomeSecurity extends IPSModuleStrict
         return [];
     }
 
-    private function OnHouseModeChanged(int $mode, bool $isAbsence, bool $isSleep): void
+    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
-        $shouldLock = ($isAbsence || $isSleep || $mode == 4); // 4=Heimkino (still fallback to mode ID if needed, but primarily relying on absence/sleep)
+        $this->updateSecurityMode();
+    }
+
+    private function updateSecurityMode(): void
+    {
+        $isAbsence = $this->IsAway() || $this->IsVacation();
+        $isSleep = $this->IsSleeping();
+        $isCinema = $this->IsCinema();
+
+        $shouldLock = ($isAbsence || $isSleep || $isCinema);
 
         $doorVars = json_decode($this->ReadPropertyString('DoorVariables'), true);
         if (!is_array($doorVars)) return;
@@ -242,7 +249,7 @@ class SmartHomeSecurity extends IPSModuleStrict
                     }
                 }
             }
-            $this->SLog('INFO', 'Verriegelung der konfigurierten Türen durchgeführt.', "Hausmodus: $mode");
+            $this->SLog('INFO', 'Verriegelung der konfigurierten Türen durchgeführt.', "Hausmodus: Abwesend/Schlafen/Heimkino");
         } else {
             foreach ($doorVars as $door) {
                 // Fallback für alte Konfigurationen: false
@@ -258,7 +265,7 @@ class SmartHomeSecurity extends IPSModuleStrict
                     }
                 }
             }
-            $this->SLog('INFO', 'Aufsperren der konfigurierten Türen durchgeführt.', "Hausmodus: $mode");
+            $this->SLog('INFO', 'Aufsperren der konfigurierten Türen durchgeführt.', "Hausmodus: Anwesend");
         }
         // Alarm Check
         if ($isAbsence) {
@@ -372,7 +379,7 @@ class SmartHomeSecurity extends IPSModuleStrict
         $this->UpdateTimers();
 
         $onlyWhenPresent = $this->ReadPropertyBoolean('AutoUnlockOnlyWhenPresent');
-        $isAbsent = $this->ReadAttributeBoolean('IsAbsent');
+        $isAbsent = $this->IsAway() || $this->IsVacation();
         
         if ($onlyWhenPresent && $isAbsent) {
             $this->SLog('INFO', 'Automatisches Aufsperren übersprungen.', "Grund: Abwesenheit aktiv");
@@ -413,11 +420,6 @@ class SmartHomeSecurity extends IPSModuleStrict
         return <<<'EOT'
 {
     "elements": [
-        {
-            "type": "SelectVariable",
-            "name": "HouseModeVariableID",
-            "caption": "House Mode Variable"
-        },
         {
             "type": "List",
             "name": "DoorVariables",
