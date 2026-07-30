@@ -1,0 +1,14 @@
+{
+    "id": "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}",
+    "name": "SmartNotifier",
+    "type": 3,
+    "vendor": "Florian Graßinger",
+    "aliases": [
+        "Smart Notifier"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "NOTIFY",
+    "url": "https://github.com/pinkerunicorn/"
+}
