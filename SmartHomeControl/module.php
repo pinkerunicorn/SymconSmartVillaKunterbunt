@@ -54,7 +54,7 @@ class SmartHomeControl extends IPSModuleStrict
             'ICON' => 'Flame'
         ], 10);
 
-        $this->RegisterVariableInteger('AlarmLevel', 'Alarm-Stufe', [
+        $this->RegisterVariableString('AlarmLevel', 'Alarm-Stufe', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Alert'
         ], 11);
@@ -143,7 +143,6 @@ class SmartHomeControl extends IPSModuleStrict
 
         // === CustomPresentation for read-only central state variables ===
         $this->ApplyFireplacePresentation();
-        $this->ApplyAlarmLevelPresentation();
         $this->ApplyMediaPlayingPresentation();
         $this->ApplyIrrigationPresentation();
 
@@ -282,13 +281,13 @@ class SmartHomeControl extends IPSModuleStrict
         if ($level < 0 || $level > 2) {
             return;
         }
-        $this->SetValue('AlarmLevel', $level);
         $levelName = match($level) {
             self::ALARM_OK      => 'OK',
             self::ALARM_WARNING => 'Warnung',
             self::ALARM_ALARM   => 'Alarm',
             default             => 'Unbekannt'
         };
+        $this->SetValue('AlarmLevel', $levelName);
         $this->SLog('INFO', 'Alarm-Stufe: ' . $levelName);
     }
 
@@ -465,27 +464,6 @@ class SmartHomeControl extends IPSModuleStrict
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('FireplaceActive'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
             'ICON' => 'Flame', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $options
-        ]);
-    }
-
-    private function ApplyAlarmLevelPresentation(): void
-    {
-        $options = json_encode([
-            ['Value' => 0, 'Caption' => 'OK', 'IconValue' => 'Ok', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
-            ['Value' => 1, 'Caption' => 'Warnung', 'IconValue' => 'Warning', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0xFFAA00, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFAA00],
-            ['Value' => 2, 'Caption' => 'Alarm!', 'IconValue' => 'Alert', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('AlarmLevel'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Alert', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
             'OPTIONS' => $options
         ]);
