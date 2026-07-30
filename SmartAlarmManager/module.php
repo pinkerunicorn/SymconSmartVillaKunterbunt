@@ -574,7 +574,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         
         if ($profile['UseSonos'] ?? false) {
-            if (!$this->IsAbsent()) {
+            if ($this->IsHome()) {
                 $this->LogMessage("Sonos: Spiele TTS", KL_NOTIFY);
                 $this->TriggerSonos($message);
             }
@@ -713,7 +713,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         
         if ($profile['UseSonos'] ?? false) {
-            if (!$this->IsAbsent()) {
+            if ($this->IsHome()) {
                 $this->LogMessage("Sonos: Spiele TTS", KL_NOTIFY);
                 $this->TriggerSonos($message);
             }
@@ -938,11 +938,7 @@ class SmartAlarmManager extends IPSModuleStrict
         return <<<'EOT'
 {
     "elements": [
-        {
-            "type": "SelectVariable",
-            "name": "HouseModeVariableID",
-            "caption": "Haus-Modus Variable"
-        },
+
         {
             "type": "ExpansionPanel",
             "caption": "⚙ Globale Einstellungen & Eskalation",

@@ -279,7 +279,7 @@ class SmartHomeLighting extends IPSModuleStrict
         $this->SetValue('LightScheduleStatus', 'Starte KI-Generierung... Bitte warten.');
 
         // Sicherstellen, dass Timer und Event aktiv sind (z.B. nach Reboot oder täglichem Event)
-        if ($this->IsAbsent()) {
+        if (!$this->IsHome()) {
             $this->SetTimerInterval('LightExecutionTimer', 60000);
             $eid = @IPS_GetObjectIDByIdent('DailyScheduleEvent', $this->InstanceID);
             if ($eid !== false) {
