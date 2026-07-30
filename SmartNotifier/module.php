@@ -25,10 +25,12 @@ class SmartNotifier extends IPSModuleStrict
         $this->RegisterPropertyInteger('TargetWebFront', 0);
         $this->RegisterPropertyInteger('TargetSonosTTS', 0);
         $this->RegisterPropertyInteger('TargetMP3P', 0);
+        $this->RegisterPropertyInteger('TargetVestaboard', 0);
         
         $this->RegisterPropertyBoolean('EnablePush', true);
         $this->RegisterPropertyBoolean('EnableTTS', true);
         $this->RegisterPropertyBoolean('EnableMP3P', true);
+        $this->RegisterPropertyBoolean('EnableVestaboard', true);
 
         // Buffers for Queuing
         $this->SetBuffer('MessageQueue', json_encode([]));
@@ -58,6 +60,11 @@ class SmartNotifier extends IPSModuleStrict
         $mp3p = $this->ReadPropertyInteger('TargetMP3P');
         if ($mp3p > 0 && @IPS_InstanceExists($mp3p)) {
             $this->RegisterReference($mp3p);
+        }
+
+        $vesta = $this->ReadPropertyInteger('TargetVestaboard');
+        if ($vesta > 0 && @IPS_InstanceExists($vesta)) {
+            $this->RegisterReference($vesta);
         }
 
         $this->SetStatus(102);
@@ -104,6 +111,16 @@ class SmartNotifier extends IPSModuleStrict
             "type": "CheckBox",
             "name": "EnableMP3P",
             "caption": "MP3-Gong aktivieren"
+        },
+        {
+            "type": "SelectInstance",
+            "name": "TargetVestaboard",
+            "caption": "VestaboardGenerator Instanz"
+        },
+        {
+            "type": "CheckBox",
+            "name": "EnableVestaboard",
+            "caption": "Vestaboard Alarm-Push aktivieren"
         }
     ],
     "actions": [
@@ -154,6 +171,7 @@ EOT;
         // --------------------------------------------------------
         if ($priority >= 2) {
             $this->TriggerPush($title, $message, 'alarm');
+            $this->TriggerVestaboard("$title: $message");
             if ($isHome) {
                 $this->TriggerTTS("Achtung! $title: $message");
                 $this->TriggerMP3P('1'); // z.B. Track 1 = Alarm
@@ -166,6 +184,7 @@ EOT;
         // --------------------------------------------------------
         if ($priority === 1) {
             $this->TriggerPush($title, $message, 'warning');
+            $this->TriggerVestaboard("$title: $message");
             
             if ($isHome) {
                 if ($isSleeping || $isCinema) {
@@ -290,6 +309,21 @@ EOT;
                 }
             } catch (Exception $e) {
                 $this->SLog('ERROR', 'Fehler MP3P Fallback: ' . $e->getMessage());
+            }
+        }
+    }
+
+    private function TriggerVestaboard(string $message): void
+    {
+        if (!$this->ReadPropertyBoolean('EnableVestaboard')) return;
+
+        $vestaId = $this->ReadPropertyInteger('TargetVestaboard');
+        if ($vestaId > 0 && @IPS_InstanceExists($vestaId)) {
+            try {
+                // Aufruf der PushAlert-Methode im VestaboardGenerator (resume = true)
+                @IPS_RunScriptText("VESTA_PushAlert($vestaId, " . var_export(substr($message, 0, 132), true) . ", true);");
+            } catch (Exception $e) {
+                $this->SLog('ERROR', 'Fehler beim Senden an Vestaboard: ' . $e->getMessage());
             }
         }
     }
