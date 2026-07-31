@@ -751,7 +751,7 @@ class SmartAlarmManager extends IPSModuleStrict
             $vol      = (int)($profile['MP3_Volume'] ?? 100);
             $duration = (int)($profile['MP3_Duration'] ?? 0);
 
-            $this->LogMessage("HmIP_MP3P (Instanz $mp3InstID): Spiele Tracks '$soundStr' (Vol $vol%, Dauer {$duration}s)", KL_NOTIFY);
+            $this->LogMessage("HmIP_MP3P (Instanz $mp3InstID): Spiele Tracks '$soundStr' (Vol {${1}}%, Dauer {$duration}s)", KL_NOTIFY);
 
             $isMp3pModule = (IPS_GetInstance($mp3InstID)['ModuleInfo']['ModuleID'] === '{B1E4A92D-3C78-4F05-A8D3-7E2F1B094C56}');
             if ($isMp3pModule && function_exists('MP3P_PlaySound')) {
@@ -792,7 +792,7 @@ class SmartAlarmManager extends IPSModuleStrict
                         HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=100,DV=10,DU=0,RTV=0,RTU=1,C=0');
                     }
                 } else {
-                    $this->LogMessage("HmIP_MP3P LED (Instanz $instId): Farbe $color, Helligkeit $bright%", KL_NOTIFY);
+                    $this->LogMessage("HmIP_MP3P LED (Instanz $instId): Farbe $color, Helligkeit {${1}}%", KL_NOTIFY);
                     if (function_exists('MP3P_SetLight')) {
                         try {
                             MP3P_SetLight($instId, $color, $bright, 0);
@@ -816,7 +816,7 @@ class SmartAlarmManager extends IPSModuleStrict
                         HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=0,DV=31,DU=2,RTV=0,RTU=0,C=0,CB=0,RTTOV=0,RTTOU=3');
                     }
                 } else {
-                    $this->LogMessage("HmIP_WRC6 LED (Instanz $instId): Farbe $color, Modus $mode, Helligkeit $bright%", KL_NOTIFY);
+                    $this->LogMessage("HmIP_WRC6 LED (Instanz $instId): Farbe $color, Modus $mode, Helligkeit {${1}}%", KL_NOTIFY);
                     if (function_exists('WRC6_SetAllLEDs')) {
                         WRC6_SetAllLEDs($instId, $color, $mode, $bright);
                     } else {
