@@ -97,23 +97,16 @@ class SmartHomeGarage extends IPSModuleStrict
         }
         // ---------------------------------
         
-        $doorStateOptions = json_encode([
-            ['Value' => 0, 'Caption' => 'Zu', 'IconValue' => 'LockClosed', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-            ['Value' => 1, 'Caption' => 'Auf', 'IconValue' => 'LockOpen', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-            ['Value' => 2, 'Caption' => 'Fährt Auf...', 'IconValue' => 'ArrowUp', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-            ['Value' => 3, 'Caption' => 'Fährt Zu...', 'IconValue' => 'ArrowDown', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-            ['Value' => 4, 'Caption' => 'Teiloffen / Gestoppt', 'IconValue' => 'Warning', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF8000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF8000]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('DoorState'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Information',
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'PREVIEW_STYLE' => 1,
-            'SHOW_PREVIEW' => true,
-            'OPTIONS' => $doorStateOptions
-        ]);
+        
+        if (!IPS_VariableProfileExists('Garage.DoorState')) {
+            IPS_CreateVariableProfile('Garage.DoorState', 1);
+        }
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('DoorState'), 'Garage.DoorState');
+        IPS_SetVariableProfileAssociation('Garage.DoorState', 0, 'Zu', 'LockClosed', -1);
+        IPS_SetVariableProfileAssociation('Garage.DoorState', 1, 'Auf', 'LockOpen', -1);
+        IPS_SetVariableProfileAssociation('Garage.DoorState', 2, 'Fährt Auf...', 'ArrowUp', -1);
+        IPS_SetVariableProfileAssociation('Garage.DoorState', 3, 'Fährt Zu...', 'ArrowDown', -1);
+        IPS_SetVariableProfileAssociation('Garage.DoorState', 4, 'Teiloffen / Gestoppt', 'Warning', 0xFF8000);
 
         // Register messages for sensors
         $sensorClosed = $this->ReadPropertyInteger('SensorClosedID');
