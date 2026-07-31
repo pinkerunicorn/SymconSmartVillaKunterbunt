@@ -106,11 +106,11 @@ class SmartAlarmManager extends IPSModuleStrict
         // ---------------------------------
         
         $systemStatusOptions = json_encode([
-            ['Value' => 0, 'Caption' => 'Alles OK', 'IconValue' => 'Ok', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00FF00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00FF00],
-            ['Value' => 1, 'Caption' => 'Info / Hinweis', 'IconValue' => 'Information', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFFFF00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFFF00],
-            ['Value' => 2, 'Caption' => 'ALARM!', 'IconValue' => 'Warning', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000],
-            ['Value' => 3, 'Caption' => 'ESKALATION', 'IconValue' => 'Warning', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000],
-            ['Value' => 4, 'Caption' => 'VOLLALARM', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
+            ['Value' => 0, 'Caption' => 'Alles OK', 'IconValue' => 'Ok', 'IconActive' => true, 'ColorActive' => true, 'ColorDisplay' => 0x00FF00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00FF00],
+            ['Value' => 1, 'Caption' => 'Info / Hinweis', 'IconValue' => 'Information', 'IconActive' => true, 'ColorActive' => true, 'ColorDisplay' => 0xFFFF00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFFF00],
+            ['Value' => 2, 'Caption' => 'ALARM!', 'IconValue' => 'Warning', 'IconActive' => true, 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000],
+            ['Value' => 3, 'Caption' => 'ESKALATION', 'IconValue' => 'Warning', 'IconActive' => true, 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000],
+            ['Value' => 4, 'Caption' => 'VOLLALARM', 'IconValue' => 'Alert', 'IconActive' => true, 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
         ]);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), '');
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
