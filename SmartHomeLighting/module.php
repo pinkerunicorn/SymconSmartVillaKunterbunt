@@ -44,11 +44,6 @@ class SmartHomeLighting extends IPSModuleStrict
             'ICON'          => 'Warning'
         ], 5);
         $this->EnableAction('AlarmLightsOnDuringAbsence');
-        
-        $this->RegisterVariableString('VestaboardMessage', 'Vestaboard Nachricht', [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Information'
-        ], 6);
 
         $this->RegisterTimer('LightExecutionTimer', 0, 'SHL_CheckAndExecuteLightSchedule($_IPS[\'TARGET\']);');
         $this->RegisterTimer('GeminiRetryTimer', 0, 'SHL_GenerateAiSchedule($_IPS[\'TARGET\'], true);');
@@ -187,12 +182,9 @@ class SmartHomeLighting extends IPSModuleStrict
         
         if ($count == 0) {
             $this->SetValueIfChanged('ActiveLightsList', 'Alle aus');
-            $this->SetValueIfChanged('VestaboardMessage', '');
         } else {
             $namesStr = implode(", ", $activeNames);
             $this->SetValueIfChanged('ActiveLightsList', $namesStr);
-            $suffix = ($count == 1) ? ' Lampe an' : ' Lampen an';
-            $this->SetValueIfChanged('VestaboardMessage', $count . $suffix);
         }
         
         $this->SortLinkFolders();
