@@ -696,3 +696,5 @@ class SmartHomeControl extends IPSModuleStrict
 EOT;
     }
 }
+/ /   T r i g g e r   u p d a t e  
+ 
