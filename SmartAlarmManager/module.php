@@ -747,10 +747,11 @@ class SmartAlarmManager extends IPSModuleStrict
 
             $this->LogMessage("HmIP_MP3P (Instanz $mp3InstID): Spiele Tracks '$soundStr' (Vol $vol%, Dauer {$duration}s)", KL_NOTIFY);
 
-            if (function_exists('MP3P_PlaySound')) {
+            $isMp3pModule = (IPS_GetInstance($mp3InstID)['ModuleInfo']['ModuleID'] === '{B1E4A92D-3C78-4F05-A8D3-7E2F1B094C56}');
+            if ($isMp3pModule && function_exists('MP3P_PlaySound')) {
                 MP3P_PlaySound($mp3InstID, $soundStr, $vol, $duration);
             } else {
-                // Fallback: direkter HM-Aufruf falls Modul nicht geladen
+                // Fallback: direkter HM-Aufruf falls nativer Homematic Aktor
                 $param = "L={$vol},DU=0,DV={$duration},RTU=0,RTV=0,R=0,SL={$soundStr}";
                 try {
                     HM_WriteValueString($mp3InstID, 'COMBINED_PARAMETER', $param);
