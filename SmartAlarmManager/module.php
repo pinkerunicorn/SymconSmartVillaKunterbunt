@@ -37,10 +37,13 @@ class SmartAlarmManager extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Warning'
         ], 2);
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('ActiveAlarmsCount'), '');
+        
         $this->RegisterVariableString("LastEvent", "Letztes Ereignis", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Flag'
         ], 3);
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('LastEvent'), '');
         $this->RegisterVariableBoolean("AcknowledgeAll", "Alle Alarme quittieren", [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
             'ICON'         => 'Ok'
@@ -109,6 +112,7 @@ class SmartAlarmManager extends IPSModuleStrict
             ['Value' => 3, 'Caption' => 'ESKALATION', 'IconValue' => 'Warning', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000],
             ['Value' => 4, 'Caption' => 'VOLLALARM', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
         ]);
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), '');
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
             'ICON' => 'Information',
