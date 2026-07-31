@@ -21,6 +21,11 @@ class SmartHomeLighting extends IPSModuleStrict
 
         $this->RegisterAttributeString('LightSchedule', '[]');
 
+        $this->RegisterVariableString('CurrentLightingMode', 'Aktueller Modus', [
+            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'        => 'Information'
+        ], 0);
+
         $this->RegisterVariableString('LightScheduleStatus', 'ℹ Aktueller KI-Schaltplan', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'        => 'Clock'
@@ -40,8 +45,8 @@ class SmartHomeLighting extends IPSModuleStrict
             'ICON'        => 'Bulb'
         ], 4);
         $this->RegisterVariableBoolean('AlarmLightsOnDuringAbsence', 'Alarm: Licht brennt bei Abwesenheit', [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_SWITCH,
-            'ICON'        => 'Warning'
+            'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
+            'ICON'          => 'Warning'
         ], 5);
         $this->EnableAction('AlarmLightsOnDuringAbsence');
         
@@ -222,6 +227,7 @@ class SmartHomeLighting extends IPSModuleStrict
         $eid = $this->MaintainDailyEvent();
         
         if ($isAbsence) {
+            $this->SetValueIfChanged('CurrentLightingMode', 'Abwesend (Präsenzsimulation aktiv)');
             $this->GenerateAiSchedule();
             IPS_SetEventActive($eid, true);
             $this->SetTimerInterval('LightExecutionTimer', 60000);
@@ -244,6 +250,13 @@ class SmartHomeLighting extends IPSModuleStrict
             $this->WriteAttributeString('LightSchedule', '[]');
             $this->SetValueIfChanged('LightScheduleStatus', 'Abwesenheit inaktiv - Kein Plan generiert');
             $this->SetValueIfChanged('GeminiError', false);
+            $this->SetValueIfChanged('AlarmLightsOnDuringAbsence', false);
+            
+            if ($isSleep) {
+                $this->SetValueIfChanged('CurrentLightingMode', 'Schlafen (Nachtbetrieb)');
+            } else {
+                $this->SetValueIfChanged('CurrentLightingMode', 'Anwesend (Normalbetrieb)');
+            }
             
             if ($isSleep) { // Schlafen
                 $this->TurnOffAllSimulatedLights();
