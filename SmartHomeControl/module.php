@@ -29,16 +29,10 @@ class SmartHomeControl extends IPSModuleStrict
         parent::Create();
 
         // === Main Axes ===
-        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'House'
-        ], 1);
+        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', '', 1);
         $this->EnableAction('PresenceMode');
 
-        $this->RegisterVariableInteger('ActivityMode', 'AktivitÃ¤t', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Gear'
-        ], 2);
+        $this->RegisterVariableInteger('ActivityMode', 'AktivitÃ¤t', '', 2);
         $this->EnableAction('ActivityMode');
 
         // Google Home / Alexa Interface (Boolean Toggle)
@@ -90,6 +84,7 @@ class SmartHomeControl extends IPSModuleStrict
 
         // === Calendar ===
         $this->RegisterPropertyString('CalendarURL', '');
+        $this->RegisterAttributeBoolean('VacationFromCalendar', false);
 
         // Timer for calendar check
         $this->RegisterTimer('CalendarCheck', 0, 'SHC_CheckCalendar($_IPS[\'TARGET\']);');
@@ -110,6 +105,7 @@ class SmartHomeControl extends IPSModuleStrict
         $presenceProfile = 'SHC.PresenceMode.' . $this->InstanceID;
         if (!IPS_VariableProfileExists($presenceProfile)) {
             IPS_CreateVariableProfile($presenceProfile, 1);
+            IPS_SetVariableProfileIcon($presenceProfile, 'House');
         }
         // Clear existing associations
         foreach (IPS_GetVariableProfile($presenceProfile)['Associations'] as $a) {
@@ -124,6 +120,7 @@ class SmartHomeControl extends IPSModuleStrict
         $activityProfile = 'SHC.ActivityMode.' . $this->InstanceID;
         if (!IPS_VariableProfileExists($activityProfile)) {
             IPS_CreateVariableProfile($activityProfile, 1);
+            IPS_SetVariableProfileIcon($activityProfile, 'Gear');
         }
         foreach (IPS_GetVariableProfile($activityProfile)['Associations'] as $a) {
             IPS_SetVariableProfileAssociation($activityProfile, $a['Value'], '', '', -1);
@@ -191,6 +188,10 @@ class SmartHomeControl extends IPSModuleStrict
         if ($mode < 0 || $mode > 2) {
             $this->SLog('ERROR', 'UngÃ¼ltiger PresenceMode: ' . $mode);
             return;
+        }
+
+        if ($mode !== self::PRESENCE_VACATION) {
+            $this->WriteAttributeBoolean('VacationFromCalendar', false);
         }
 
         $oldMode = (int)$this->GetValue('PresenceMode');
@@ -399,10 +400,16 @@ class SmartHomeControl extends IPSModuleStrict
 
         if ($vacationFound && $currentPresence !== self::PRESENCE_VACATION) {
             $this->SLog('INFO', 'Kalender: Urlaubstermin aktiv! Wechsle in den Urlaubs-Modus.');
+            $this->WriteAttributeBoolean('VacationFromCalendar', true);
             $this->SetPresenceMode(self::PRESENCE_VACATION);
         } elseif (!$vacationFound && $currentPresence === self::PRESENCE_VACATION) {
-            $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurÃ¼ck auf Zuhause.');
-            $this->SetPresenceMode(self::PRESENCE_HOME);
+            if ($this->ReadAttributeBoolean('VacationFromCalendar')) {
+                $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurÃ¼ck auf Zuhause.');
+                $this->WriteAttributeBoolean('VacationFromCalendar', false);
+                $this->SetPresenceMode(self::PRESENCE_HOME);
+            } else {
+                $this->SLog('DEBUG', 'CheckCalendar: Kein Urlaub im Kalender, aber manuell gesetzt. Ãœberschreibe nicht.');
+            }
         }
     }
 
