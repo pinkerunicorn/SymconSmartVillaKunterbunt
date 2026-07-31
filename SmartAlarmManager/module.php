@@ -14,7 +14,6 @@ class SmartAlarmManager extends IPSModuleStrict
     public function Create(): void{
         parent::Create();
         
-        $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 2);
         $this->DA_RegisterAvailability(900);
 
         $this->RegisterPropertyString("MonitoredVariables", "[]");

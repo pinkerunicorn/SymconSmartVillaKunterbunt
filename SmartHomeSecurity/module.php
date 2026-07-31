@@ -16,7 +16,6 @@ class SmartHomeSecurity extends IPSModuleStrict
     {
         parent::Create();
         
-        $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 2);
         $this->DA_RegisterAvailability(900);
 
         $this->RegisterPropertyString('DoorVariables', '[]');

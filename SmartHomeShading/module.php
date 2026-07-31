@@ -15,7 +15,6 @@ class SmartHomeShading extends IPSModuleStrict
     {
         parent::Create();
         
-        $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 0);
         $this->DA_RegisterAvailability(900);
 
 

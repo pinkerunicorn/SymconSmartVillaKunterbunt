@@ -16,7 +16,6 @@ class SmartHomeHeating extends IPSModuleStrict
     {
         parent::Create();
         
-        $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 1);
         $this->DA_RegisterAvailability(900);
 
 
