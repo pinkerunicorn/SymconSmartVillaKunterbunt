@@ -2,7 +2,7 @@
     "id": "{72F50C1B-873B-49E8-ACFE-0C1B036928C4}",
     "name": "SmartHomeShading",
     "type": 3,
-    "vendor": "Florian Graßinger",
+    "vendor": "Florian Gra\u00dfinger",
     "aliases": [
         "SmartHome Shading"
     ],
@@ -10,6 +10,6 @@
     "childRequirements": [],
     "implemented": [],
     "prefix": "SHSH",
-    "url": "https://github.com/pinkerunicorn/",
-    "author": "Florian Graßinger"
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartHomeShading",
+    "author": "Florian Gra\u00dfinger"
 }
