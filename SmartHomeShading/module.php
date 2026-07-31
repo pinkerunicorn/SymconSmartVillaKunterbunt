@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
+require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
 class SmartHomeShading extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use CentralStateAware_Trait;
+    use DeviceAvailability_Trait;
     public function Create(): void
     {
         parent::Create();
+        
+        $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 0);
+        $this->DA_RegisterAvailability(900);
 
 
         // 1. Globale Sensorik
@@ -70,6 +75,7 @@ class SmartHomeShading extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
         
         // Ensure existing instances get updated presentations
         if (function_exists('IPS_SetVariableCustomPresentation')) {
@@ -178,6 +184,7 @@ class SmartHomeShading extends IPSModuleStrict
         
         // Variable Profile für Status
 
+        $this->DA_SetAvailable(true);
     }
     
     private function UpdateMessageRegistrations(): void

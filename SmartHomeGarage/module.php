@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
+require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
 class SmartHomeGarage extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use CentralStateAware_Trait;
+    use DeviceAvailability_Trait;
 
     private const STATE_CLOSED = 0;
     private const STATE_OPEN = 1;
@@ -19,6 +21,9 @@ class SmartHomeGarage extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
+        
+        $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 2);
+        $this->DA_RegisterAvailability(900);
 
         // Properties
         $this->RegisterPropertyInteger('MotorVariableID', 0);
@@ -60,6 +65,7 @@ class SmartHomeGarage extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
         $this->SubscribeToCentralStates(['PresenceMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
@@ -142,6 +148,7 @@ class SmartHomeGarage extends IPSModuleStrict
 
         // Initialize status
         $this->CheckSensors();
+        $this->DA_SetAvailable(true);
     }
 
     public function RequestAction(string $Ident, mixed $Value): void

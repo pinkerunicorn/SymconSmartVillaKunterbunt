@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
 class SmartAlarmManager extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use CentralStateAware_Trait;
+    use DeviceAvailability_Trait;
     public function Create(): void{
         parent::Create();
+        
+        $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 2);
+        $this->DA_RegisterAvailability(900);
 
         $this->RegisterPropertyString("MonitoredVariables", "[]");
         $this->RegisterPropertyString("ActionProfiles", "[]");
@@ -53,6 +58,7 @@ class SmartAlarmManager extends IPSModuleStrict
 
     public function ApplyChanges(): void{
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
@@ -163,6 +169,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
 
         $this->UpdateStatusVariables();
+        $this->DA_SetAvailable(true);
     }
 
     private function GetActionProfiles($profileID)
