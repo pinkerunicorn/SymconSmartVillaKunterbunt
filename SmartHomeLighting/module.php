@@ -21,12 +21,7 @@ class SmartHomeLighting extends IPSModuleStrict
 
         $this->RegisterAttributeString('LightSchedule', '[]');
 
-        $this->RegisterVariableString('CurrentLightingMode', 'Aktueller Modus', [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Information'
-        ], 0);
-
-        $this->RegisterVariableString('LightScheduleStatus', 'ℹ Aktueller KI-Schaltplan', [
+        $this->RegisterVariableString('LightScheduleStatus', '🤖 Aktueller KI-Schaltplan', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'        => 'Clock'
         ], 1);
@@ -227,7 +222,6 @@ class SmartHomeLighting extends IPSModuleStrict
         $eid = $this->MaintainDailyEvent();
         
         if ($isAbsence) {
-            $this->SetValueIfChanged('CurrentLightingMode', 'Abwesend (Präsenzsimulation aktiv)');
             $this->GenerateAiSchedule();
             IPS_SetEventActive($eid, true);
             $this->SetTimerInterval('LightExecutionTimer', 60000);
@@ -251,12 +245,6 @@ class SmartHomeLighting extends IPSModuleStrict
             $this->SetValueIfChanged('LightScheduleStatus', 'Abwesenheit inaktiv - Kein Plan generiert');
             $this->SetValueIfChanged('GeminiError', false);
             $this->SetValueIfChanged('AlarmLightsOnDuringAbsence', false);
-            
-            if ($isSleep) {
-                $this->SetValueIfChanged('CurrentLightingMode', 'Schlafen (Nachtbetrieb)');
-            } else {
-                $this->SetValueIfChanged('CurrentLightingMode', 'Anwesend (Normalbetrieb)');
-            }
             
             if ($isSleep) { // Schlafen
                 $this->TurnOffAllSimulatedLights();
@@ -547,19 +535,24 @@ class SmartHomeLighting extends IPSModuleStrict
                 if ($id > 0 && IPS_VariableExists($id)) {
                     $varObj = IPS_GetVariable($id);
                     if ($varObj['VariableType'] == 0) {
-                        if (!@RequestAction($id, false)) {
-                            $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Ziel: AUS");
-                        } else {
-                            $this->SLog('INFO', "Licht ausgeschaltet: $devName", "ID: $id");
+                        if (GetValue($id) === true) {
+                            if (!@RequestAction($id, false)) {
+                                $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Ziel: AUS");
+                            } else {
+                                $this->SLog('INFO', "Licht ausgeschaltet: $devName", "ID: $id");
+                            }
+                            IPS_Sleep(100);
                         }
                     } else {
-                        if (!@RequestAction($id, 0)) {
-                            $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
-                        } else {
-                            $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
+                        if (GetValue($id) > 0) {
+                            if (!@RequestAction($id, 0)) {
+                                $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
+                            } else {
+                                $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
+                            }
+                            IPS_Sleep(100);
                         }
                     }
-                    IPS_Sleep(100);
                 }
             }
         }
@@ -573,12 +566,14 @@ class SmartHomeLighting extends IPSModuleStrict
                 $id      = $light['VariableID'];
                 $devName = (isset($light['Name']) && $light['Name'] !== '') ? $light['Name'] : IPS_GetName($id);
                 if ($id > 0 && IPS_VariableExists($id)) {
-                    if (!@RequestAction($id, 0)) {
-                        $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
-                    } else {
-                        $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
+                    if (GetValue($id) > 0) {
+                        if (!@RequestAction($id, 0)) {
+                            $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
+                        } else {
+                            $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
+                        }
+                        IPS_Sleep(100);
                     }
-                    IPS_Sleep(100);
                 }
             }
         }
