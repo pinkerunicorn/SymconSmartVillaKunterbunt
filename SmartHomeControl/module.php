@@ -65,8 +65,45 @@ class SmartHomeControl extends IPSModuleStrict
 
         // === Energy Price Properties ===
         $this->RegisterPropertyFloat('PriceElectricity', 0.32);
+        $this->RegisterPropertyFloat('BasePriceElectricity', 0.0);
         $this->RegisterPropertyFloat('PriceWater', 4.80);
+        $this->RegisterPropertyFloat('BasePriceWater', 0.0);
         $this->RegisterPropertyFloat('PriceGas', 0.12);
+        $this->RegisterPropertyFloat('BasePriceGas', 0.0);
+
+        // Export Variables for Energy Calculators (Read-Only)
+        $this->RegisterVariableFloat('VarPriceElectricity', 'Strompreis', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'SUFFIX' => ' Cent/kWh',
+            'ICON' => 'Electricity'
+        ], 200);
+        $this->RegisterVariableFloat('VarBasePriceElectricity', 'Strom Grundpreis', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'SUFFIX' => ' €/Jahr',
+            'ICON' => 'Electricity'
+        ], 201);
+        
+        $this->RegisterVariableFloat('VarPriceWater', 'Wasserpreis', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'SUFFIX' => ' Cent/m³',
+            'ICON' => 'Tap'
+        ], 202);
+        $this->RegisterVariableFloat('VarBasePriceWater', 'Wasser Grundpreis', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'SUFFIX' => ' €/Jahr',
+            'ICON' => 'Tap'
+        ], 203);
+        
+        $this->RegisterVariableFloat('VarPriceGas', 'Gaspreis', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'SUFFIX' => ' Cent/kWh',
+            'ICON' => 'Flame'
+        ], 204);
+        $this->RegisterVariableFloat('VarBasePriceGas', 'Gas Grundpreis', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'SUFFIX' => ' €/Jahr',
+            'ICON' => 'Flame'
+        ], 205);
 
         // === Sequencer Properties ===
         $this->RegisterPropertyString('PresenceSequencers', json_encode([
@@ -139,6 +176,16 @@ class SmartHomeControl extends IPSModuleStrict
         }
 
         // === CustomPresentation for read-only central state variables ===
+        // Sync properties to variables for Energy Calculator
+        $this->SetValue('VarPriceElectricity', $this->ReadPropertyFloat('PriceElectricity') * 100);
+        $this->SetValue('VarBasePriceElectricity', $this->ReadPropertyFloat('BasePriceElectricity'));
+        
+        $this->SetValue('VarPriceWater', $this->ReadPropertyFloat('PriceWater') * 100);
+        $this->SetValue('VarBasePriceWater', $this->ReadPropertyFloat('BasePriceWater'));
+        
+        $this->SetValue('VarPriceGas', $this->ReadPropertyFloat('PriceGas') * 100);
+        $this->SetValue('VarBasePriceGas', $this->ReadPropertyFloat('BasePriceGas'));
+
         $this->ApplyFireplacePresentation();
         $this->ApplyMediaPlayingPresentation();
         $this->ApplyIrrigationPresentation();
@@ -533,7 +580,7 @@ class SmartHomeControl extends IPSModuleStrict
     "elements": [
         {
             "type": "ExpansionPanel",
-            "caption": "ðŸ“ Anwesenheits-Sequenzen",
+            "caption": "📍 Anwesenheits-Sequenzen",
             "expanded": false,
             "items": [
                 {
@@ -641,28 +688,67 @@ class SmartHomeControl extends IPSModuleStrict
             "expanded": false,
             "items": [
                 {
-                    "type": "NumberSpinner",
-                    "name": "PriceElectricity",
-                    "caption": "Strompreis (€/kWh)",
-                    "digits": 4,
-                    "minimum": 0,
-                    "suffix": "€/kWh"
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PriceElectricity",
+                            "caption": "Strompreis (€/kWh)",
+                            "digits": 4,
+                            "minimum": 0,
+                            "suffix": "€/kWh"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "BasePriceElectricity",
+                            "caption": "Grundpreis (€/Jahr)",
+                            "digits": 2,
+                            "minimum": 0,
+                            "suffix": "€/Jahr"
+                        }
+                    ]
                 },
                 {
-                    "type": "NumberSpinner",
-                    "name": "PriceWater",
-                    "caption": "Wasserpreis (€/m³)",
-                    "digits": 2,
-                    "minimum": 0,
-                    "suffix": "€/m³"
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PriceWater",
+                            "caption": "Wasserpreis (€/m³)",
+                            "digits": 4,
+                            "minimum": 0,
+                            "suffix": "€/m³"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "BasePriceWater",
+                            "caption": "Grundpreis (€/Jahr)",
+                            "digits": 2,
+                            "minimum": 0,
+                            "suffix": "€/Jahr"
+                        }
+                    ]
                 },
                 {
-                    "type": "NumberSpinner",
-                    "name": "PriceGas",
-                    "caption": "Gaspreis (€/kWh)",
-                    "digits": 4,
-                    "minimum": 0,
-                    "suffix": "€/kWh"
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "PriceGas",
+                            "caption": "Gaspreis (€/kWh)",
+                            "digits": 4,
+                            "minimum": 0,
+                            "suffix": "€/kWh"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "BasePriceGas",
+                            "caption": "Grundpreis (€/Jahr)",
+                            "digits": 2,
+                            "minimum": 0,
+                            "suffix": "€/Jahr"
+                        }
+                    ]
                 }
             ]
         },
