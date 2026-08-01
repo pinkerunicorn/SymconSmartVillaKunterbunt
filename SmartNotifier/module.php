@@ -7,9 +7,9 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 
 /**
  * SmartNotifier
- * Zentraler Nachrichten-Hub für das Smart Home.
+ * Zentraler Nachrichten-Hub fÃ¼r das Smart Home.
  *
- * @author Florian Graßinger
+ * @author Florian GraÃŸinger
  * @url https://github.com/pinkerunicorn/
  */
 class SmartNotifier extends IPSModuleStrict
@@ -85,7 +85,7 @@ class SmartNotifier extends IPSModuleStrict
         {
             "type": "SelectInstance",
             "name": "TargetWebFront",
-            "caption": "WebFront Instanz (für Push)"
+            "caption": "WebFront Instanz (fÃ¼r Push)"
         },
         {
             "type": "CheckBox",
@@ -127,7 +127,7 @@ class SmartNotifier extends IPSModuleStrict
         {
             "type": "Button",
             "caption": "Test: Low Priority",
-            "onClick": "NOTIFY_SendMessage($id, 'Test', 'Dies ist eine Nachricht mit niedriger Priorität.', 0);"
+            "onClick": "NOTIFY_SendMessage($id, 'Test', 'Dies ist eine Nachricht mit niedriger PrioritÃ¤t.', 0);"
         },
         {
             "type": "Button",
@@ -152,13 +152,37 @@ EOT;
     }
 
     /**
-     * Senden einer Nachricht über den Notifier.
+     * Senden einer Nachricht Ã¼ber den Notifier.
      *
      * @param string $title
      * @param string $message
      * @param int $priority 0 = Low, 1 = Medium, 2 = High
      */
+    public function SendEvent(string $PayloadJSON): void
+    {
+        $payload = json_decode($PayloadJSON, true);
+        if (!is_array($payload)) {
+            $this->SLog('ERROR', 'SmartNotifier: Invalid JSON payload');
+            return;
+        }
+        
+        $title = $payload['Title'] ?? 'Info';
+        $message = $payload['Message'] ?? '';
+        $priority = (int)($payload['Priority'] ?? 0);
+        $actions = $payload['Actions'] ?? [];
+
+        $this->ProcessEvent($title, $message, $priority, $actions);
+    }
+
+    /**
+     * @deprecated Use SendEvent() instead.
+     */
     public function SendMessage(string $title, string $message, int $priority): void
+    {
+        $this->ProcessEvent($title, $message, $priority, []);
+    }
+
+    private function ProcessEvent(string $title, string $message, int $priority, array $actions): void
     {
         $this->SLog('INFO', "Message received: [$title] $message (Prio: $priority)");
 
@@ -170,7 +194,7 @@ EOT;
         // High Priority (2) -> Immer volle Eskalation
         // --------------------------------------------------------
         if ($priority >= 2) {
-            $this->TriggerPush($title, $message, 'alarm');
+            $this->TriggerPush($title, $message, 'alarm', $actions);
             $this->TriggerVestaboard("$title: $message");
             if ($isHome) {
                 $this->TriggerTTS("Achtung! $title: $message");
@@ -183,12 +207,12 @@ EOT;
         // Medium Priority (1) -> Push + lokales Feedback
         // --------------------------------------------------------
         if ($priority === 1) {
-            $this->TriggerPush($title, $message, 'warning');
+            $this->TriggerPush($title, $message, 'warning', $actions);
             $this->TriggerVestaboard("$title: $message");
             
             if ($isHome) {
                 if ($isSleeping || $isCinema) {
-                    // Stumm, wenn man schläft oder Film schaut, aber sofort Push
+                    // Stumm, wenn man schlÃ¤ft oder Film schaut, aber sofort Push
                 } else {
                     $this->TriggerTTS("$title: $message");
                     $this->TriggerMP3P('2'); // z.B. Track 2 = Hinweis
@@ -205,11 +229,11 @@ EOT;
                 // Queue for morning!
                 $this->QueueMessage($title, $message);
                 // Stiller Push zur Info
-                $this->TriggerPush($title, $message, '');
+                $this->TriggerPush($title, $message, '', $actions);
                 return;
             }
             
-            $this->TriggerPush($title, $message, '');
+            $this->TriggerPush($title, $message, '', $actions);
             if ($isHome && !$isCinema) {
                 $this->TriggerTTS($message); // Ohne Titel, nur die kurze Nachricht
             }
@@ -249,7 +273,7 @@ EOT;
         $count = count($queue);
         $this->SLog('INFO', "Guten Morgen. Verarbeite $count gesammelte Nachrichten.");
 
-        $ttsMsg = "Guten Morgen. Während du geschlafen hast, gab es $count Meldungen. ";
+        $ttsMsg = "Guten Morgen. WÃ¤hrend du geschlafen hast, gab es $count Meldungen. ";
         foreach ($queue as $item) {
             $ttsMsg .= $item['title'] . ": " . $item['message'] . ". ";
         }
@@ -264,7 +288,7 @@ EOT;
     // Hardware Triggers
     // =========================================================================
 
-    private function TriggerPush(string $title, string $message, string $sound): void
+    private function TriggerPush(string $title, string $message, string $sound, array $actions = []): void
     {
         if (!$this->ReadPropertyBoolean('EnablePush')) return;
         
