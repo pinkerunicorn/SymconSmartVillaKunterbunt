@@ -639,8 +639,6 @@ class SmartHomeControl extends IPSModuleStrict
         if ($changed) {
             IPS_ApplyChanges($this->InstanceID);
         }
-        // ---------------------------------------------------
-
         $json = <<<'EOT'
 {
     "elements": [
@@ -660,19 +658,13 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Modus",
                             "name": "ModeName",
-                            "width": "120px",
-                            "edit": {
-                                "type": "Label"
-                            }
+                            "width": "120px"
                         },
                         {
                             "caption": "ID",
                             "name": "ModeID",
                             "width": "50px",
-                            "visible": false,
-                            "edit": {
-                                "type": "Label"
-                            }
+                            "visible": false
                         },
                         {
                             "caption": "Eintritts-Sequenz",
@@ -712,19 +704,13 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Modus",
                             "name": "ModeName",
-                            "width": "120px",
-                            "edit": {
-                                "type": "Label"
-                            }
+                            "width": "120px"
                         },
                         {
                             "caption": "ID",
                             "name": "ModeID",
                             "width": "50px",
-                            "visible": false,
-                            "edit": {
-                                "type": "Label"
-                            }
+                            "visible": false
                         },
                         {
                             "caption": "Eintritts-Sequenz",
