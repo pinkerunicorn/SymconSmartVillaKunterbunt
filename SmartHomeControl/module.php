@@ -583,228 +583,10 @@ class SmartHomeControl extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        $json = <<<'EOT'
-{
-    "elements": [
-        {
-            "type": "ExpansionPanel",
-            "caption": "📍 Anwesenheits-Sequenzen",
-            "expanded": false,
-            "items": [
-                {
-                    "type": "List",
-                    "name": "PresenceSequencers",
-                    "caption": "",
-                    "rowCount": 3,
-                    "add": false,
-                    "delete": false,
-                    "columns": [
-                        {
-                            "caption": "Modus",
-                            "name": "ModeName",
-                            "width": "120px",
-                            "edit": {
-                                "type": "Label"
-                            }
-                        },
-                        {
-                            "caption": "ID",
-                            "name": "ModeID",
-                            "width": "50px",
-                            "visible": false,
-                            "edit": {
-                                "type": "Label"
-                            }
-                        },
-                        {
-                            "caption": "Eintritts-Sequenz",
-                            "name": "EntrySequencer",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectInstance"
-                            }
-                        },
-                        {
-                            "caption": "Austritts-Sequenz",
-                            "name": "ExitSequencer",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectInstance"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "🎬 Aktivitäts-Sequenzen",
-            "expanded": false,
-            "items": [
-                {
-                    "type": "List",
-                    "name": "ActivitySequencers",
-                    "caption": "",
-                    "rowCount": 4,
-                    "add": false,
-                    "delete": false,
-                    "columns": [
-                        {
-                            "caption": "Modus",
-                            "name": "ModeName",
-                            "width": "120px",
-                            "edit": {
-                                "type": "Label"
-                            }
-                        },
-                        {
-                            "caption": "ID",
-                            "name": "ModeID",
-                            "width": "50px",
-                            "visible": false,
-                            "edit": {
-                                "type": "Label"
-                            }
-                        },
-                        {
-                            "caption": "Eintritts-Sequenz",
-                            "name": "EntrySequencer",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectInstance"
-                            }
-                        },
-                        {
-                            "caption": "Austritts-Sequenz",
-                            "name": "ExitSequencer",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectInstance"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "💰 Energiepreise",
-            "expanded": false,
-            "items": [
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "NumberSpinner",
-                            "name": "PriceElectricity",
-                            "caption": "Strompreis (€/kWh)",
-                            "digits": 4,
-                            "minimum": 0,
-                            "suffix": "€/kWh"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "BasePriceElectricity",
-                            "caption": "Grundpreis (€/Jahr)",
-                            "digits": 2,
-                            "minimum": 0,
-                            "suffix": "€/Jahr"
-                        }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "NumberSpinner",
-                            "name": "PriceWater",
-                            "caption": "Wasserpreis (€/m³)",
-                            "digits": 4,
-                            "minimum": 0,
-                            "suffix": "€/m³"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "BasePriceWater",
-                            "caption": "Grundpreis (€/Jahr)",
-                            "digits": 2,
-                            "minimum": 0,
-                            "suffix": "€/Jahr"
-                        }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "NumberSpinner",
-                            "name": "PriceGas",
-                            "caption": "Gaspreis (€/kWh)",
-                            "digits": 4,
-                            "minimum": 0,
-                            "suffix": "€/kWh"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "BasePriceGas",
-                            "caption": "Grundpreis (€/Jahr)",
-                            "digits": 2,
-                            "minimum": 0,
-                            "suffix": "€/Jahr"
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "📅 Urlaubs-Automatik",
-            "expanded": false,
-            "items": [
-                {
-                    "type": "ValidationTextBox",
-                    "name": "CalendarURL",
-                    "caption": "Google Kalender (iCal) URL"
-                }
-            ]
-        }
-    ],
-    "actions": [
-        {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "Button",
-                    "caption": "📅 Kalender Sync",
-                    "onClick": "SHC_CheckCalendar($id);",
-                    "icon": "Calendar"
-                }
-            ]
-        }
-    ],
-    "status": [
-        {
-            "code": 102,
-            "icon": "active",
-            "caption": "SmartHomeControl aktiv"
-        }
-    ]
-}
-EOT;
-
-        $form = json_decode($json, true);
-
-        // --- Migration & Fix for PresenceSequencers ---
-        $presenceDef = [
-            0 => 'Zuhause',
-            1 => 'Kurz weg',
-            2 => 'Urlaub'
-        ];
+        // --- Self-Healing für kaputte Sequencer-Listen ---
+        $changed = false;
         
+        $presenceDef = [0 => 'Zuhause', 1 => 'Kurz weg', 2 => 'Urlaub'];
         $presenceJson = $this->ReadPropertyString('PresenceSequencers');
         $presenceList = json_decode($presenceJson, true) ?: [];
         $mapP = [];
@@ -822,16 +604,13 @@ EOT;
                 'ExitSequencer' => $mapP[$id]['ExitSequencer'] ?? 0
             ];
         }
-        $form['elements'][0]['items'][0]['values'] = $presenceValues;
+        $newPres        if ($newPresenceJson !== $presenceJson) {
+            IPS_SetProperty($this->InstanceID, 'PresenceSequencers', $newPresenceJson);
+            $this->LogMessage("Self-Healing: PresenceSequencers repariert!", KL_NOTIFY);
+            $changed = true;
+        }
 
-        // --- Migration & Fix for ActivitySequencers ---
-        $activityDef = [
-            0 => 'Normal',
-            1 => 'Heimkino',
-            2 => 'Schlafen',
-            3 => 'Party'
-        ];
-        
+        $activityDef = [0 => 'Normal', 1 => 'Heimkino', 2 => 'Schlafen', 3 => 'Party'];
         $activityJson = $this->ReadPropertyString('ActivitySequencers');
         $activityList = json_decode($activityJson, true) ?: [];
         $mapA = [];
@@ -849,8 +628,18 @@ EOT;
                 'ExitSequencer' => $mapA[$id]['ExitSequencer'] ?? 0
             ];
         }
-        $form['elements'][1]['items'][0]['values'] = $activityValues;
+        $newActivityJson = json_encode($activityValues);
+        if ($newActivityJson !== $activityJson) {
+            IPS_SetProperty($this->InstanceID, 'ActivitySequencers', $newActivityJson);
+            $this->LogMessage("Self-Healing: ActivitySequencers repariert!", KL_NOTIFY);
+            $changed = true;
+        }
 
-        return json_encode($form);
+        if ($changed) {
+            IPS_ApplyChanges($this->InstanceID);
+        }
+        // ---------------------------------------------------
+
+        return $json;
     }
 }
