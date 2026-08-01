@@ -647,7 +647,7 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Modus",
                             "name": "ModeName",
-                            "width": "120px"
+                            "width": "150px"
                         },
                         {
                             "caption": "ID",
@@ -693,7 +693,7 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Modus",
                             "name": "ModeName",
-                            "width": "120px"
+                            "width": "150px"
                         },
                         {
                             "caption": "ID",
