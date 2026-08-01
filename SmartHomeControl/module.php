@@ -45,7 +45,8 @@ class SmartHomeControl extends IPSModuleStrict
         // === Central State Variables (read-only, set by other modules via public API) ===
         $this->RegisterVariableBoolean('FireplaceActive', 'Kamin aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Flame'
+            'ICON' => 'Flame',
+            'DIGITS' => 2
         ], 10);
 
         $this->RegisterVariableString('AlarmLevel', 'Alarm-Stufe', [
@@ -75,34 +76,40 @@ class SmartHomeControl extends IPSModuleStrict
         $this->RegisterVariableFloat('VarPriceElectricity', 'Strompreis', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'SUFFIX' => ' Cent/kWh',
-            'ICON' => 'Electricity'
+            'ICON' => 'Electricity',
+            'DIGITS' => 2
         ], 200);
         $this->RegisterVariableFloat('VarBasePriceElectricity', 'Strom Grundpreis', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'SUFFIX' => ' €/Jahr',
-            'ICON' => 'Electricity'
+            'ICON' => 'Electricity',
+            'DIGITS' => 2
         ], 201);
         
         $this->RegisterVariableFloat('VarPriceWater', 'Wasserpreis', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'SUFFIX' => ' Cent/m³',
-            'ICON' => 'Tap'
+            'ICON' => 'Tap',
+            'DIGITS' => 2
         ], 202);
         $this->RegisterVariableFloat('VarBasePriceWater', 'Wasser Grundpreis', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'SUFFIX' => ' €/Jahr',
-            'ICON' => 'Tap'
+            'ICON' => 'Tap',
+            'DIGITS' => 2
         ], 203);
         
         $this->RegisterVariableFloat('VarPriceGas', 'Gaspreis', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'SUFFIX' => ' Cent/kWh',
-            'ICON' => 'Flame'
+            'ICON' => 'Flame',
+            'DIGITS' => 2
         ], 204);
         $this->RegisterVariableFloat('VarBasePriceGas', 'Gas Grundpreis', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'SUFFIX' => ' €/Jahr',
-            'ICON' => 'Flame'
+            'ICON' => 'Flame',
+            'DIGITS' => 2
         ], 205);
 
         // === Sequencer Properties ===
@@ -517,7 +524,8 @@ class SmartHomeControl extends IPSModuleStrict
         ]);
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('FireplaceActive'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Flame', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
+            'ICON' => 'Flame',
+            'DIGITS' => 2, 'COLOR' => -1, 'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
             'OPTIONS' => $options
         ]);
