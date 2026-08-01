@@ -32,7 +32,7 @@ class SmartHomeControl extends IPSModuleStrict
         $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', '', 1);
         $this->EnableAction('PresenceMode');
 
-        $this->RegisterVariableInteger('ActivityMode', 'AktivitÃ¤t', '', 2);
+        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', '', 2);
         $this->EnableAction('ActivityMode');
 
         // Google Home / Alexa Interface (Boolean Toggle)
@@ -58,7 +58,7 @@ class SmartHomeControl extends IPSModuleStrict
             'ICON' => 'Speaker'
         ], 12);
 
-        $this->RegisterVariableBoolean('IrrigationActive', 'BewÃ¤sserung aktiv', [
+        $this->RegisterVariableBoolean('IrrigationActive', 'Bewässerung aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Drops'
         ], 13);
@@ -186,7 +186,7 @@ class SmartHomeControl extends IPSModuleStrict
     public function SetPresenceMode(int $mode): void
     {
         if ($mode < 0 || $mode > 2) {
-            $this->SLog('ERROR', 'UngÃ¼ltiger PresenceMode: ' . $mode);
+            $this->SLog('ERROR', 'Ungültiger PresenceMode: ' . $mode);
             return;
         }
 
@@ -203,7 +203,7 @@ class SmartHomeControl extends IPSModuleStrict
         $this->SetValue('PresenceMode', $mode);
         $this->SetValue('PresenceStatus', $mode === self::PRESENCE_HOME);
 
-        // Dynamisch die Steuerung der AktivitÃ¤t aktivieren/deaktivieren
+        // Dynamisch die Steuerung der Aktivität aktivieren/deaktivieren
         if ($mode === self::PRESENCE_HOME) {
             $this->EnableAction('ActivityMode');
         } else {
@@ -224,7 +224,7 @@ class SmartHomeControl extends IPSModuleStrict
             if ($currentActivity !== self::ACTIVITY_NORMAL) {
                 $this->TriggerSequencer('ActivitySequencers', $currentActivity, false);
                 $this->SetValue('ActivityMode', self::ACTIVITY_NORMAL);
-                $this->SLog('INFO', 'Auto-Reset: AktivitÃ¤t zurÃ¼ck auf Normal (Haus verlassen).');
+                $this->SLog('INFO', 'Auto-Reset: Aktivität zurück auf Normal (Haus verlassen).');
                 $this->TriggerSequencer('ActivitySequencers', self::ACTIVITY_NORMAL, true);
             }
         }
@@ -238,13 +238,13 @@ class SmartHomeControl extends IPSModuleStrict
     public function SetActivityMode(int $mode): void
     {
         if ($mode < 0 || $mode > 3) {
-            $this->SLog('ERROR', 'UngÃ¼ltiger ActivityMode: ' . $mode);
+            $this->SLog('ERROR', 'Ungültiger ActivityMode: ' . $mode);
             return;
         }
 
         // ActivityMode kann nur geÃ¤ndert werden wenn jemand Zuhause ist
         if ((int)$this->GetValue('PresenceMode') !== self::PRESENCE_HOME) {
-            $this->SLog('WARNING', 'AktivitÃ¤t kann nur geÃ¤ndert werden wenn jemand Zuhause ist.');
+            $this->SLog('WARNING', 'Aktivität kann nur geÃ¤ndert werden wenn jemand Zuhause ist.');
             return;
         }
 
@@ -263,7 +263,7 @@ class SmartHomeControl extends IPSModuleStrict
             self::ACTIVITY_PARTY  => 'Party',
             default               => 'Unbekannt'
         };
-        $this->SLog('INFO', 'AktivitÃ¤t gewechselt auf: ' . $modeName);
+        $this->SLog('INFO', 'Aktivität gewechselt auf: ' . $modeName);
 
         if ($oldMode !== $mode) {
             // Execute entry sequence for new activity mode
@@ -404,7 +404,7 @@ class SmartHomeControl extends IPSModuleStrict
             $this->SetPresenceMode(self::PRESENCE_VACATION);
         } elseif (!$vacationFound && $currentPresence === self::PRESENCE_VACATION) {
             if ($this->ReadAttributeBoolean('VacationFromCalendar')) {
-                $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurÃ¼ck auf Zuhause.');
+                $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurück auf Zuhause.');
                 $this->WriteAttributeBoolean('VacationFromCalendar', false);
                 $this->SetPresenceMode(self::PRESENCE_HOME);
             } else {
@@ -432,10 +432,10 @@ class SmartHomeControl extends IPSModuleStrict
                 if ($seqInst > 0 && IPS_InstanceExists($seqInst)) {
                     if ($isEntry && function_exists('SHSQ_RunSequence')) {
                         SHSQ_RunSequence($seqInst);
-                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgefÃ¼hrt.', 'Instanz: ' . $seqInst);
+                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
                     } elseif (!$isEntry && function_exists('SHSQ_RunDeactivationSequence')) {
                         SHSQ_RunDeactivationSequence($seqInst);
-                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgefÃ¼hrt.', 'Instanz: ' . $seqInst);
+                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
                     }
                 }
                 break;
@@ -585,7 +585,7 @@ class SmartHomeControl extends IPSModuleStrict
         },
         {
             "type": "ExpansionPanel",
-            "caption": "ðŸŽ­ AktivitÃ¤ts-Sequenzen",
+            "caption": "🎬 Aktivitäts-Sequenzen",
             "expanded": false,
             "items": [
                 {
@@ -637,38 +637,38 @@ class SmartHomeControl extends IPSModuleStrict
         },
         {
             "type": "ExpansionPanel",
-            "caption": "ðŸ’° Energiepreise",
+            "caption": "💰 Energiepreise",
             "expanded": false,
             "items": [
                 {
                     "type": "NumberSpinner",
                     "name": "PriceElectricity",
-                    "caption": "Strompreis (â‚¬/kWh)",
+                    "caption": "Strompreis (€/kWh)",
                     "digits": 4,
                     "minimum": 0,
-                    "suffix": "â‚¬/kWh"
+                    "suffix": "€/kWh"
                 },
                 {
                     "type": "NumberSpinner",
                     "name": "PriceWater",
-                    "caption": "Wasserpreis (â‚¬/mÂ³)",
+                    "caption": "Wasserpreis (€/m³)",
                     "digits": 2,
                     "minimum": 0,
-                    "suffix": "â‚¬/mÂ³"
+                    "suffix": "€/m³"
                 },
                 {
                     "type": "NumberSpinner",
                     "name": "PriceGas",
-                    "caption": "Gaspreis (â‚¬/kWh)",
+                    "caption": "Gaspreis (€/kWh)",
                     "digits": 4,
                     "minimum": 0,
-                    "suffix": "â‚¬/kWh"
+                    "suffix": "€/kWh"
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
-            "caption": "ðŸ“… Urlaubs-Automatik",
+            "caption": "📅 Urlaubs-Automatik",
             "expanded": false,
             "items": [
                 {
@@ -685,7 +685,7 @@ class SmartHomeControl extends IPSModuleStrict
             "items": [
                 {
                     "type": "Button",
-                    "caption": "ðŸ“… Kalender Sync",
+                    "caption": "📅 Kalender Sync",
                     "onClick": "SHC_CheckCalendar($id);",
                     "icon": "Calendar"
                 }
