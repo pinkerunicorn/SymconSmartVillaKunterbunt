@@ -583,7 +583,7 @@ class SmartHomeControl extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        return <<<'EOT'
+        $json = <<<'EOT'
 {
     "elements": [
         {
@@ -795,5 +795,62 @@ class SmartHomeControl extends IPSModuleStrict
     ]
 }
 EOT;
+
+        $form = json_decode($json, true);
+
+        // --- Migration & Fix for PresenceSequencers ---
+        $presenceDef = [
+            0 => 'Zuhause',
+            1 => 'Kurz weg',
+            2 => 'Urlaub'
+        ];
+        
+        $presenceJson = $this->ReadPropertyString('PresenceSequencers');
+        $presenceList = json_decode($presenceJson, true) ?: [];
+        $mapP = [];
+        foreach ($presenceList as $p) {
+            if (isset($p['ModeID']) && $p['ModeID'] !== '') {
+                $mapP[(int)$p['ModeID']] = $p;
+            }
+        }
+        $presenceValues = [];
+        foreach ($presenceDef as $id => $name) {
+            $presenceValues[] = [
+                'ModeID' => $id,
+                'ModeName' => $name,
+                'EntrySequencer' => $mapP[$id]['EntrySequencer'] ?? 0,
+                'ExitSequencer' => $mapP[$id]['ExitSequencer'] ?? 0
+            ];
+        }
+        $form['elements'][0]['items'][0]['values'] = $presenceValues;
+
+        // --- Migration & Fix for ActivitySequencers ---
+        $activityDef = [
+            0 => 'Normal',
+            1 => 'Heimkino',
+            2 => 'Schlafen',
+            3 => 'Party'
+        ];
+        
+        $activityJson = $this->ReadPropertyString('ActivitySequencers');
+        $activityList = json_decode($activityJson, true) ?: [];
+        $mapA = [];
+        foreach ($activityList as $a) {
+            if (isset($a['ModeID']) && $a['ModeID'] !== '') {
+                $mapA[(int)$a['ModeID']] = $a;
+            }
+        }
+        $activityValues = [];
+        foreach ($activityDef as $id => $name) {
+            $activityValues[] = [
+                'ModeID' => $id,
+                'ModeName' => $name,
+                'EntrySequencer' => $mapA[$id]['EntrySequencer'] ?? 0,
+                'ExitSequencer' => $mapA[$id]['ExitSequencer'] ?? 0
+            ];
+        }
+        $form['elements'][1]['items'][0]['values'] = $activityValues;
+
+        return json_encode($form);
     }
 }
