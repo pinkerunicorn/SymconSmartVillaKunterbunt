@@ -590,10 +590,9 @@ class SmartHomeControl extends IPSModuleStrict
         $presenceJson = $this->ReadPropertyString('PresenceSequencers');
         $presenceList = json_decode($presenceJson, true) ?: [];
         $mapP = [];
-        foreach ($presenceList as $p) {
-            if (isset($p['ModeID']) && $p['ModeID'] !== '') {
-                $mapP[(int)$p['ModeID']] = $p;
-            }
+        foreach ($presenceList as $index => $p) {
+            $id = (isset($p['ModeID']) && $p['ModeID'] !== '') ? (int)$p['ModeID'] : $index;
+            $mapP[$id] = $p;
         }
         $presenceValues = [];
         foreach ($presenceDef as $id => $name) {
@@ -615,10 +614,9 @@ class SmartHomeControl extends IPSModuleStrict
         $activityJson = $this->ReadPropertyString('ActivitySequencers');
         $activityList = json_decode($activityJson, true) ?: [];
         $mapA = [];
-        foreach ($activityList as $a) {
-            if (isset($a['ModeID']) && $a['ModeID'] !== '') {
-                $mapA[(int)$a['ModeID']] = $a;
-            }
+        foreach ($activityList as $index => $a) {
+            $id = (isset($a['ModeID']) && $a['ModeID'] !== '') ? (int)$a['ModeID'] : $index;
+            $mapA[$id] = $a;
         }
         $activityValues = [];
         foreach ($activityDef as $id => $name) {
