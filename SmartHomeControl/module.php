@@ -658,7 +658,7 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Eintritts-Sequenz",
                             "name": "EntrySequencer",
-                            "width": "auto",
+                            "width": "350px",
                             "add": 0,
                             "edit": {
                                 "type": "SelectInstance"
@@ -667,7 +667,7 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Austritts-Sequenz",
                             "name": "ExitSequencer",
-                            "width": "auto",
+                            "width": "350px",
                             "add": 0,
                             "edit": {
                                 "type": "SelectInstance"
@@ -704,7 +704,7 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Eintritts-Sequenz",
                             "name": "EntrySequencer",
-                            "width": "auto",
+                            "width": "350px",
                             "add": 0,
                             "edit": {
                                 "type": "SelectInstance"
@@ -713,7 +713,7 @@ class SmartHomeControl extends IPSModuleStrict
                         {
                             "caption": "Austritts-Sequenz",
                             "name": "ExitSequencer",
-                            "width": "auto",
+                            "width": "350px",
                             "add": 0,
                             "edit": {
                                 "type": "SelectInstance"
