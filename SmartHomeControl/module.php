@@ -136,6 +136,51 @@ class SmartHomeControl extends IPSModuleStrict
 
     public function ApplyChanges(): void
     {
+        // --- Migration & Fix for stripped IDs in JSON ---
+        $presenceDef = [0 => 'Zuhause', 1 => 'Kurz weg', 2 => 'Urlaub'];
+        $presenceJson = $this->ReadPropertyString('PresenceSequencers');
+        $presenceList = json_decode($presenceJson, true) ?: [];
+        $mapP = [];
+        foreach ($presenceList as $index => $p) {
+            $id = (isset($p['ModeID']) && $p['ModeID'] !== '') ? (int)$p['ModeID'] : $index;
+            $mapP[$id] = $p;
+        }
+        $presenceValues = [];
+        foreach ($presenceDef as $id => $name) {
+            $presenceValues[] = [
+                'ModeID' => $id,
+                'ModeName' => $name,
+                'EntrySequencer' => $mapP[$id]['EntrySequencer'] ?? 0,
+                'ExitSequencer' => $mapP[$id]['ExitSequencer'] ?? 0
+            ];
+        }
+        $newPresenceJson = json_encode($presenceValues);
+        if ($newPresenceJson !== $presenceJson) {
+            IPS_SetProperty($this->InstanceID, 'PresenceSequencers', $newPresenceJson);
+        }
+
+        $activityDef = [0 => 'Normal', 1 => 'Heimkino', 2 => 'Schlafen', 3 => 'Party'];
+        $activityJson = $this->ReadPropertyString('ActivitySequencers');
+        $activityList = json_decode($activityJson, true) ?: [];
+        $mapA = [];
+        foreach ($activityList as $index => $a) {
+            $id = (isset($a['ModeID']) && $a['ModeID'] !== '') ? (int)$a['ModeID'] : $index;
+            $mapA[$id] = $a;
+        }
+        $activityValues = [];
+        foreach ($activityDef as $id => $name) {
+            $activityValues[] = [
+                'ModeID' => $id,
+                'ModeName' => $name,
+                'EntrySequencer' => $mapA[$id]['EntrySequencer'] ?? 0,
+                'ExitSequencer' => $mapA[$id]['ExitSequencer'] ?? 0
+            ];
+        }
+        $newActivityJson = json_encode($activityValues);
+        if ($newActivityJson !== $activityJson) {
+            IPS_SetProperty($this->InstanceID, 'ActivitySequencers', $newActivityJson);
+        }
+
         parent::ApplyChanges();
 
         // === Auto-generated References ===
@@ -583,60 +628,6 @@ class SmartHomeControl extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        // --- Self-Healing fÃ¼r kaputte Sequencer-Listen ---
-        $changed = false;
-        
-        $presenceDef = [0 => 'Zuhause', 1 => 'Kurz weg', 2 => 'Urlaub'];
-        $presenceJson = $this->ReadPropertyString('PresenceSequencers');
-        $presenceList = json_decode($presenceJson, true) ?: [];
-        $mapP = [];
-        foreach ($presenceList as $index => $p) {
-            $id = (isset($p['ModeID']) && $p['ModeID'] !== '') ? (int)$p['ModeID'] : $index;
-            $mapP[$id] = $p;
-        }
-        $presenceValues = [];
-        foreach ($presenceDef as $id => $name) {
-            $presenceValues[] = [
-                'ModeID' => $id,
-                'ModeName' => $name,
-                'EntrySequencer' => $mapP[$id]['EntrySequencer'] ?? 0,
-                'ExitSequencer' => $mapP[$id]['ExitSequencer'] ?? 0
-            ];
-        }
-        $newPresenceJson = json_encode($presenceValues);
-        if ($newPresenceJson !== $presenceJson) {
-            IPS_SetProperty($this->InstanceID, 'PresenceSequencers', $newPresenceJson);
-            $this->LogMessage("Self-Healing: PresenceSequencers repariert!", KL_NOTIFY);
-            $changed = true;
-        }
-
-        $activityDef = [0 => 'Normal', 1 => 'Heimkino', 2 => 'Schlafen', 3 => 'Party'];
-        $activityJson = $this->ReadPropertyString('ActivitySequencers');
-        $activityList = json_decode($activityJson, true) ?: [];
-        $mapA = [];
-        foreach ($activityList as $index => $a) {
-            $id = (isset($a['ModeID']) && $a['ModeID'] !== '') ? (int)$a['ModeID'] : $index;
-            $mapA[$id] = $a;
-        }
-        $activityValues = [];
-        foreach ($activityDef as $id => $name) {
-            $activityValues[] = [
-                'ModeID' => $id,
-                'ModeName' => $name,
-                'EntrySequencer' => $mapA[$id]['EntrySequencer'] ?? 0,
-                'ExitSequencer' => $mapA[$id]['ExitSequencer'] ?? 0
-            ];
-        }
-        $newActivityJson = json_encode($activityValues);
-        if ($newActivityJson !== $activityJson) {
-            IPS_SetProperty($this->InstanceID, 'ActivitySequencers', $newActivityJson);
-            $this->LogMessage("Self-Healing: ActivitySequencers repariert!", KL_NOTIFY);
-            $changed = true;
-        }
-
-        if ($changed) {
-            IPS_ApplyChanges($this->InstanceID);
-        }
         $json = <<<'EOT'
 {
     "elements": [
