@@ -604,7 +604,8 @@ class SmartHomeControl extends IPSModuleStrict
                 'ExitSequencer' => $mapP[$id]['ExitSequencer'] ?? 0
             ];
         }
-        $newPres        if ($newPresenceJson !== $presenceJson) {
+        $newPresenceJson = json_encode($presenceValues);
+        if ($newPresenceJson !== $presenceJson) {
             IPS_SetProperty($this->InstanceID, 'PresenceSequencers', $newPresenceJson);
             $this->LogMessage("Self-Healing: PresenceSequencers repariert!", KL_NOTIFY);
             $changed = true;
