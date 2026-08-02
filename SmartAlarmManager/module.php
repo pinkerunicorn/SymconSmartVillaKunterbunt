@@ -17,14 +17,9 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->DA_RegisterAvailability(900);
 
         $this->RegisterPropertyString("MonitoredVariables", "[]");
-        $this->RegisterPropertyString("ActionProfiles", "[]");
         $this->RegisterPropertyInteger("EscalationTimeLvl2", 300);
         $this->RegisterPropertyInteger("EscalationTimeLvl3", 900);
-        $this->RegisterPropertyInteger("TargetWebFront", 0);
-        $this->RegisterPropertyInteger("TargetSMTP", 0);
-        $this->RegisterPropertyInteger("TargetVestaboard", 0);
-        $this->RegisterPropertyInteger("TargetSonos", 0);
-        $this->RegisterPropertyString("EmailAddress", "");
+        $this->RegisterPropertyInteger("TargetNotifier", 0);
         
         $this->RegisterTimer("EscalationTimer", 0, 'SAM_CheckEscalation($_IPS[\'TARGET\']);');
         $this->RegisterTimer("DelayTimer", 0, 'SAM_HandleDelays($_IPS[\'TARGET\']);');
@@ -63,47 +58,14 @@ class SmartAlarmManager extends IPSModuleStrict
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $ref_TargetWebFront = $this->ReadPropertyInteger('TargetWebFront');
-        if ($ref_TargetWebFront > 1 && @IPS_ObjectExists($ref_TargetWebFront)) {
-            $this->RegisterReference($ref_TargetWebFront);
-        }
-        $ref_TargetSMTP = $this->ReadPropertyInteger('TargetSMTP');
-        if ($ref_TargetSMTP > 1 && @IPS_ObjectExists($ref_TargetSMTP)) {
-            $this->RegisterReference($ref_TargetSMTP);
-        }
-        $ref_TargetVestaboard = $this->ReadPropertyInteger('TargetVestaboard');
-        if ($ref_TargetVestaboard > 1 && @IPS_ObjectExists($ref_TargetVestaboard)) {
-            $this->RegisterReference($ref_TargetVestaboard);
-        }
-        $ref_TargetSonos = $this->ReadPropertyInteger('TargetSonos');
-        if ($ref_TargetSonos > 1 && @IPS_ObjectExists($ref_TargetSonos)) {
-            $this->RegisterReference($ref_TargetSonos);
+        $notifier = $this->ReadPropertyInteger('TargetNotifier');
+        if ($notifier > 1 && @IPS_ObjectExists($notifier)) {
+            $this->RegisterReference($notifier);
         }
         $list_MonitoredVariables = json_decode($this->ReadPropertyString('MonitoredVariables'), true);
         if (is_array($list_MonitoredVariables)) {
             foreach ($list_MonitoredVariables as $item) {
                 $vid = $item['VariableID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
-            }
-        }
-        $list_ActionProfiles = json_decode($this->ReadPropertyString('ActionProfiles'), true);
-        if (is_array($list_ActionProfiles)) {
-            foreach ($list_ActionProfiles as $item) {
-                $vid = $item['HmIP_MP3_Inst'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
-                $vid = $item['HmIP_LED_Inst'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
-                $vid = $item['HmIP_Siren_Inst'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
-                $vid = $item['TargetVariableID'] ?? 0;
                 if ($vid > 1 && @IPS_ObjectExists($vid)) {
                     $this->RegisterReference($vid);
                 }
@@ -176,19 +138,6 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->DA_SetAvailable(true);
     }
 
-    private function GetActionProfiles($profileID)
-    {
-        $matches = [];
-        $profiles = json_decode($this->ReadPropertyString("ActionProfiles"), true);
-        if (is_array($profiles)) {
-            foreach ($profiles as $p) {
-                if (($p['ProfileID'] ?? '') === $profileID) {
-                    $matches[] = $p;
-                }
-            }
-        }
-        return $matches;
-    }
 
     protected function OnCentralStateChanged(string $stateName, mixed $newValue): void {}
 
@@ -232,7 +181,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     if (($item['AlarmType'] ?? 0) == 2) {
                         $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
                         if (isset($alarms[$vid])) {
-                            $this->SLogInfo("Auto-Reset für Sensor/Variable $vid");
+                            $this->SLogInfo("Auto-Reset fÃ¼r Sensor/Variable $vid");
                             $this->RequestAction("Alarm_".$vid, false);
                         }
                     }
@@ -271,26 +220,18 @@ class SmartAlarmManager extends IPSModuleStrict
     private function HandleTrigger($item)
     {
         $type = $item['AlarmType'] ?? 0;
-        $msg = $item['Message'] ?? "Alarm ausgelöst";
+        $msg = $item['Message'] ?? "Alarm ausgelÃ¶st";
         $vid = $item['VariableID'];
         
-        $profileIdStr = $item['ProfileID'] ?? '';
-        $profileIds = array_map('trim', explode(',', $profileIdStr));
-        $profiles = [];
-        foreach ($profileIds as $pid) {
-            if (empty($pid)) continue;
-            $matchedProfiles = $this->GetActionProfiles($pid);
-            foreach ($matchedProfiles as $p) {
-                $profiles[] = $p;
-            }
-        }
+        $notifier = $this->ReadPropertyInteger('TargetNotifier');
 
         if ($type == 1) {
-            $this->SLogInfo("Info/Event ausgelöst: ". $msg);
+            $this->SLogInfo("Info/Event ausgelÃ¶st: ". $msg);
             $this->SendDebug("Trigger", "Info/Event: ". $msg, 0);
             
-            foreach ($profiles as $profile) {
-                $this->TriggerInfo($profile, $msg);
+            if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
+                $payload = json_encode(['Title' => 'Info', 'Message' => $msg, 'Priority' => 0]);
+                @NOTIFY_SendEvent($notifier, $payload);
             }
             
             $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- ". $msg);
@@ -305,16 +246,16 @@ class SmartAlarmManager extends IPSModuleStrict
                 $alarms[$vid] = [
                     "timestamp"=> time(),
                     "level"=> 1,
-                    "item"=> $item,
-                    "profiles"=> $profiles
+                    "item"=> $item
                 ];
                 $this->SetBuffer("ActiveAlarms", json_encode($alarms));
                 
-                $this->SLogWarning("ALARM ausgelöst (Stufe 1): ". $msg);
+                $this->SLogWarning("ALARM ausgelÃ¶st (Stufe 1): ". $msg);
                 $this->SendDebug("Trigger", "Alarm Stufe 1: ". $msg, 0);
                 
-                foreach ($profiles as $profile) {
-                    $this->TriggerLevel1($profile, $msg);
+                if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
+                    $payload = json_encode(['Title' => 'Alarm', 'Message' => $msg, 'Priority' => 1]);
+                    @NOTIFY_SendEvent($notifier, $payload);
                 }
                 
                 $ident = "Alarm_". $vid;
@@ -341,7 +282,7 @@ class SmartAlarmManager extends IPSModuleStrict
                 $vid = substr($Ident, 6);
                 $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
 
-                // Lesbaren Namen für das Log ermitteln
+                // Lesbaren Namen fÃ¼r das Log ermitteln
                 $alarmName = $alarms[$vid]['item']['Message'] ?? ($alarms[$vid]['message'] ?? null);
                 if (!$alarmName && IPS_VariableExists((int)$vid)) {
                     $alarmName = IPS_GetName((int)$vid);
@@ -352,35 +293,8 @@ class SmartAlarmManager extends IPSModuleStrict
                 $this->SendDebug("Acknowledge", "Quittiert: ". $Ident, 0);
 
                 if (isset($alarms[$vid])) {
-                    $profiles = $alarms[$vid]['profiles'] ?? [];
-                    if (empty($profiles) && isset($alarms[$vid]['profile'])) {
-                        $profiles = [$alarms[$vid]['profile']];
-                    }
                     unset($alarms[$vid]);
                     $this->SetBuffer("ActiveAlarms", json_encode($alarms));
-
-                    // Prüfen, ob verbleibende aktive Alarme eines der Aktionsprofile noch benötigen
-                    $remainingProfiles = [];
-                    foreach ($alarms as $remAlarm) {
-                        $remProfs = $remAlarm['profiles'] ?? [];
-                        if (empty($remProfs) && isset($remAlarm['profile'])) {
-                            $remProfs = [$remAlarm['profile']];
-                        }
-                        foreach ($remProfs as $rp) {
-                            $pid = $rp['ProfileID'] ?? '';
-                            if ($pid !== '') {
-                                $remainingProfiles[$pid] = true;
-                            }
-                        }
-                    }
-
-                    foreach ($profiles as $profile) {
-                        $pid = $profile['ProfileID'] ?? '';
-                        if ($pid === '' || !isset($remainingProfiles[$pid])) {
-                            $this->TriggerHomematicLEDs($profile, true); 
-                            $this->TriggerHomematicSirens($profile, true); 
-                        }
-                    }
                 }
                 
                 if (empty($alarms)) {
@@ -408,14 +322,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     }
                 }
                 
-                // Turn off ALL configured devices in ALL profiles to be safe (and to clear tests)
-                $profiles = json_decode($this->ReadPropertyString("ActionProfiles"), true);
-                if (is_array($profiles)) {
-                    foreach ($profiles as $profile) {
-                        $this->TriggerHomematicLEDs($profile, true); 
-                        $this->TriggerHomematicSirens($profile, true); 
-                    }
-                }
+
                 
                 $this->SetBuffer("ActiveAlarms", "{}");
                 $this->SetTimerInterval("EscalationTimer", 0);
@@ -447,18 +354,16 @@ class SmartAlarmManager extends IPSModuleStrict
             $elapsed = $now - $alarm['timestamp'];
             $msg = $alarm['item']['Message'] ?? "Alarm";
             
-            $profiles = $alarm['profiles'] ?? [];
-            if (empty($profiles) && isset($alarm['profile'])) {
-                $profiles = [$alarm['profile']];
-            }
+            $notifier = $this->ReadPropertyInteger('TargetNotifier');
 
             if ($alarm['level'] == 1 && $elapsed >= $lvl2_time) {
                 $alarm['level'] = 2;
                 $changed = true;
                 $this->SLogWarning("Alarm ESKALATION (Stufe 2): ". $msg);
                 $this->SendDebug("Escalation", "Stufe 2: ". $msg, 0);
-                foreach ($profiles as $profile) {
-                    $this->TriggerLevel2($profile, $msg);
+                if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
+                    $payload = json_encode(['Title' => 'Alarm (Stufe 2)', 'Message' => $msg, 'Priority' => 2]);
+                    @NOTIFY_SendEvent($notifier, $payload);
                 }
             }
 
@@ -467,8 +372,9 @@ class SmartAlarmManager extends IPSModuleStrict
                 $changed = true;
                 $this->SLogError("VOLLALARM (Stufe 3): ". $msg);
                 $this->SendDebug("Escalation", "Stufe 3: ". $msg, 0);
-                foreach ($profiles as $profile) {
-                    $this->TriggerLevel3($profile, $msg);
+                if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
+                    $payload = json_encode(['Title' => 'VOLLALARM', 'Message' => $msg, 'Priority' => 2]);
+                    @NOTIFY_SendEvent($notifier, $payload);
                 }
             }
         }
@@ -483,7 +389,7 @@ class SmartAlarmManager extends IPSModuleStrict
     {
         $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
 
-        // Synchronisiere den Puffer mit den tatsächlich aktiven Alarm-Variablen
+        // Synchronisiere den Puffer mit den tatsÃ¤chlich aktiven Alarm-Variablen
         $monitored = json_decode($this->ReadPropertyString("MonitoredVariables"), true);
         if (is_array($monitored)) {
             $monitoredMap = [];
@@ -494,7 +400,7 @@ class SmartAlarmManager extends IPSModuleStrict
                 }
             }
 
-            // Entferne Alarme aus dem Puffer, falls die Variable quittiert oder nicht mehr überwacht ist
+            // Entferne Alarme aus dem Puffer, falls die Variable quittiert oder nicht mehr Ã¼berwacht ist
             foreach ($alarms as $vid => $alarmData) {
                 $ident = "Alarm_" . $vid;
                 if (!isset($monitoredMap[$vid]) || !@IPS_GetObjectIDByIdent($ident, $this->InstanceID) || !$this->GetValue($ident)) {
@@ -502,26 +408,16 @@ class SmartAlarmManager extends IPSModuleStrict
                 }
             }
 
-            // Ergänze Alarme im Puffer, falls eine Alarm-Variable aktiv (true) ist, aber im Puffer fehlt
+            // ErgÃ¤nze Alarme im Puffer, falls eine Alarm-Variable aktiv (true) ist, aber im Puffer fehlt
             foreach ($monitoredMap as $vid => $item) {
                 if (($item['AlarmType'] ?? 0) == 0 || ($item['AlarmType'] ?? 0) == 2) {
                     $ident = "Alarm_" . $vid;
                     if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID) && $this->GetValue($ident)) {
                         if (!isset($alarms[$vid])) {
-                            $profileIdStr = $item['ProfileID'] ?? '';
-                            $profileIds = array_map('trim', explode(',', $profileIdStr));
-                            $profiles = [];
-                            foreach ($profileIds as $pid) {
-                                if (empty($pid)) continue;
-                                foreach ($this->GetActionProfiles($pid) as $p) {
-                                    $profiles[] = $p;
-                                }
-                            }
                             $alarms[$vid] = [
                                 "timestamp" => time(),
                                 "level"     => 1,
-                                "item"      => $item,
-                                "profiles"  => $profiles
+                                "item"      => $item
                             ];
                         }
                     }
@@ -565,363 +461,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    private function TriggerLevel1($profile, $message)
-    {
-        $this->SLogInfo("--- Starte Aktions-Profil Level 1 ---");
-        
-        if ($profile['UseWebFront'] ?? false) {
-            $visu = $this->ReadPropertyInteger("TargetWebFront");
-            if ($visu > 0 && IPS_InstanceExists($visu)) {
-                $this->SLogInfo("App/Visu: Sende Push & Notification");
-                if (function_exists('VISU_PostNotification')) {
-                    VISU_PostNotification($visu, "Alarm!", $message, "Warning", 0);
-                }
-            }
-        }
-        
-        if ($profile['UseSonos'] ?? false) {
-            if ($this->IsHome()) {
-                $this->SLogInfo("Sonos: Spiele TTS");
-                $this->TriggerSonos($message);
-            }
-        }
-        
-        $this->TriggerHomematicMP3($profile);
-        $this->TriggerHomematicLEDs($profile);
-        $this->TriggerHomematicSirens($profile);
-        $this->TriggerTargetVariable($profile);
-    }
 
-    private function TriggerLevel2($profile, $message)
-    {
-        $this->SLogInfo("--- Starte Aktions-Profil Level 2 (ESKALATION) ---");
-        
-        if ($profile['UseVestaboard'] ?? false) {
-            $vesta = $this->ReadPropertyInteger("TargetVestaboard");
-            if ($vesta > 0 && IPS_InstanceExists($vesta)) {
-                if (function_exists('VESTAG_PushAlert')) {
-                    $this->SLogInfo("Vestaboard: Sende Alarm-Nachricht via Generator");
-                    try {
-                        VESTAG_PushAlert($vesta, "ALARM:\n". $message, true);
-                    } catch (Exception $e) {
-                        $this->SLogError("Fehler beim Senden an Vestaboard: ". $e->getMessage());
-                    }
-                }
-            }
-        }
-
-        if ($profile['UseEmail'] ?? false) {
-            $smtp = $this->ReadPropertyInteger("TargetSMTP");
-            $email = trim($this->ReadPropertyString("EmailAddress"));
-            if ($smtp > 0 && IPS_InstanceExists($smtp)) {
-                if ($email != "") {
-                    $this->SLogInfo("E-Mail: Sende Mail an $email");
-                    try {
-                        SMTP_SendMailEx($smtp, $email, "SmartHome Alarm Stufe 2", "Folgender Alarm wurde ausgelöst und noch nicht quittiert:\n\n". $message);
-                    } catch (Exception $e) {
-                        $this->SLogError("Fehler beim Senden der E-Mail: ". $e->getMessage());
-                    }
-                }
-            }
-        }
-        
-        if ($profile['UseSonos'] ?? false) {
-            $this->SLogInfo("Sonos: Spiele TTS");
-            $this->TriggerSonos("Achtung, Alarm: ". $message);
-        }
-        
-        $this->TriggerHomematicMP3($profile);
-        $this->TriggerHomematicLEDs($profile);
-        $this->TriggerHomematicSirens($profile);
-        $this->TriggerTargetVariable($profile);
-    }
-
-    private function TriggerLevel3($profile, $message)
-    {
-        $this->SLogInfo("--- Starte Aktions-Profil Level 3 (VOLLALARM) ---");
-        
-        if ($profile['UseVestaboard'] ?? false) {
-            $vesta = $this->ReadPropertyInteger("TargetVestaboard");
-            if ($vesta > 0 && IPS_InstanceExists($vesta)) {
-                if (function_exists('VESTAG_PushAlert')) {
-                    $this->SLogInfo("Vestaboard: Sende Vollalarm via Generator");
-                    try {
-                        VESTAG_PushAlert($vesta, "!!! VOLLALARM !!!\n" . $message, true);
-                    } catch (Exception $e) {
-                        $this->SLogError("Fehler beim Senden an Vestaboard: " . $e->getMessage());
-                    }
-                }
-            }
-        }
-        
-        if ($profile['UseWebFront'] ?? false) {
-            $visu = $this->ReadPropertyInteger("TargetWebFront");
-            if ($visu > 0 && IPS_InstanceExists($visu)) {
-                $this->SLogInfo("App/Visu: Sende Push & Notification");
-                if (function_exists('VISU_PostNotification')) {
-                    VISU_PostNotification($visu, "VOLLALARM", $message, "Alert", 0);
-                }
-            }
-        }
-        
-        if ($profile['UseSonos'] ?? false) {
-            $this->SLogInfo("Sonos: Spiele TTS");
-            $this->TriggerSonos("Vollalarm: ". $message);
-        }
-        
-        $this->TriggerHomematicMP3($profile);
-        $this->TriggerHomematicLEDs($profile);
-        $this->TriggerHomematicSirens($profile);
-        $this->TriggerTargetVariable($profile);
-    }
-
-    private function TriggerInfo($profile, $message)
-    {
-        $this->SLogInfo("--- Starte Aktions-Profil Info/Event ---");
-        
-        if ($profile['UseWebFront'] ?? false) {
-            $visu = $this->ReadPropertyInteger("TargetWebFront");
-            if ($visu > 0 && IPS_InstanceExists($visu)) {
-                $this->SLogInfo("App/Visu: Sende Push & Notification");
-                if (function_exists('VISU_PostNotification')) {
-                    VISU_PostNotification($visu, "Info", $message, "Information", 0);
-                }
-            }
-        }
-        
-        if ($profile['UseVestaboard'] ?? false) {
-            $vesta = $this->ReadPropertyInteger("TargetVestaboard");
-            if ($vesta > 0 && IPS_InstanceExists($vesta)) {
-                if (function_exists('VESTAG_PushAlert')) {
-                    $this->SLogInfo("Vestaboard: Sende Info-Nachricht via Generator");
-                    try {
-                        VESTAG_PushAlert($vesta, $message, false);
-                    } catch (Exception $e) {
-                        $this->SLogError("Fehler beim Senden an Vestaboard: " . $e->getMessage());
-                    }
-                }
-            }
-        }
-        
-        if ($profile['UseEmail'] ?? false) {
-            $smtp = $this->ReadPropertyInteger("TargetSMTP");
-            $email = trim($this->ReadPropertyString("EmailAddress"));
-            if ($smtp > 0 && IPS_InstanceExists($smtp)) {
-                if ($email != "") {
-                    $this->SLogInfo("E-Mail: Sende Mail an $email");
-                    try {
-                        SMTP_SendMailEx($smtp, $email, "SmartHome Info / Event", $message);
-                    } catch (Exception $e) {
-                        $this->SLogError("Fehler beim Senden der E-Mail: ". $e->getMessage());
-                    }
-                }
-            }
-        }
-        
-        if ($profile['UseSonos'] ?? false) {
-            if ($this->IsHome()) {
-                $this->SLogInfo("Sonos: Spiele TTS");
-                $this->TriggerSonos($message);
-            }
-        }
-        
-        $this->TriggerHomematicMP3($profile);
-        $this->TriggerHomematicLEDs($profile);
-        $this->TriggerHomematicSirens($profile);
-        $this->TriggerTargetVariable($profile);
-    }
-    
-    private function TriggerSonos($message)
-    {
-        $sonos = $this->ReadPropertyInteger("TargetSonos");
-        if ($sonos > 0 && IPS_InstanceExists($sonos)) {
-            try {
-                if (function_exists('GSTTS_PlayMessage')) {
-                    GSTTS_PlayMessage($sonos, $message, true);
-                } elseif (function_exists('SNS_PlayText')) {
-                    SNS_PlayText($sonos, $message);
-                }
-            } catch (Exception $e) {
-                $this->SLogError("Fehler bei Sonos TTS: ". $e->getMessage());
-            }
-        }
-    }
-
-    private function TriggerHomematicMP3($profile)
-    {
-        $mp3InstID = $profile['HmIP_MP3_Inst'] ?? 0;
-        if ($mp3InstID > 0 && IPS_InstanceExists($mp3InstID)) {
-            $soundStr = $profile['MP3_Sounds'] ?? '1';
-            $vol      = (int)($profile['MP3_Volume'] ?? 100);
-            $duration = (int)($profile['MP3_Duration'] ?? 0);
-
-            $this->SLogInfo("HmIP_MP3P (Instanz $mp3InstID): Spiele Tracks '$soundStr' (Vol {${1}}%, Dauer {$duration}s)");
-
-            $isMp3pModule = (IPS_GetInstance($mp3InstID)['ModuleInfo']['ModuleID'] === '{B1E4A92D-3C78-4F05-A8D3-7E2F1B094C56}');
-            if ($isMp3pModule && function_exists('MP3P_PlaySound')) {
-                MP3P_PlaySound($mp3InstID, $soundStr, $vol, $duration);
-            } else {
-                // Fallback: direkter HM-Aufruf falls nativer Homematic Aktor
-                $param = "L={$vol},DU=0,DV={$duration},RTU=0,RTV=0,R=0,SL={$soundStr}";
-                try {
-                    HM_WriteValueString($mp3InstID, 'COMBINED_PARAMETER', $param);
-                } catch (Exception $e) {
-                    $this->SLogError('Fehler MP3P Fallback: ' . $e->getMessage());
-                }
-            }
-        }
-    }
-
-    private function TriggerHomematicLEDs($profile, $turnOff = false)
-    {
-        $instId = $profile['HmIP_LED_Inst'] ?? 0;
-        if ($instId > 0 && IPS_InstanceExists($instId)) {
-            $color  = (int)($profile['LED_Color'] ?? 4);
-            $mode   = (int)($profile['LED_Mode'] ?? 1);
-            $bright = (int)($profile['LED_Brightness'] ?? 100);
-            $isMP3P = (bool)($profile['HmIP_LED_IsMP3P'] ?? false);
-
-            if ($isMP3P) {
-                // MP3P-LED über HmIP_MP3P Modul
-                if ($turnOff) {
-                    $this->SLogInfo("HmIP_MP3P LED (Instanz $instId): Licht aus");
-                    if (function_exists('MP3P_SetLightOff')) {
-                        try {
-                            MP3P_SetLightOff($instId);
-                        } catch (Exception $e) {
-                            $this->SLogWarning('MP3P_SetLightOff fehlgeschlagen, Fallback: ' . $e->getMessage());
-                            HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=100,DV=10,DU=0,RTV=0,RTU=1,C=0');
-                        }
-                    } else {
-                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=100,DV=10,DU=0,RTV=0,RTU=1,C=0');
-                    }
-                } else {
-                    $this->SLogInfo("HmIP_MP3P LED (Instanz $instId): Farbe $color, Helligkeit {${1}}%");
-                    if (function_exists('MP3P_SetLight')) {
-                        try {
-                            MP3P_SetLight($instId, $color, $bright, 0);
-                        } catch (Exception $e) {
-                            $this->SLogWarning('MP3P_SetLight fehlgeschlagen, Fallback: ' . $e->getMessage());
-                            HM_WriteValueString($instId, 'COMBINED_PARAMETER', "L={$bright},DV=31,DU=2,RTV=0,RTU=1,C={$color}");
-                        }
-                    } else {
-                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', "L={$bright},DV=31,DU=2,RTV=0,RTU=1,C={$color}");
-                    }
-                }
-            } else {
-                // WRC6-LED über HmIP_WRC6 Modul
-                // Hinweis: $instId ist hier die WRC6-Modul-Instanz, nicht ein einzelner Kanal.
-                // SetAllLEDs steuert alle konfigurierten Kanäle.
-                if ($turnOff) {
-                    $this->SLogInfo("HmIP_WRC6 LED (Instanz $instId): Alle LEDs aus");
-                    if (function_exists('WRC6_ClearAllLEDs')) {
-                        WRC6_ClearAllLEDs($instId);
-                    } else {
-                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'L=0,DV=31,DU=2,RTV=0,RTU=0,C=0,CB=0,RTTOV=0,RTTOU=3');
-                    }
-                } else {
-                    $this->SLogInfo("HmIP_WRC6 LED (Instanz $instId): Farbe $color, Modus $mode, Helligkeit {${1}}%");
-                    if (function_exists('WRC6_SetAllLEDs')) {
-                        WRC6_SetAllLEDs($instId, $color, $mode, $bright);
-                    } else {
-                        HM_WriteValueString($instId, 'COMBINED_PARAMETER', "L={$bright},DV=31,DU=2,RTV=0,RTU=0,C={$color},CB={$mode},RTTOV=0,RTTOU=3");
-                    }
-                }
-            }
-        }
-    }
-
-    private function TriggerHomematicSirens($profile, $turnOff = false)
-    {
-        $instId = $profile['HmIP_Siren_Inst'] ?? 0;
-        if ($instId > 0 && IPS_InstanceExists($instId)) {
-            $ac  = (int)($profile['Siren_Acoustic'] ?? 1);
-            $opt = (int)($profile['Siren_Optical'] ?? 1);
-
-            if ($turnOff) {
-                $this->SLogInfo("HmIP_ASIRO (Instanz $instId): Gestoppt");
-                if (function_exists('ASIRO_Stop')) {
-                    ASIRO_Stop($instId);
-                } else {
-                    HM_WriteValueString($instId, 'COMBINED_PARAMETER', 'O=0,A=0,DV=31,DU=2');
-                }
-            } else {
-                $this->SLogInfo("HmIP_ASIRO (Instanz $instId): Ausgelöst (Akustik $ac, Optik $opt)");
-                if (function_exists('ASIRO_Trigger')) {
-                    ASIRO_Trigger($instId, $ac, $opt, 0);
-                } else {
-                    HM_WriteValueString($instId, 'COMBINED_PARAMETER', "O={$opt},A={$ac},DV=31,DU=2");
-                }
-            }
-        }
-    }
-
-    private function TriggerTargetVariable($profile)
-    {
-        $targetId = $profile['TargetVariableID'] ?? 0;
-        if ($targetId > 0 && IPS_VariableExists($targetId)) {
-            $targetValueStr = $profile['TargetVariableValue'] ?? "";
-            $var = IPS_GetVariable($targetId);
-            
-            switch($var['VariableType']) {
-                case 0: // Boolean
-                    $targetValueStr = strtolower(trim((string)$targetValueStr));
-                    $val = ($targetValueStr === 'true'|| $targetValueStr === '1'|| $targetValueStr === 'wahr');
-                    break;
-                case 1: // Integer
-                    $val = (int)$targetValueStr;
-                    break;
-                case 2: // Float
-                    $val = (float)str_replace(',', '.', $targetValueStr);
-                    break;
-                case 3: // String
-                default:
-                    $val = (string)$targetValueStr;
-                    break;
-            }
-            
-            $targetName = IPS_ObjectExists($targetId) ? IPS_GetName($targetId) : '';
-            $targetDesc = $targetName !== '' ? "$targetId ('$targetName')" : (string)$targetId;
-
-            $this->SLogInfo("Setze Ziel-Variable $targetDesc auf Wert: ". var_export($val, true));
-            try {
-                if (HasAction($targetId)) {
-                    if (!@RequestAction($targetId, $val)) {
-                        $this->SLogWarning( 'Alarm-Aktor fehlgeschlagen', "ID: $targetId | Wert: " . var_export($val, true));
-                    }
-                } else {
-                    SetValue($targetId, $val);
-                }
-            } catch (Exception $e) {
-                $this->SLogError("Fehler beim Setzen der Ziel-Variable $targetDesc: ". $e->getMessage());
-            }
-        }
-    }
-
-    public function TestProfile(string $profileID, bool $turnOff): void
-    {
-        $profiles = $this->GetActionProfiles($profileID);
-        if (empty($profiles)) {
-            echo "Fehler: Profil(e) '$profileID'nicht gefunden!";
-            return;
-        }
-
-        if ($turnOff) {
-            $this->SendDebug("Test", "Stoppe Profile: ". $profileID, 0);
-            foreach ($profiles as $profile) {
-                $this->TriggerHomematicLEDs($profile, true);
-                $this->TriggerHomematicSirens($profile, true);
-            }
-            echo "Profile '$profileID'gestoppt (LEDs & Sirenen Aus).";
-        } else {
-            $msg = "TEST-ALARM für Profil: ". $profileID;
-            $this->SendDebug("Test", "Teste Profile: ". $profileID, 0);
-            foreach ($profiles as $profile) {
-                $this->TriggerInfo($profile, $msg);
-            }
-            echo "Profile '$profileID'getestet (Signale gesendet).";
-        }
-    }
 
     private function IsTriggered($currentVal, $triggerValStr)
     {
@@ -938,7 +478,6 @@ class SmartAlarmManager extends IPSModuleStrict
         return <<<'EOT'
 {
     "elements": [
-
         {
             "type": "ExpansionPanel",
             "caption": "⚙ Globale Einstellungen & Eskalation",
@@ -953,13 +492,13 @@ class SmartAlarmManager extends IPSModuleStrict
                         {
                             "type": "NumberSpinner",
                             "name": "EscalationTimeLvl2",
-                            "caption": "Stufe 2 (Sekunden bis Email/Vestaboard)",
+                            "caption": "Stufe 2 (Sekunden)",
                             "suffix": "s"
                         },
                         {
                             "type": "NumberSpinner",
                             "name": "EscalationTimeLvl3",
-                            "caption": "Stufe 3 (Sekunden bis Vollalarm)",
+                            "caption": "Stufe 3 (Sekunden)",
                             "suffix": "s"
                         }
                     ]
@@ -968,46 +507,16 @@ class SmartAlarmManager extends IPSModuleStrict
         },
         {
             "type": "ExpansionPanel",
-            "caption": "📢 Globale Schnittstellen / Ausgabegeräte",
+            "caption": "📢 Nachrichten & Signale",
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Hier stellst du ein, welche Instanzen für globale Nachrichten und Signale genutzt werden."
+                    "caption": "Wähle hier die SmartNotifier Instanz aus, um Alarme zentral zu melden."
                 },
                 {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectInstance",
-                            "name": "TargetWebFront",
-                            "caption": "WebFront / App (für Push Notifications)"
-                        },
-                        {
-                            "type": "SelectInstance",
-                            "name": "TargetSMTP",
-                            "caption": "SMTP Instanz (für E-Mails)"
-                        },
-                        {
-                            "type": "ValidationTextBox",
-                            "name": "EmailAddress",
-                            "caption": "Empfänger E-Mail Adresse"
-                        }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectInstance",
-                            "name": "TargetVestaboard",
-                            "caption": "Vestaboard Instanz"
-                        },
-                        {
-                            "type": "SelectInstance",
-                            "name": "TargetSonos",
-                            "caption": "Sonos / GoogleTTS Instanz"
-                        }
-                    ]
+                    "type": "SelectInstance",
+                    "name": "TargetNotifier",
+                    "caption": "SmartNotifier Instanz"
                 }
             ]
         },
@@ -1086,354 +595,6 @@ class SmartAlarmManager extends IPSModuleStrict
                             }
                         ]
                     }
-                },
-                {
-                    "caption": "Aktions-Profil (Name)",
-                    "name": "ProfileID",
-                    "width": "200px",
-                    "add": "Neues_Profil",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                }
-            ]
-        },
-        {
-            "type": "Label",
-            "caption": "Aktions-Profile"
-        },
-        {
-            "type": "Label",
-            "caption": "Hier stellst du ein, was bei einem bestimmten Profil-Alarm passieren soll (z.B. Sirenen oder Lichter aktivieren)."
-        },
-        {
-            "type": "List",
-            "name": "ActionProfiles",
-            "caption": "Profile",
-            "add": true,
-            "delete": true,
-            "changeOrder": true,
-            "rowCount": 15,
-            "columns": [
-                {
-                    "caption": "Profil-ID (Name)",
-                    "name": "ProfileID",
-                    "width": "auto",
-                    "add": "Neues_Profil",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "App",
-                    "name": "UseWebFront",
-                    "width": "50px",
-                    "add": true,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "E-Mail",
-                    "name": "UseEmail",
-                    "width": "50px",
-                    "add": true,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Vestaboard",
-                    "name": "UseVestaboard",
-                    "width": "50px",
-                    "add": true,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Sonos",
-                    "name": "UseSonos",
-                    "width": "50px",
-                    "add": true,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "MP3-Instanz",
-                    "name": "HmIP_MP3_Inst",
-                    "width": "120px",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectInstance"
-                    }
-                },
-                {
-                    "caption": "MP3 Track(s)",
-                    "name": "MP3_Sounds",
-                    "width": "100px",
-                    "add": "1",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Lautstärke",
-                    "name": "MP3_Volume",
-                    "width": "80px",
-                    "add": 100,
-                    "edit": {
-                        "type": "NumberSpinner"
-                    }
-                },
-                {
-                    "caption": "Dauer (s)",
-                    "name": "MP3_Duration",
-                    "width": "60px",
-                    "add": 0,
-                    "edit": {
-                        "type": "NumberSpinner"
-                    }
-                },
-                {
-                    "caption": "LED-Instanz",
-                    "name": "HmIP_LED_Inst",
-                    "width": "120px",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectInstance"
-                    }
-                },
-                {
-                    "caption": "Ist MP3P-Licht?",
-                    "name": "HmIP_LED_IsMP3P",
-                    "width": "80px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "LED Helligkeit",
-                    "name": "LED_Brightness",
-                    "width": "80px",
-                    "add": 100,
-                    "edit": {
-                        "type": "NumberSpinner"
-                    }
-                },
-                {
-                    "caption": "LED Farbe",
-                    "name": "LED_Color",
-                    "width": "100px",
-                    "add": 4,
-                    "edit": {
-                        "type": "Select",
-                        "options": [
-                            {
-                                "caption": "Aus",
-                                "value": 0
-                            },
-                            {
-                                "caption": "Blau",
-                                "value": 1
-                            },
-                            {
-                                "caption": "Grün",
-                                "value": 2
-                            },
-                            {
-                                "caption": "Türkis",
-                                "value": 3
-                            },
-                            {
-                                "caption": "Rot",
-                                "value": 4
-                            },
-                            {
-                                "caption": "Violett",
-                                "value": 5
-                            },
-                            {
-                                "caption": "Gelb",
-                                "value": 6
-                            },
-                            {
-                                "caption": "Weiß",
-                                "value": 7
-                            }
-                        ]
-                    }
-                },
-                {
-                    "caption": "LED Modus",
-                    "name": "LED_Mode",
-                    "width": "100px",
-                    "add": 1,
-                    "edit": {
-                        "type": "Select",
-                        "options": [
-                            {
-                                "caption": "Dauerlicht",
-                                "value": 1
-                            },
-                            {
-                                "caption": "Blinken (L)",
-                                "value": 2
-                            },
-                            {
-                                "caption": "Blinken (M)",
-                                "value": 3
-                            },
-                            {
-                                "caption": "Blinken (S)",
-                                "value": 4
-                            },
-                            {
-                                "caption": "Blitzen (L)",
-                                "value": 5
-                            },
-                            {
-                                "caption": "Blitzen (M)",
-                                "value": 6
-                            },
-                            {
-                                "caption": "Blitzen (S)",
-                                "value": 7
-                            },
-                            {
-                                "caption": "Pulsieren (L)",
-                                "value": 8
-                            },
-                            {
-                                "caption": "Pulsieren (M)",
-                                "value": 9
-                            },
-                            {
-                                "caption": "Pulsieren (S)",
-                                "value": 10
-                            }
-                        ]
-                    }
-                },
-                {
-                    "caption": "Sirenen-Instanz",
-                    "name": "HmIP_Siren_Inst",
-                    "width": "120px",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectInstance"
-                    }
-                },
-                {
-                    "caption": "Sirene Ton",
-                    "name": "Siren_Acoustic",
-                    "width": "120px",
-                    "add": 0,
-                    "edit": {
-                        "type": "Select",
-                        "options": [
-                            {
-                                "caption": "Kein Ton",
-                                "value": 0
-                            },
-                            {
-                                "caption": "Frequenz steigend",
-                                "value": 1
-                            },
-                            {
-                                "caption": "Frequenz fallend",
-                                "value": 2
-                            },
-                            {
-                                "caption": "Frequenz steigen/fallend",
-                                "value": 3
-                            },
-                            {
-                                "caption": "Frequenz tief/hoch",
-                                "value": 4
-                            },
-                            {
-                                "caption": "Frequenz tief",
-                                "value": 5
-                            },
-                            {
-                                "caption": "Frequenz hoch",
-                                "value": 6
-                            }
-                        ]
-                    }
-                },
-                {
-                    "caption": "Sirene Optik",
-                    "name": "Siren_Optical",
-                    "width": "120px",
-                    "add": 0,
-                    "edit": {
-                        "type": "Select",
-                        "options": [
-                            {
-                                "caption": "Kein Licht",
-                                "value": 0
-                            },
-                            {
-                                "caption": "Blinken",
-                                "value": 1
-                            },
-                            {
-                                "caption": "Blitzen",
-                                "value": 2
-                            }
-                        ]
-                    }
-                },
-                {
-                    "caption": "Ziel-Variable",
-                    "name": "TargetVariableID",
-                    "width": "120px",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectVariable"
-                    }
-                },
-                {
-                    "caption": "Ziel-Wert",
-                    "name": "TargetVariableValue",
-                    "width": "100px",
-                    "add": "",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                }
-            ]
-        }
-    ],
-    "actions": [
-        {
-            "type": "Label",
-            "caption": "Test: Aktions-Profil testen"
-        },
-        {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "ValidationTextBox",
-                    "name": "TestProfileID",
-                    "caption": "Profil-ID (Name)",
-                    "value": "Briefkasten"
-                },
-                {
-                    "type": "Button",
-                    "caption": "Profil testen (An)",
-                    "onClick": "SAM_TestProfile($id, $TestProfileID, false);",
-                    "icon": "Play"
-                },
-                {
-                    "type": "Button",
-                    "caption": "Profil stoppen (Aus)",
-                    "onClick": "SAM_TestProfile($id, $TestProfileID, true);",
-                    "icon": "Stop"
                 }
             ]
         }
@@ -1442,5 +603,3 @@ class SmartAlarmManager extends IPSModuleStrict
 EOT;
     }
 }
-
-

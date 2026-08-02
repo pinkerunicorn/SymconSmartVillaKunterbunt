@@ -26,11 +26,14 @@ class SmartNotifier extends IPSModuleStrict
         $this->RegisterPropertyInteger('TargetSonosTTS', 0);
         $this->RegisterPropertyInteger('TargetMP3P', 0);
         $this->RegisterPropertyInteger('TargetVestaboard', 0);
+        $this->RegisterPropertyInteger('TargetSMTP', 0);
+        $this->RegisterPropertyString('EmailAddress', '');
         
         $this->RegisterPropertyBoolean('EnablePush', true);
         $this->RegisterPropertyBoolean('EnableTTS', true);
         $this->RegisterPropertyBoolean('EnableMP3P', true);
         $this->RegisterPropertyBoolean('EnableVestaboard', true);
+        $this->RegisterPropertyBoolean('EnableSMTP', true);
 
         // Buffers for Queuing
         $this->SetBuffer('MessageQueue', json_encode([]));
@@ -65,6 +68,11 @@ class SmartNotifier extends IPSModuleStrict
         $vesta = $this->ReadPropertyInteger('TargetVestaboard');
         if ($vesta > 0 && @IPS_InstanceExists($vesta)) {
             $this->RegisterReference($vesta);
+        }
+
+        $smtp = $this->ReadPropertyInteger('TargetSMTP');
+        if ($smtp > 0 && @IPS_InstanceExists($smtp)) {
+            $this->RegisterReference($smtp);
         }
 
         $this->SetStatus(102);
@@ -121,6 +129,21 @@ class SmartNotifier extends IPSModuleStrict
             "type": "CheckBox",
             "name": "EnableVestaboard",
             "caption": "Vestaboard Alarm-Push aktivieren"
+        },
+        {
+            "type": "SelectInstance",
+            "name": "TargetSMTP",
+            "caption": "SMTP Instanz (fuer E-Mails)"
+        },
+        {
+            "type": "ValidationTextBox",
+            "name": "EmailAddress",
+            "caption": "Empfaenger E-Mail Adresse"
+        },
+        {
+            "type": "CheckBox",
+            "name": "EnableSMTP",
+            "caption": "E-Mail Benachrichtigungen aktivieren"
         }
     ],
     "actions": [
@@ -195,6 +218,7 @@ EOT;
         // --------------------------------------------------------
         if ($priority >= 2) {
             $this->TriggerPush($title, $message, 'alarm', $actions);
+            $this->TriggerEmail($title, $message);
             $this->TriggerVestaboard("$title: $message");
             if ($isHome) {
                 $this->TriggerTTS("Achtung! $title: $message");
@@ -208,6 +232,7 @@ EOT;
         // --------------------------------------------------------
         if ($priority === 1) {
             $this->TriggerPush($title, $message, 'warning', $actions);
+            $this->TriggerEmail($title, $message);
             $this->TriggerVestaboard("$title: $message");
             
             if ($isHome) {
@@ -359,6 +384,26 @@ EOT;
                 @IPS_RunScriptText("VESTAG_PushAlert($vestaId, " . var_export(substr($message, 0, 132), true) . ", true);");
             } catch (Exception $e) {
                 $this->SLogError( 'Fehler beim Senden an Vestaboard: ' . $e->getMessage());
+            }
+        }
+    }
+
+    private function TriggerEmail(string $title, string $message): void
+    {
+        if (!$this->ReadPropertyBoolean('EnableSMTP')) return;
+
+        $smtp = $this->ReadPropertyInteger('TargetSMTP');
+        $email = trim($this->ReadPropertyString('EmailAddress'));
+        if ($smtp > 0 && @IPS_InstanceExists($smtp) && $email !== '') {
+            $this->SLogInfo("E-Mail: Sende Mail an $email ($title)");
+            try {
+                if (function_exists('SMTP_SendMailEx')) {
+                    @SMTP_SendMailEx($smtp, $email, $title, $message);
+                } else {
+                    @SMTP_SendMail($smtp, $title, $message);
+                }
+            } catch (Exception $e) {
+                $this->SLogError("Fehler beim Senden der E-Mail: " . $e->getMessage());
             }
         }
     }
