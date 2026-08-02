@@ -231,10 +231,20 @@ class SmartHomeSecurity extends IPSModuleStrict
 
 
 
+    private function SetValueIfChanged(string $Ident, $Value): void
+    {
+        $id = $this->GetIDForIdent($Ident);
+        if (GetValue($id) !== $Value) {
+            $this->SetValue($Ident, $Value);
+        }
+    }
+
     public function GetConfigurationForm(): string
     {
         return <<<'EOT'
 {
+    "elements": [
+        {
             "type": "List",
             "name": "DoorVariables",
             "caption": "Türen (Kontakte)",
