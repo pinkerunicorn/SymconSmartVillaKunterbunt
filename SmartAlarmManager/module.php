@@ -71,18 +71,16 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         // ---------------------------------
         
-        $options = json_encode([
+        $parameters = json_encode([
             ['Value' => 0, 'Caption' => 'Alles OK', 'IconValue' => 'Ok', 'ColorDisplay' => 0x00FF00, 'ColorValue' => 0x00FF00, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
             ['Value' => 1, 'Caption' => 'Info / Hinweis', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFFFF00, 'ColorValue' => 0xFFFF00, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 2, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 3, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 4, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
+            ['Value' => 2, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
         ]);
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Information', 'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
+            'ICON' => 'Information', 'DISPLAY_TYPE' => 1, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
             'MIN_VALUE' => 0, 'MAX_VALUE' => 4, 'PREFIX' => '', 'SUFFIX' => '', 'DIGITS' => 0,
-            'OPTIONS' => $options
+            'PARAMETERS' => $parameters
         ]);
 
 
