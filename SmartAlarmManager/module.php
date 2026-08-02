@@ -68,7 +68,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     'SuffixActive' => false, 'SuffixValue' => '',
                     'DigitsActive' => false, 'DigitsValue' => 0,
                     'IconActive' => true, 'IconValue' => 'Ok',
-                    'ColorActive' => true, 'ColorValue' => 0x00FF00,
+                    'ColorActive' => true, 'ColorValue' => 0x00CC00,
                     'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
                 ],
                 [
