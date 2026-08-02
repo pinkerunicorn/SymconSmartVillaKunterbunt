@@ -123,9 +123,9 @@ class SmartHomeEntrance extends IPSModuleStrict
             ['Value' => 0, 'Caption' => 'Leer', 'IconValue' => 'Mailbox', 'IconActive' => true,
              'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
              'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-            ['Value' => 1, 'Caption' => 'Neue Post', 'IconValue' => 'Mail', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x00AAFF, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00AAFF]
+            ['Value' => 1, 'Caption' => 'Voll', 'IconValue' => 'Mail', 'IconActive' => true,
+             'ColorActive' => true, 'ColorDisplay' => 0xFFD700, 'ContentColorActive' => false,
+             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFD700]
         ]);
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('MailboxState'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
