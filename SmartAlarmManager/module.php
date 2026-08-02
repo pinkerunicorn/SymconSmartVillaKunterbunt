@@ -28,15 +28,8 @@ class SmartAlarmManager extends IPSModuleStrict
 
         // Summary Variables for Tile UI
         $this->RegisterVariableInteger("SystemStatus", "System Status", [
-            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
-            'ICON'         => 'Information',
-            'OPTIONS'      => json_encode([
-                ['Value' => 0, 'Caption' => 'Alles OK',             'IconActive' => true, 'IconValue' => 'Ok',      'Color' => 0x00FF00],
-                ['Value' => 1, 'Caption' => 'Info / Hinweis',       'IconActive' => true, 'IconValue' => 'Warning', 'Color' => 0xFFFF00],
-                ['Value' => 2, 'Caption' => 'ALARM!',               'IconActive' => true, 'IconValue' => 'Alert',   'Color' => 0xFF0000],
-                ['Value' => 3, 'Caption' => 'ESKALATION',           'IconActive' => true, 'IconValue' => 'Alert',   'Color' => 0xFF0000],
-                ['Value' => 4, 'Caption' => 'VOLLALARM',            'IconActive' => true, 'IconValue' => 'Alert',   'Color' => 0xFF0000]
-            ])
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Information'
         ], 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
@@ -77,6 +70,34 @@ class SmartAlarmManager extends IPSModuleStrict
             }
         }
         // ---------------------------------
+
+        // --- SystemStatus: Wertanzeige mit Intervall-Konstanten (Ampel) ---
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Information',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'SHOW_PREVIEW' => true,
+            'PREVIEW_STYLE' => 1,
+            'OPTIONS' => json_encode([
+                ['Value' => 0, 'Caption' => 'Alles OK',       'IconValue' => 'Ok',      'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x00FF00, 'ColorValue' => 0x00FF00,
+                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 1, 'Caption' => 'Info / Hinweis',  'IconValue' => 'Warning', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFFFF00, 'ColorValue' => 0xFFFF00,
+                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 2, 'Caption' => 'ALARM!',          'IconValue' => 'Alert',   'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000,
+                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 3, 'Caption' => 'ESKALATION',      'IconValue' => 'Alert',   'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000,
+                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 4, 'Caption' => 'VOLLALARM',       'IconValue' => 'Alert',   'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000,
+                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
+            ])
+        ]);
 
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
