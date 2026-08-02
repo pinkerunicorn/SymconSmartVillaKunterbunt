@@ -22,7 +22,7 @@ class SmartNotifier extends IPSModuleStrict
         parent::Create();
 
         // Register Properties
-        $this->RegisterPropertyInteger('TargetWebFront', 0);
+        $this->RegisterPropertyInteger('TargetVisu', 0);
         $this->RegisterPropertyInteger('TargetSonosTTS', 0);
         $this->RegisterPropertyInteger('TargetMP3P', 0);
         $this->RegisterPropertyInteger('TargetVestaboard', 0);
@@ -47,9 +47,9 @@ class SmartNotifier extends IPSModuleStrict
             $this->UnregisterReference($refID);
         }
         
-        $wf = $this->ReadPropertyInteger('TargetWebFront');
-        if ($wf > 0 && @IPS_InstanceExists($wf)) {
-            $this->RegisterReference($wf);
+        $visu = $this->ReadPropertyInteger('TargetVisu');
+        if ($visu > 0 && @IPS_InstanceExists($visu)) {
+            $this->RegisterReference($visu);
         }
         
         $sonos = $this->ReadPropertyInteger('TargetSonosTTS');
@@ -84,8 +84,8 @@ class SmartNotifier extends IPSModuleStrict
     "elements": [
         {
             "type": "SelectInstance",
-            "name": "TargetWebFront",
-            "caption": "WebFront Instanz (fÃ¼r Push)"
+            "name": "TargetVisu",
+            "caption": "Kachel-Visualisierung (für Push)"
         },
         {
             "type": "CheckBox",
@@ -292,10 +292,21 @@ EOT;
     {
         if (!$this->ReadPropertyBoolean('EnablePush')) return;
         
-        $wfId = $this->ReadPropertyInteger('TargetWebFront');
-        if ($wfId > 0 && @IPS_InstanceExists($wfId)) {
-            // WFC_PushNotification(int $InstanceID, string $Title, string $Text, string $Sound, int $TargetID)
-            @WFC_PushNotification($wfId, $title, $message, $sound, 0);
+        $visuId = $this->ReadPropertyInteger('TargetVisu');
+        if ($visuId > 0 && @IPS_InstanceExists($visuId)) {
+            $targetId = 0;
+            if (!empty($actions) && isset($actions[0]) && is_numeric($actions[0])) {
+                $targetId = (int)$actions[0];
+            }
+            
+            $icon = 'Information';
+            if ($sound === 'alarm') {
+                $icon = 'Alert';
+            } elseif ($sound === 'warning') {
+                $icon = 'Warning';
+            }
+            
+            @VISU_PostNotificationEx($visuId, $title, $message, $icon, $sound, $targetId);
         }
     }
 
