@@ -79,7 +79,7 @@ class SmartAlarmManager extends IPSModuleStrict
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
             'ICON' => 'Information', 'DISPLAY_TYPE' => 1, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'PARAMETERS' => $parameters
+            'OPTIONS' => $parameters
         ]);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), '');
 
