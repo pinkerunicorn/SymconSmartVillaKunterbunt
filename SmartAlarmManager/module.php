@@ -27,10 +27,9 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->SetBuffer("ActiveAlarms", "{}");
 
         // Summary Variables for Tile UI
-        $this->RegisterVariableInteger("SystemStatus", "System Status", [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Information'
-        ], 1);
+        // SystemStatus: Legacy-Profil wird in ApplyChanges() zugewiesen
+        // (einziger zuverlässiger Weg für read-only Integer mit Text+Farbe+Icon)
+        $this->MaintainVariable('SystemStatus', 'System Status', 1, '', 1, true);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Warning'
@@ -53,17 +52,19 @@ class SmartAlarmManager extends IPSModuleStrict
         parent::ApplyChanges();
         $this->DA_ApplyPresentation();
 
-        // --- Migration: SystemStatus mit alter ENUMERATION-Präsentation bereinigen ---
-        $oldVid = @IPS_GetObjectIDByIdent('SystemStatus', $this->InstanceID);
-        if ($oldVid !== false && IPS_VariableExists($oldVid)) {
-            IPS_DeleteVariable($oldVid);
+        // --- SystemStatus: Legacy-Profil (einzig zuverlässiger Weg für read-only Integer mit Assoziationen) ---
+        $profileName = 'SAM.SystemStatus.' . $this->InstanceID;
+        if (!IPS_VariableProfileExists($profileName)) {
+            IPS_CreateVariableProfile($profileName, 1); // 1 = Integer
         }
+        IPS_SetVariableProfileAssociation($profileName, 0, 'Alles OK',        'Ok',      0x00FF00);
+        IPS_SetVariableProfileAssociation($profileName, 1, 'Info / Hinweis',  'Warning', 0xFFFF00);
+        IPS_SetVariableProfileAssociation($profileName, 2, 'ALARM!',          'Alert',   0xFF0000);
+        IPS_SetVariableProfileAssociation($profileName, 3, 'ESKALATION',      'Alert',   0xFF0000);
+        IPS_SetVariableProfileAssociation($profileName, 4, 'VOLLALARM',       'Alert',   0xFF0000);
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), $profileName);
 
-        // --- Sicherstellung: Summary-Variablen existieren (auch nach manuellem Löschen) ---
-        $this->RegisterVariableInteger("SystemStatus", "System Status", [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Information'
-        ], 1);
+        // --- Sicherstellung: Summary-Variablen ---
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Warning'
@@ -96,34 +97,6 @@ class SmartAlarmManager extends IPSModuleStrict
             }
         }
         // ---------------------------------
-
-        // --- SystemStatus: Wertanzeige mit Intervall-Konstanten (Ampel) ---
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Information',
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'SHOW_PREVIEW' => true,
-            'PREVIEW_STYLE' => 1,
-            'OPTIONS' => json_encode([
-                ['Value' => 0, 'Caption' => 'Alles OK',       'IconValue' => 'Ok',      'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0x00FF00, 'ColorValue' => 0x00FF00,
-                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 1, 'Caption' => 'Info / Hinweis',  'IconValue' => 'Warning', 'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0xFFFF00, 'ColorValue' => 0xFFFF00,
-                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 2, 'Caption' => 'ALARM!',          'IconValue' => 'Alert',   'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000,
-                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 3, 'Caption' => 'ESKALATION',      'IconValue' => 'Alert',   'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000,
-                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 4, 'Caption' => 'VOLLALARM',       'IconValue' => 'Alert',   'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000,
-                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
-            ])
-        ]);
 
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
