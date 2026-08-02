@@ -21,14 +21,7 @@ class SmartHomeSecurity extends IPSModuleStrict
         $this->RegisterPropertyString('DoorVariables', '[]');
         $this->RegisterPropertyString('WindowVariables', '[]');
 
-        $this->RegisterPropertyBoolean('AutoLockActive', false);
-        $this->RegisterPropertyString('AutoLockTime', '{"hour":22,"minute":0,"second":0}');
-        $this->RegisterPropertyBoolean('AutoUnlockActive', false);
-        $this->RegisterPropertyString('AutoUnlockTime', '{"hour":7,"minute":0,"second":0}');
-        $this->RegisterPropertyBoolean('AutoUnlockOnlyWhenPresent', true);
 
-        $this->RegisterTimer('TimerAutoLock', 0, 'SHS_TimerAutoLock($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('TimerAutoUnlock', 0, 'SHS_TimerAutoUnlock($_IPS[\'TARGET\']);');
 
         // Variablen für den WebFront-Status
         $this->RegisterVariableInteger('OpenWindowsCount', '🚪 Offene Fenster / Türen (Zähler)', [
@@ -112,7 +105,7 @@ class SmartHomeSecurity extends IPSModuleStrict
             }
         }
         $this->CalculateOpenWindows();
-        $this->UpdateTimers();
+
 
         $this->SetStatus(102);
         $this->DA_SetAvailable(true);
@@ -225,53 +218,7 @@ class SmartHomeSecurity extends IPSModuleStrict
     private function updateSecurityMode(): void
     {
         $isAbsence = $this->IsAway() || $this->IsVacation();
-        $isSleep = $this->IsSleeping();
-        $isCinema = $this->IsCinema();
 
-        $shouldLock = ($isAbsence || $isSleep || $isCinema);
-
-        $doorVars = json_decode($this->ReadPropertyString('DoorVariables'), true);
-        if (!is_array($doorVars)) return;
-
-        if ($shouldLock) {
-            foreach ($doorVars as $door) {
-                // Fallback für alte Konfigurationen: true
-                $lock = isset($door['LockOnAbsence']) ? $door['LockOnAbsence'] : true;
-                if ($lock) {
-                    $id = $door['VariableID'];
-                    if ($id > 0 && IPS_VariableExists($id)) {
-                        if ($this->IsDoorClosed($door)) {
-                            if (!@RequestAction($id, $this->GetActionValue($door, 'LockValue', 1))) {
-                                $devName = @IPS_GetName($id) ?: "ID:$id";
-                                $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
-                            } else {
-                                $this->SLogInfo( 'Aktor verriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
-                            }
-                        } else {
-                            $name = isset($door['Name']) && $door['Name'] != '' ? $door['Name'] : IPS_GetName($id);
-                            $this->SLogWarning( 'Verriegelung übersprungen, da Tür offen.', "Name: $name | ID: $id");
-                        }
-                    }
-                }
-            }
-            $this->SLogInfo( 'Verriegelung der konfigurierten Türen durchgeführt.', "Hausmodus: Abwesend/Schlafen/Heimkino");
-        } else {
-            foreach ($doorVars as $door) {
-                // Fallback für alte Konfigurationen: false
-                $unlock = isset($door['UnlockOnPresence']) ? $door['UnlockOnPresence'] : false;
-                if ($unlock) {
-                    $id = $door['VariableID'];
-                    if ($id > 0 && IPS_VariableExists($id)) {
-                        if (!@RequestAction($id, $this->GetActionValue($door, 'UnlockValue', 0))) {
-                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
-                        } else {
-                            $this->SLogInfo( 'Aktor entriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
-                        }
-                    }
-                }
-            }
-            $this->SLogInfo( 'Aufsperren der konfigurierten Türen durchgeführt.', "Hausmodus: Anwesend");
-        }
         // Alarm Check
         if ($isAbsence) {
             $this->CalculateOpenWindows();
@@ -282,146 +229,15 @@ class SmartHomeSecurity extends IPSModuleStrict
         }
     }
 
-    private function UpdateTimers(): void
-    {
-        if ($this->ReadPropertyBoolean('AutoLockActive')) {
-            $this->SetTimerInterval('TimerAutoLock', $this->GetMillisecondsToTime($this->ReadPropertyString('AutoLockTime')));
-        } else {
-            $this->SetTimerInterval('TimerAutoLock', 0);
-        }
 
-        if ($this->ReadPropertyBoolean('AutoUnlockActive')) {
-            $this->SetTimerInterval('TimerAutoUnlock', $this->GetMillisecondsToTime($this->ReadPropertyString('AutoUnlockTime')));
-        } else {
-            $this->SetTimerInterval('TimerAutoUnlock', 0);
-        }
-    }
-
-    private function GetMillisecondsToTime(string $timeStr): int
-    {
-        $time = json_decode($timeStr, true);
-        if (!is_array($time)) return 0;
-        
-        $now = time();
-        $targetTime = mktime($time['hour'], $time['minute'], $time['second'], (int)date('m'), (int)date('d'), (int)date('Y'));
-        
-        if ($targetTime <= $now) {
-            $targetTime += 86400; // Nächster Tag
-        }
-        
-        return ($targetTime - $now) * 1000;
-    }
-
-    private function IsDoorClosed(array $door): bool
-    {
-        if (!isset($door['SensorVariableID']) || $door['SensorVariableID'] <= 0) return true;
-        $id = $door['SensorVariableID'];
-        if (!IPS_VariableExists($id)) return true;
-        
-        $currentVal = GetValue($id);
-        $checkVal = isset($door['ClosedValue']) ? $door['ClosedValue'] : 'false';
-        
-        if (is_bool($currentVal)) {
-            $targetBool = ($checkVal === 'true' || $checkVal === '1' || strtolower($checkVal) === 'wahr');
-            return ($currentVal === $targetBool);
-        } else if (is_int($currentVal)) {
-            return ($currentVal === (int)$checkVal);
-        } else if (is_float($currentVal)) {
-            return ($currentVal === (float)$checkVal);
-        } else if (is_string($currentVal)) {
-            return (strtolower(trim($currentVal)) === strtolower(trim($checkVal)));
-        }
-        return ($currentVal == $checkVal);
-    }
-
-    private function SetValueIfChanged(string $Ident, $Value): void
-    {
-        $id = $this->GetIDForIdent($Ident);
-        if (GetValue($id) !== $Value) {
-            $this->SetValue($Ident, $Value);
-        }
-    }
-
-    private function GetActionValue(array $door, string $key, $default)
-    {
-        $val = isset($door[$key]) ? $door[$key] : $default;
-        if ($val === 'true' || $val === 'True') return true;
-        if ($val === 'false' || $val === 'False') return false;
-        if (is_numeric($val)) {
-            if (strpos((string)$val, '.') !== false) return (float)$val;
-            return (int)$val;
-        }
-        return $val;
-    }
-
-    public function TimerAutoLock(): void
-    {
-        $doorVars = json_decode($this->ReadPropertyString('DoorVariables'), true);
-        if (is_array($doorVars)) {
-            foreach ($doorVars as $door) {
-                $id = $door['VariableID'];
-                if ($id > 0 && IPS_VariableExists($id)) {
-                    if ($this->IsDoorClosed($door)) {
-                        if (!@RequestAction($id, $this->GetActionValue($door, 'LockValue', 1))) {
-                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
-                        } else {
-                            $this->SLogInfo( 'Aktor automatisch verriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
-                        } // Verriegeln
-                    } else {
-                        $name = isset($door['Name']) && $door['Name'] != '' ? $door['Name'] : IPS_GetName($id);
-                        $this->SLogWarning( 'Auto-Lock übersprungen, da Tür offen.', "Name: $name | ID: $id");
-                    }
-                }
-            }
-        }
-        $this->SLogInfo( 'Automatisches Verriegeln der Türen durchgeführt.');
-        
-        $this->UpdateTimers();
-    }
-
-    public function TimerAutoUnlock(): void
-    {
-        $this->UpdateTimers();
-
-        $onlyWhenPresent = $this->ReadPropertyBoolean('AutoUnlockOnlyWhenPresent');
-        $isAbsent = $this->IsAway() || $this->IsVacation();
-        
-        if ($onlyWhenPresent && $isAbsent) {
-            $this->SLogInfo( 'Automatisches Aufsperren übersprungen.', "Grund: Abwesenheit aktiv");
-            return;
-        }
-
-        $doorVars = json_decode($this->ReadPropertyString('DoorVariables'), true);
-        if (is_array($doorVars)) {
-            $unlockedDoors = [];
-            foreach ($doorVars as $door) {
-                $id = $door['VariableID'];
-                if ($id > 0 && IPS_VariableExists($id)) {
-                    if (!@RequestAction($id, $this->GetActionValue($door, 'UnlockValue', 0))) {
-                        $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
-                    } else {
-                        $this->SLogInfo( 'Aktor automatisch entriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
-                    } // Aufsperren
-                    $unlockedDoors[] = IPS_GetName($id);
-                }
-            }
-            if (!empty($unlockedDoors)) {
-                $this->SLogInfo( 'Automatisches Aufsperren durchgeführt.', 'Türen: ' . implode(', ', $unlockedDoors));
-            } else {
-                $this->SLogInfo( 'Automatisches Aufsperren der Türen durchgeführt.');
-            }
-        }
-    }
 
     public function GetConfigurationForm(): string
     {
         return <<<'EOT'
 {
-    "elements": [
-        {
             "type": "List",
             "name": "DoorVariables",
-            "caption": "Türen (Kontakte & Schlösser)",
+            "caption": "Türen (Kontakte)",
             "rowCount": 10,
             "add": true,
             "delete": true,
@@ -439,7 +255,7 @@ class SmartHomeSecurity extends IPSModuleStrict
                 {
                     "caption": "Tür-Kontakt (Sensor)",
                     "name": "SensorVariableID",
-                    "width": "150px",
+                    "width": "auto",
                     "add": 0,
                     "edit": {
                         "type": "SelectVariable"
@@ -452,51 +268,6 @@ class SmartHomeSecurity extends IPSModuleStrict
                     "add": "false",
                     "edit": {
                         "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Türschloss (Aktor)",
-                    "name": "VariableID",
-                    "width": "auto",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectVariable"
-                    }
-                },
-                {
-                    "caption": "Wert f. Verriegeln",
-                    "name": "LockValue",
-                    "width": "100px",
-                    "add": "1",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Wert f. Entriegeln",
-                    "name": "UnlockValue",
-                    "width": "100px",
-                    "add": "0",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Verriegeln (Abwesenheit)",
-                    "name": "LockOnAbsence",
-                    "width": "150px",
-                    "add": true,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                },
-                {
-                    "caption": "Aufsperren (Rückkehr)",
-                    "name": "UnlockOnPresence",
-                    "width": "150px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
                     }
                 }
             ]
@@ -538,51 +309,6 @@ class SmartHomeSecurity extends IPSModuleStrict
                     }
                 }
             ]
-        },
-        {
-            "type": "Label",
-            "label": "Automatische Türschloss-Steuerung"
-        },
-        {
-            "type": "CheckBox",
-            "name": "AutoLockActive",
-            "caption": "Automatisch Verschließen"
-        },
-        {
-            "type": "Label",
-            "caption": "Hier stellst du 'Uhrzeit zum Verschließen' ein."
-        },
-        {
-            "type": "SelectTime",
-            "name": "AutoLockTime",
-            "caption": "Uhrzeit zum Verschließen"
-        },
-        {
-            "type": "Label",
-            "caption": "Hier stellst du 'Automatisch Aufsperren' ein."
-        },
-        {
-            "type": "CheckBox",
-            "name": "AutoUnlockActive",
-            "caption": "Automatisch Aufsperren"
-        },
-        {
-            "type": "Label",
-            "caption": "Hier stellst du 'Uhrzeit zum Aufsperren' ein."
-        },
-        {
-            "type": "SelectTime",
-            "name": "AutoUnlockTime",
-            "caption": "Uhrzeit zum Aufsperren"
-        },
-        {
-            "type": "Label",
-            "caption": "Hier stellst du 'Aufsperren nur bei Anwesenheit' ein."
-        },
-        {
-            "type": "CheckBox",
-            "name": "AutoUnlockOnlyWhenPresent",
-            "caption": "Aufsperren nur bei Anwesenheit"
         }
     ]
 }
