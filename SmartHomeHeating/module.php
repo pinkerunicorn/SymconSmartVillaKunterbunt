@@ -162,7 +162,7 @@ class SmartHomeHeating extends IPSModuleStrict
         }
     }
 
-    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
         $this->updateHeatingMode();
     }
@@ -246,7 +246,7 @@ class SmartHomeHeating extends IPSModuleStrict
                             $this->SLog('INFO', 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 1");
                         } // Meistens 1 = Manu
                     }
-                    IPS_Sleep(500); // Kurz warten für Homematic
+                    usleep(200000); // Kurz warten für Homematic
                 }
 
                 if ($targetTempId > 0 && IPS_VariableExists($targetTempId)) {

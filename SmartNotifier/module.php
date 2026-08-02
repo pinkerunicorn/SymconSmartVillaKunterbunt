@@ -143,7 +143,7 @@ EOT;
      * @param string $stateName
      * @param mixed $newValue
      */
-    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
         // When waking up (ActivityMode changes to Normal) -> Process morning queue
         if ($stateName === 'ActivityMode' && (int)$newValue === 0) {
@@ -345,7 +345,7 @@ EOT;
         if ($vestaId > 0 && @IPS_InstanceExists($vestaId)) {
             try {
                 // Aufruf der PushAlert-Methode im VestaboardGenerator (resume = true)
-                @IPS_RunScriptText("VESTA_PushAlert($vestaId, " . var_export(substr($message, 0, 132), true) . ", true);");
+                @IPS_RunScriptText("VESTAG_PushAlert($vestaId, " . var_export(substr($message, 0, 132), true) . ", true);");
             } catch (Exception $e) {
                 $this->SLog('ERROR', 'Fehler beim Senden an Vestaboard: ' . $e->getMessage());
             }

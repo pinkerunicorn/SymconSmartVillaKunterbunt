@@ -28,6 +28,7 @@ class SmartAlarmManager extends IPSModuleStrict
         
         $this->RegisterTimer("EscalationTimer", 0, 'SAM_CheckEscalation($_IPS[\'TARGET\']);');
         $this->RegisterTimer("DelayTimer", 0, 'SAM_HandleDelays($_IPS[\'TARGET\']);');
+        $this->RegisterTimer("StatusResetTimer", 0, 'SAM_UpdateStatusVariables($_IPS[\'TARGET\']); IPS_SetScriptTimer($_IPS[\'TARGET\'], "StatusResetTimer", 0);');
         
         $this->SetBuffer("ActiveAlarms", "{}");
         $this->SetBuffer("ActiveDelays", "{}");
@@ -110,15 +111,19 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         // ---------------------------------
         
-        if (!IPS_VariableProfileExists('SAM.SystemStatus')) {
-            IPS_CreateVariableProfile('SAM.SystemStatus', 1);
-        }
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), 'SAM.SystemStatus');
-        IPS_SetVariableProfileAssociation('SAM.SystemStatus', 0, 'Alles OK', 'Ok', 0x00FF00);
-        IPS_SetVariableProfileAssociation('SAM.SystemStatus', 1, 'Info / Hinweis', 'Information', 0xFFFF00);
-        IPS_SetVariableProfileAssociation('SAM.SystemStatus', 2, 'ALARM!', 'Warning', 0xFF0000);
-        IPS_SetVariableProfileAssociation('SAM.SystemStatus', 3, 'ESKALATION', 'Warning', 0xFF0000);
-        IPS_SetVariableProfileAssociation('SAM.SystemStatus', 4, 'VOLLALARM', 'Alert', 0xFF0000);
+        $options = json_encode([
+            ['Value' => 0, 'Caption' => 'Alles OK', 'IconValue' => 'Ok', 'ColorDisplay' => 0x00FF00, 'ColorValue' => 0x00FF00, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+            ['Value' => 1, 'Caption' => 'Info / Hinweis', 'IconValue' => 'Information', 'ColorDisplay' => 0xFFFF00, 'ColorValue' => 0xFFFF00, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+            ['Value' => 2, 'Caption' => 'ALARM!', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+            ['Value' => 3, 'Caption' => 'ESKALATION', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+            ['Value' => 4, 'Caption' => 'VOLLALARM', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
+        ]);
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'DISPLAY_TYPE' => 0,
+            'OPTIONS' => $options
+        ]);
+        IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), '');
 
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
@@ -185,7 +190,7 @@ class SmartAlarmManager extends IPSModuleStrict
         return $matches;
     }
 
-    private function OnCentralStateChanged(string $stateName, mixed $newValue): void {}
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void {}
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void{
         if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
@@ -291,8 +296,7 @@ class SmartAlarmManager extends IPSModuleStrict
             $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- ". $msg);
             if ($this->GetValue("SystemStatus") == 0) {
                 $this->SetValue("SystemStatus", 1);
-                IPS_Sleep(3000); 
-                $this->UpdateStatusVariables(); 
+                $this->SetTimerInterval("StatusResetTimer", 3000);
             }
         } else {
             $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
@@ -475,7 +479,7 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    private function UpdateStatusVariables(): void
+    public function UpdateStatusVariables(): void
     {
         $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
 

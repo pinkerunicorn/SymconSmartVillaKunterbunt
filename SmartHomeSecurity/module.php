@@ -217,7 +217,7 @@ class SmartHomeSecurity extends IPSModuleStrict
         return [];
     }
 
-    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
         $this->updateSecurityMode();
     }

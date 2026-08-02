@@ -201,7 +201,7 @@ class SmartHomeLighting extends IPSModuleStrict
         return [];
     }
 
-    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
         $this->updateLightingMode();
     }
@@ -533,7 +533,7 @@ class SmartHomeLighting extends IPSModuleStrict
                             } else {
                                 $this->SLog('INFO', "Licht ausgeschaltet: $devName", "ID: $id");
                             }
-                            IPS_Sleep(100);
+                            usleep(100000);
                         }
                     } else {
                         if (GetValue($id) > 0) {
@@ -542,7 +542,7 @@ class SmartHomeLighting extends IPSModuleStrict
                             } else {
                                 $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
                             }
-                            IPS_Sleep(100);
+                            usleep(100000);
                         }
                     }
                 }
@@ -564,7 +564,7 @@ class SmartHomeLighting extends IPSModuleStrict
                         } else {
                             $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
                         }
-                        IPS_Sleep(100);
+                        usleep(100000);
                     }
                 }
             }

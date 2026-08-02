@@ -44,6 +44,7 @@ class SmartActiveLighting extends IPSModuleStrict
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
+            $this->UnregisterReference($refID);
         }
         $ref_SunsetVariableID = $this->ReadPropertyInteger('SunsetVariableID');
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
@@ -739,7 +740,7 @@ class SmartActiveLighting extends IPSModuleStrict
         $this->CalculateTwilightTimers();
     }
 
-    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
         match($stateName) {
             'PresenceMode' => $this->handlePresenceChange((int)$newValue),

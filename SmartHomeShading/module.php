@@ -217,7 +217,7 @@ class SmartHomeShading extends IPSModuleStrict
         }
     }
     
-    private function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
     }
 
@@ -265,7 +265,7 @@ class SmartHomeShading extends IPSModuleStrict
         }
     }
 
-    private function CalculateBlindState(array $blind, bool $isNight, bool $isHotAndBright, float $azimuth): ?int
+    private function CalculateBlindState(array $blind, bool $isNight, bool $isHotAndBright, float $azimuth): ?float
     {
         // Fensterkontakt prüfen
         $contactID = $blind['ContactID'] ?? 0;
@@ -312,7 +312,7 @@ class SmartHomeShading extends IPSModuleStrict
             $targetValueStr = $blind['ValueVentilate'] ?? "0.3";
         }
 
-        return (int) $targetValueStr;
+        return (float) $targetValueStr;
     }
 
     private function GetTargetValueString(array $blind, string $state): string 
@@ -389,7 +389,7 @@ class SmartHomeShading extends IPSModuleStrict
                 $sunCount++;
             }
             
-            $targetValueInt = $this->CalculateBlindState($blind, $isNight, $isHotAndBright, $azimuth);
+            $targetValueFloat = $this->CalculateBlindState($blind, $isNight, $isHotAndBright, $azimuth);
             
             // Re-resolve state for logging and target value (since int loses exact floats)
             // But actually we have to return int for the method signature
@@ -400,13 +400,13 @@ class SmartHomeShading extends IPSModuleStrict
             $targetState = 'OPEN';
             
             // Or better, CalculateBlindState returns the TARGET value! Let's deduce state.
-            if ($targetValueInt == (int)($blind['ValueClose'] ?? "1")) {
+            if ($targetValueFloat == (float)($blind['ValueClose'] ?? "1")) {
                 $targetState = 'NIGHT';
                 $targetValueStr = $blind['ValueClose'] ?? "1";
-            } elseif ($targetValueInt == (int)($blind['ValueShade'] ?? "0.1")) {
+            } elseif ($targetValueFloat == (float)($blind['ValueShade'] ?? "0.1")) {
                 $targetState = 'SHADING';
                 $targetValueStr = $blind['ValueShade'] ?? "0.1";
-            } elseif ($targetValueInt == (int)($blind['ValueVentilate'] ?? "0.3")) {
+            } elseif ($targetValueFloat == (float)($blind['ValueVentilate'] ?? "0.3")) {
                 $targetState = 'VENTILATE';
                 $targetValueStr = $blind['ValueVentilate'] ?? "0.3";
             } else {
