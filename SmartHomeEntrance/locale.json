@@ -1,0 +1,10 @@
+{
+    "translations": {
+        "de": {
+            "SmartHomeEntrance": "Eingangsbereich (Tür, Klingel, Post)"
+        },
+        "en": {
+            "SmartHomeEntrance": "Entrance (Door, Bell, Mail)"
+        }
+    }
+}
