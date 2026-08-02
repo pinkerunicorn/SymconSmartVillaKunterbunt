@@ -85,7 +85,7 @@ class SmartNotifier extends IPSModuleStrict
         {
             "type": "SelectInstance",
             "name": "TargetVisu",
-            "caption": "Kachel-Visualisierung (für Push)"
+            "caption": "Kachel-Visualisierung (fuer Push)"
         },
         {
             "type": "CheckBox",
@@ -127,7 +127,7 @@ class SmartNotifier extends IPSModuleStrict
         {
             "type": "Button",
             "caption": "Test: Low Priority",
-            "onClick": "NOTIFY_SendMessage($id, 'Test', 'Dies ist eine Nachricht mit niedriger PrioritÃ¤t.', 0);"
+            "onClick": "NOTIFY_SendMessage($id, 'Test', 'Dies ist eine Nachricht mit niedriger Prioritaet.', 0);"
         },
         {
             "type": "Button",
