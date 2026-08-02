@@ -28,8 +28,15 @@ class SmartAlarmManager extends IPSModuleStrict
 
         // Summary Variables for Tile UI
         $this->RegisterVariableInteger("SystemStatus", "System Status", [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Information'
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'ICON'         => 'Information',
+            'OPTIONS'      => json_encode([
+                ['Value' => 0, 'Caption' => 'Alles OK',             'IconActive' => true, 'IconValue' => 'Ok',      'Color' => 0x00FF00],
+                ['Value' => 1, 'Caption' => 'Info / Hinweis',       'IconActive' => true, 'IconValue' => 'Warning', 'Color' => 0xFFFF00],
+                ['Value' => 2, 'Caption' => 'ALARM!',               'IconActive' => true, 'IconValue' => 'Alert',   'Color' => 0xFF0000],
+                ['Value' => 3, 'Caption' => 'ESKALATION',           'IconActive' => true, 'IconValue' => 'Alert',   'Color' => 0xFF0000],
+                ['Value' => 4, 'Caption' => 'VOLLALARM',            'IconActive' => true, 'IconValue' => 'Alert',   'Color' => 0xFF0000]
+            ])
         ], 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
@@ -70,20 +77,6 @@ class SmartAlarmManager extends IPSModuleStrict
             }
         }
         // ---------------------------------
-        
-        $options = json_encode([
-            ['Value' => 0, 'Caption' => 'Alles OK', 'IconValue' => 'Ok', 'ColorDisplay' => 0x00FF00, 'ColorValue' => 0x00FF00, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 1, 'Caption' => 'Info / Hinweis', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFFFF00, 'ColorValue' => 0xFFFF00, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 2, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 3, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 4, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Information', 'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'MIN_VALUE' => 0, 'MAX_VALUE' => 4, 'PREFIX' => '', 'SUFFIX' => '', 'DIGITS' => 0,
-            'OPTIONS' => $options
-        ]);
 
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
