@@ -53,6 +53,12 @@ class SmartAlarmManager extends IPSModuleStrict
         parent::ApplyChanges();
         $this->DA_ApplyPresentation();
 
+        // --- Migration: SystemStatus mit alter ENUMERATION-Präsentation bereinigen ---
+        $oldVid = @IPS_GetObjectIDByIdent('SystemStatus', $this->InstanceID);
+        if ($oldVid !== false && IPS_VariableExists($oldVid)) {
+            IPS_DeleteVariable($oldVid);
+        }
+
         // --- Sicherstellung: Summary-Variablen existieren (auch nach manuellem Löschen) ---
         $this->RegisterVariableInteger("SystemStatus", "System Status", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
