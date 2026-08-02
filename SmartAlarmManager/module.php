@@ -84,7 +84,6 @@ class SmartAlarmManager extends IPSModuleStrict
             'MIN_VALUE' => 0, 'MAX_VALUE' => 4, 'PREFIX' => '', 'SUFFIX' => '', 'DIGITS' => 0,
             'OPTIONS' => $options
         ]);
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), '');
 
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
