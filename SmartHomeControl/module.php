@@ -29,10 +29,25 @@ class SmartHomeControl extends IPSModuleStrict
         parent::Create();
 
         // === Main Axes ===
-        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', '', 1);
+        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'OPTIONS' => json_encode([
+                ['Value' => self::PRESENCE_HOME, 'Caption' => 'Zuhause', 'IconActive' => true, 'IconValue' => 'House', 'Color' => 0x00CC00],
+                ['Value' => self::PRESENCE_AWAY, 'Caption' => 'Kurz weg', 'IconActive' => true, 'IconValue' => 'Motion', 'Color' => 0xFFAA00],
+                ['Value' => self::PRESENCE_VACATION, 'Caption' => 'Urlaub', 'IconActive' => true, 'IconValue' => 'Suitcase', 'Color' => 0xFF4400]
+            ])
+        ], 1);
         $this->EnableAction('PresenceMode');
 
-        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', '', 2);
+        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'OPTIONS' => json_encode([
+                ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => -1],
+                ['Value' => self::ACTIVITY_CINEMA, 'Caption' => 'Heimkino', 'IconActive' => true, 'IconValue' => 'Movie', 'Color' => 0x6644CC],
+                ['Value' => self::ACTIVITY_SLEEP, 'Caption' => 'Schlafen', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388],
+                ['Value' => self::ACTIVITY_PARTY, 'Caption' => 'Party', 'IconActive' => true, 'IconValue' => 'Party', 'Color' => 0xFF00AA]
+            ])
+        ], 2);
         $this->EnableAction('ActivityMode');
 
         // Google Home / Alexa Interface (Boolean Toggle)
@@ -190,35 +205,40 @@ class SmartHomeControl extends IPSModuleStrict
         $this->RegisterSequencerReferences('PresenceSequencers');
         $this->RegisterSequencerReferences('ActivitySequencers');
 
-        // === Create PresenceMode Profile (has EnableAction Ã¢â€ â€™ Legacy Profile) ===
+        // === Migration: Legacy Profile -> CustomPresentation ENUMERATION ===
         $presenceProfile = 'SHC.PresenceMode.' . $this->InstanceID;
-        if (!IPS_VariableProfileExists($presenceProfile)) {
-            IPS_CreateVariableProfile($presenceProfile, 1);
-            IPS_SetVariableProfileIcon($presenceProfile, 'House');
+        if (IPS_VariableProfileExists($presenceProfile)) {
+            IPS_SetVariableCustomProfile($this->GetIDForIdent('PresenceMode'), '');
+            IPS_DeleteVariableProfile($presenceProfile);
         }
-        // Clear existing associations
-        foreach (IPS_GetVariableProfile($presenceProfile)['Associations'] as $a) {
-            IPS_SetVariableProfileAssociation($presenceProfile, $a['Value'], '', '', -1);
-        }
-        IPS_SetVariableProfileAssociation($presenceProfile, self::PRESENCE_HOME, 'Zuhause', 'House', 0x00CC00);
-        IPS_SetVariableProfileAssociation($presenceProfile, self::PRESENCE_AWAY, 'Kurz weg', 'Motion', 0xFFAA00);
-        IPS_SetVariableProfileAssociation($presenceProfile, self::PRESENCE_VACATION, 'Urlaub', 'Suitcase', 0xFF4400);
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('PresenceMode'), $presenceProfile);
 
-        // === Create ActivityMode Profile (has EnableAction Ã¢â€ â€™ Legacy Profile) ===
         $activityProfile = 'SHC.ActivityMode.' . $this->InstanceID;
-        if (!IPS_VariableProfileExists($activityProfile)) {
-            IPS_CreateVariableProfile($activityProfile, 1);
-            IPS_SetVariableProfileIcon($activityProfile, 'Gear');
+        if (IPS_VariableProfileExists($activityProfile)) {
+            IPS_SetVariableCustomProfile($this->GetIDForIdent('ActivityMode'), '');
+            IPS_DeleteVariableProfile($activityProfile);
         }
-        foreach (IPS_GetVariableProfile($activityProfile)['Associations'] as $a) {
-            IPS_SetVariableProfileAssociation($activityProfile, $a['Value'], '', '', -1);
-        }
-        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_NORMAL, 'Normal', 'Sun', -1);
-        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_CINEMA, 'Heimkino', 'Movie', 0x6644CC);
-        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_SLEEP, 'Schlafen', 'Moon', 0x003388);
-        IPS_SetVariableProfileAssociation($activityProfile, self::ACTIVITY_PARTY, 'Party', 'Party', 0xFF00AA);
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('ActivityMode'), $activityProfile);
+        
+        // --- Sicherstellung der Variablen bei "Übernehmen" (falls manuell gelöscht) ---
+        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'OPTIONS' => json_encode([
+                ['Value' => self::PRESENCE_HOME, 'Caption' => 'Zuhause', 'IconActive' => true, 'IconValue' => 'House', 'Color' => 0x00CC00],
+                ['Value' => self::PRESENCE_AWAY, 'Caption' => 'Kurz weg', 'IconActive' => true, 'IconValue' => 'Motion', 'Color' => 0xFFAA00],
+                ['Value' => self::PRESENCE_VACATION, 'Caption' => 'Urlaub', 'IconActive' => true, 'IconValue' => 'Suitcase', 'Color' => 0xFF4400]
+            ])
+        ], 1);
+        $this->EnableAction('PresenceMode');
+
+        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'OPTIONS' => json_encode([
+                ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => -1],
+                ['Value' => self::ACTIVITY_CINEMA, 'Caption' => 'Heimkino', 'IconActive' => true, 'IconValue' => 'Movie', 'Color' => 0x6644CC],
+                ['Value' => self::ACTIVITY_SLEEP, 'Caption' => 'Schlafen', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388],
+                ['Value' => self::ACTIVITY_PARTY, 'Caption' => 'Party', 'IconActive' => true, 'IconValue' => 'Party', 'Color' => 0xFF00AA]
+            ])
+        ], 2);
+        $this->EnableAction('ActivityMode');
 
         // Sync Action state for ActivityMode on startup / apply changes
         if ((int)$this->GetValue('PresenceMode') === self::PRESENCE_HOME) {
