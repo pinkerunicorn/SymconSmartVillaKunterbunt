@@ -63,7 +63,11 @@ class SmartHomeEntrance extends IPSModuleStrict
         $this->RegisterTimer('ResetDoorbell2', 0, 'SHE_ResetDoorbell($_IPS[\'TARGET\'], 2);');
 
         // --- Variables ---
-        $this->RegisterVariableInteger('MailboxState', 'Briefkasten', [
+        $vid = @IPS_GetObjectIDByIdent('MailboxState', $this->InstanceID);
+        if ($vid !== false && IPS_VariableExists($vid) && IPS_GetVariable($vid)['VariableType'] !== 0) {
+            IPS_DeleteVariable($vid);
+        }
+        $this->RegisterVariableBoolean('MailboxState', 'Briefkasten', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Mailbox'
         ], 1);
@@ -120,10 +124,10 @@ class SmartHomeEntrance extends IPSModuleStrict
         
         // --- Variables CustomPresentation ---
         $mailboxOptions = json_encode([
-            ['Value' => 0, 'Caption' => 'Leer', 'IconValue' => 'Mailbox', 'IconActive' => true,
+            ['Value' => false, 'Caption' => 'Leer', 'IconValue' => 'mailbox', 'IconActive' => true,
              'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
              'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-            ['Value' => 1, 'Caption' => 'Voll', 'IconValue' => 'Mail', 'IconActive' => true,
+            ['Value' => true, 'Caption' => 'Voll', 'IconValue' => 'mailbox-flag-up', 'IconActive' => true,
              'ColorActive' => true, 'ColorDisplay' => 0xFFD700, 'ContentColorActive' => false,
              'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFD700]
         ]);
@@ -194,14 +198,14 @@ class SmartHomeEntrance extends IPSModuleStrict
     private function TriggerMailbox(bool $receivedMail): void
     {
         if ($receivedMail) {
-            if ($this->GetValue('MailboxState') !== 1) {
-                $this->SetValue('MailboxState', 1);
+            if ($this->GetValue('MailboxState') !== true) {
+                $this->SetValue('MailboxState', true);
                 $this->SLogInfo('Briefkasten', 'Neue Post eingeworfen.');
                 $this->SendToNotifier('Briefkasten', 'Es wurde Post eingeworfen.', 0);
             }
         } else {
-            if ($this->GetValue('MailboxState') !== 0) {
-                $this->SetValue('MailboxState', 0);
+            if ($this->GetValue('MailboxState') !== false) {
+                $this->SetValue('MailboxState', false);
                 $this->SLogInfo('Briefkasten', 'Wurde geleert.');
                 // Lautlos leeren (keine Notifier Meldung wie gewünscht)
             }
