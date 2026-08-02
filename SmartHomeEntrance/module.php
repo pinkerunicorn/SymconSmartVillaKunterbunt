@@ -507,8 +507,22 @@ class SmartHomeEntrance extends IPSModuleStrict
                         {
                             "caption": "Name",
                             "name": "Name",
-                            "width": "150px",
+                            "width": "120px",
                             "add": "",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Tür-Kontakt (Sensor)",
+                            "name": "SensorVariableID",
+                            "width": "200px",
+                            "add": 0,
+                            "edit": { "type": "SelectVariable" }
+                        },
+                        {
+                            "caption": "Kontakt = Zu",
+                            "name": "ClosedValue",
+                            "width": "100px",
+                            "add": "false",
                             "edit": { "type": "ValidationTextBox" }
                         },
                         {
@@ -530,20 +544,6 @@ class SmartHomeEntrance extends IPSModuleStrict
                             "name": "UnlockValue",
                             "width": "80px",
                             "add": "0",
-                            "edit": { "type": "ValidationTextBox" }
-                        },
-                        {
-                            "caption": "Tür-Kontakt",
-                            "name": "SensorVariableID",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": { "type": "SelectVariable" }
-                        },
-                        {
-                            "caption": "Kontakt-Wert f. Geschlossen",
-                            "name": "ClosedValue",
-                            "width": "100px",
-                            "add": "false",
                             "edit": { "type": "ValidationTextBox" }
                         }
                     ]
