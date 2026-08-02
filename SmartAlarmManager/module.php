@@ -56,14 +56,65 @@ class SmartAlarmManager extends IPSModuleStrict
         // --- SystemStatus: Wertanzeige mit Intervall-Konstanten (Ampel) ---
         // Entspricht: "Verwende aktualisierte Parameter für spezifische Intervalle" = AN
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
             'ICON' => 'Information',
             'INTERVALS_ACTIVE' => true,
             'INTERVALS' => json_encode([
-                ['START' => 0, 'END' => 1, 'CAPTION' => 'Alles OK',       'ICON' => 'Ok',      'COLOR' => 0x00FF00],
-                ['START' => 1, 'END' => 2, 'CAPTION' => 'Info / Hinweis', 'ICON' => 'Warning', 'COLOR' => 0xFFFF00],
-                ['START' => 2, 'END' => 3, 'CAPTION' => 'ALARM!',         'ICON' => 'Alert',   'COLOR' => 0xFF0000],
-                ['START' => 3, 'END' => 4, 'CAPTION' => 'ESKALATION',     'ICON' => 'Alert',   'COLOR' => 0xFF0000]
+                [
+                    'IntervalMinValue' => 0, 'IntervalMaxValue' => 1,
+                    'ConstantActive' => true, 'ConstantValue' => 'Alles OK',
+                    'ConversionFactor' => 1,
+                    'PrefixActive' => false, 'PrefixValue' => '',
+                    'SuffixActive' => false, 'SuffixValue' => '',
+                    'DigitsActive' => false, 'DigitsValue' => 0,
+                    'IconActive' => true, 'IconValue' => 'Ok',
+                    'ColorActive' => true, 'ColorValue' => 0x00FF00,
+                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                ],
+                [
+                    'IntervalMinValue' => 1, 'IntervalMaxValue' => 2,
+                    'ConstantActive' => true, 'ConstantValue' => 'Info / Hinweis',
+                    'ConversionFactor' => 1,
+                    'PrefixActive' => false, 'PrefixValue' => '',
+                    'SuffixActive' => false, 'SuffixValue' => '',
+                    'DigitsActive' => false, 'DigitsValue' => 0,
+                    'IconActive' => true, 'IconValue' => 'Warning',
+                    'ColorActive' => true, 'ColorValue' => 0xFFFF00,
+                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                ],
+                [
+                    'IntervalMinValue' => 2, 'IntervalMaxValue' => 3,
+                    'ConstantActive' => true, 'ConstantValue' => 'ALARM!',
+                    'ConversionFactor' => 1,
+                    'PrefixActive' => false, 'PrefixValue' => '',
+                    'SuffixActive' => false, 'SuffixValue' => '',
+                    'DigitsActive' => false, 'DigitsValue' => 0,
+                    'IconActive' => true, 'IconValue' => 'Alert',
+                    'ColorActive' => true, 'ColorValue' => 0xFF0000,
+                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                ],
+                [
+                    'IntervalMinValue' => 3, 'IntervalMaxValue' => 4,
+                    'ConstantActive' => true, 'ConstantValue' => 'ESKALATION',
+                    'ConversionFactor' => 1,
+                    'PrefixActive' => false, 'PrefixValue' => '',
+                    'SuffixActive' => false, 'SuffixValue' => '',
+                    'DigitsActive' => false, 'DigitsValue' => 0,
+                    'IconActive' => true, 'IconValue' => 'Alert',
+                    'ColorActive' => true, 'ColorValue' => 0xFF0000,
+                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                ],
+                [
+                    'IntervalMinValue' => 4, 'IntervalMaxValue' => 5,
+                    'ConstantActive' => true, 'ConstantValue' => 'VOLLALARM',
+                    'ConversionFactor' => 1,
+                    'PrefixActive' => false, 'PrefixValue' => '',
+                    'SuffixActive' => false, 'SuffixValue' => '',
+                    'DigitsActive' => false, 'DigitsValue' => 0,
+                    'IconActive' => true, 'IconValue' => 'Alert',
+                    'ColorActive' => true, 'ColorValue' => 0xFF0000,
+                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                ]
             ])
         ]);
 
