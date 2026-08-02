@@ -69,7 +69,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     'DigitsActive' => false, 'DigitsValue' => 0,
                     'IconActive' => true, 'IconValue' => 'Ok',
                     'ColorActive' => true, 'ColorValue' => 0x00FF00,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
                 ],
                 [
                     'IntervalMinValue' => 1, 'IntervalMaxValue' => 2,
@@ -80,7 +80,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     'DigitsActive' => false, 'DigitsValue' => 0,
                     'IconActive' => true, 'IconValue' => 'Warning',
                     'ColorActive' => true, 'ColorValue' => 0xFFFF00,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
                 ],
                 [
                     'IntervalMinValue' => 2, 'IntervalMaxValue' => 3,
@@ -91,7 +91,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     'DigitsActive' => false, 'DigitsValue' => 0,
                     'IconActive' => true, 'IconValue' => 'Alert',
                     'ColorActive' => true, 'ColorValue' => 0xFF0000,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
                 ],
                 [
                     'IntervalMinValue' => 3, 'IntervalMaxValue' => 4,
@@ -102,7 +102,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     'DigitsActive' => false, 'DigitsValue' => 0,
                     'IconActive' => true, 'IconValue' => 'Alert',
                     'ColorActive' => true, 'ColorValue' => 0xFF0000,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
                 ],
                 [
                     'IntervalMinValue' => 4, 'IntervalMaxValue' => 5,
@@ -113,7 +113,7 @@ class SmartAlarmManager extends IPSModuleStrict
                     'DigitsActive' => false, 'DigitsValue' => 0,
                     'IconActive' => true, 'IconValue' => 'Alert',
                     'ColorActive' => true, 'ColorValue' => 0xFF0000,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
+                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
                 ]
             ])
         ]);
