@@ -240,12 +240,8 @@ class SmartHomeControl extends IPSModuleStrict
         ], 2);
         $this->EnableAction('ActivityMode');
 
-        // Sync Action state for ActivityMode on startup / apply changes
-        if ((int)$this->GetValue('PresenceMode') === self::PRESENCE_HOME) {
-            $this->EnableAction('ActivityMode');
-        } else {
-            $this->DisableAction('ActivityMode');
-        }
+        // Action state is no longer synced dynamically. 
+        // ENUMERATION presentation strictly requires EnableAction to be permanently true!
 
         // === CustomPresentation for read-only central state variables ===
         // Sync properties to variables for Energy Calculator
@@ -322,12 +318,8 @@ class SmartHomeControl extends IPSModuleStrict
         $this->SetValue('PresenceMode', $mode);
         $this->SetValue('PresenceStatus', $mode === self::PRESENCE_HOME);
 
-        // Dynamisch die Steuerung der Aktivität aktivieren/deaktivieren
-        if ($mode === self::PRESENCE_HOME) {
-            $this->EnableAction('ActivityMode');
-        } else {
-            $this->DisableAction('ActivityMode');
-        }
+        // Action für ActivityMode bleibt dauerhaft aktiv (ENUMERATION), 
+        // die Ausführung wird stattdessen in SetActivityMode() logisch blockiert.
 
         $modeName = match($mode) {
             self::PRESENCE_HOME     => 'Zuhause',
@@ -361,9 +353,10 @@ class SmartHomeControl extends IPSModuleStrict
             return;
         }
 
-        // ActivityMode kann nur geÃƒÂ¤ndert werden wenn jemand Zuhause ist
+        // ActivityMode kann nur geändert werden wenn jemand Zuhause ist
         if ((int)$this->GetValue('PresenceMode') !== self::PRESENCE_HOME) {
-            $this->SLogWarning( 'Aktivität kann nur geÃƒÂ¤ndert werden wenn jemand Zuhause ist.');
+            echo "Die Aktivität kann nur geändert werden, wenn jemand Zuhause ist!";
+            $this->SLogWarning('Aktivität kann nur geändert werden wenn jemand Zuhause ist.');
             return;
         }
 
