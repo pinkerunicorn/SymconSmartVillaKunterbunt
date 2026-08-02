@@ -46,12 +46,8 @@ class SmartHomeEntrance extends IPSModuleStrict
         // --- Properties: Notifier ---
         $this->RegisterPropertyInteger('TargetNotifier', 0);
 
-        // --- Properties: Tedee Smart Lock (Türsteuerung) ---
-        $this->RegisterPropertyInteger('TargetTedeeLock', 0);
-        $this->RegisterPropertyString('TedeeLockValue', '1');
-        $this->RegisterPropertyString('TedeeUnlockValue', '0');
-        $this->RegisterPropertyInteger('SensorDoorState', 0);
-        $this->RegisterPropertyString('DoorClosedValue', 'false');
+        // --- Properties: Smart Locks (Tedee) ---
+        $this->RegisterPropertyString('LockVariables', '[]');
 
         // --- Properties: Auto-Lock Timers ---
         $this->RegisterPropertyBoolean('AutoLockActive', false);
@@ -98,16 +94,26 @@ class SmartHomeEntrance extends IPSModuleStrict
         $properties = [
             'SourceMailboxFlap', 'SourceMailboxDoor', 
             'SourceDoorbell1', 'SourceDoorbell2', 
-            'SourceAbsenceButton', 'TargetNotifier', 
-            'TargetTedeeLock', 'SensorDoorState'
+            'SourceAbsenceButton', 'TargetNotifier'
         ];
         foreach ($properties as $prop) {
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 1 && @IPS_ObjectExists($id)) {
                 $this->RegisterReference($id);
-                // Listen to inputs
-                if ($prop !== 'TargetNotifier' && $prop !== 'TargetTedeeLock') {
+                if ($prop !== 'TargetNotifier') {
                     $this->RegisterMessage($id, VM_UPDATE);
+                }
+            }
+        }
+        
+        $lockVars = json_decode($this->ReadPropertyString('LockVariables'), true);
+        if (is_array($lockVars)) {
+            foreach ($lockVars as $lock) {
+                if (isset($lock['SensorVariableID']) && $lock['SensorVariableID'] > 1 && @IPS_ObjectExists($lock['SensorVariableID'])) {
+                    $this->RegisterReference($lock['SensorVariableID']);
+                }
+                if (isset($lock['LockVariableID']) && $lock['LockVariableID'] > 1 && @IPS_ObjectExists($lock['LockVariableID'])) {
+                    $this->RegisterReference($lock['LockVariableID']);
                 }
             }
         }
@@ -283,32 +289,46 @@ class SmartHomeEntrance extends IPSModuleStrict
 
     private function LockDoor(): void
     {
-        $lockId = $this->ReadPropertyInteger('TargetTedeeLock');
-        if ($lockId <= 0 || !IPS_VariableExists($lockId)) return;
+        $lockVars = json_decode($this->ReadPropertyString('LockVariables'), true);
+        if (!is_array($lockVars)) return;
 
-        if (!$this->IsDoorClosed()) {
-            $this->SLogWarning('Türschloss', 'Verriegelung übersprungen: Die Tür ist noch offen!');
-            return;
-        }
+        foreach ($lockVars as $lock) {
+            $lockId = $lock['LockVariableID'] ?? 0;
+            if ($lockId <= 0 || !IPS_VariableExists($lockId)) continue;
+            
+            $name = isset($lock['Name']) && $lock['Name'] != '' ? $lock['Name'] : IPS_GetName($lockId);
 
-        $lockValue = $this->ParseTypedValue($this->ReadPropertyString('TedeeLockValue'));
-        if (!@RequestAction($lockId, $lockValue)) {
-            $this->SLogWarning('Türschloss', 'Aktor-Befehl fehlgeschlagen.');
-        } else {
-            $this->SLogInfo('Türschloss', 'Erfolgreich verriegelt.');
+            if (!$this->IsDoorClosed($lock)) {
+                $this->SLogWarning('Türschloss', "Verriegelung übersprungen: Die Tür '$name' ist noch offen!");
+                continue;
+            }
+
+            $lockValue = $this->ParseTypedValue($lock['LockValue'] ?? '1');
+            if (!@RequestAction($lockId, $lockValue)) {
+                $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen für: $name");
+            } else {
+                $this->SLogInfo('Türschloss', "Erfolgreich verriegelt: $name");
+            }
         }
     }
 
     private function UnlockDoor(): void
     {
-        $lockId = $this->ReadPropertyInteger('TargetTedeeLock');
-        if ($lockId <= 0 || !IPS_VariableExists($lockId)) return;
+        $lockVars = json_decode($this->ReadPropertyString('LockVariables'), true);
+        if (!is_array($lockVars)) return;
 
-        $unlockValue = $this->ParseTypedValue($this->ReadPropertyString('TedeeUnlockValue'));
-        if (!@RequestAction($lockId, $unlockValue)) {
-            $this->SLogWarning('Türschloss', 'Aktor-Befehl fehlgeschlagen (Aufsperren).');
-        } else {
-            $this->SLogInfo('Türschloss', 'Erfolgreich entriegelt.');
+        foreach ($lockVars as $lock) {
+            $lockId = $lock['LockVariableID'] ?? 0;
+            if ($lockId <= 0 || !IPS_VariableExists($lockId)) continue;
+
+            $name = isset($lock['Name']) && $lock['Name'] != '' ? $lock['Name'] : IPS_GetName($lockId);
+            $unlockValue = $this->ParseTypedValue($lock['UnlockValue'] ?? '0');
+            
+            if (!@RequestAction($lockId, $unlockValue)) {
+                $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen (Aufsperren) für: $name");
+            } else {
+                $this->SLogInfo('Türschloss', "Erfolgreich entriegelt: $name");
+            }
         }
     }
 
@@ -334,15 +354,15 @@ class SmartHomeEntrance extends IPSModuleStrict
         $this->SLogInfo('Türschloss', 'Automatisches (zeitbasiertes) Entriegeln ausgeführt.');
     }
 
-    private function IsDoorClosed(): bool
+    private function IsDoorClosed(array $lock): bool
     {
-        $sensorId = $this->ReadPropertyInteger('SensorDoorState');
+        $sensorId = $lock['SensorVariableID'] ?? 0;
         if ($sensorId <= 0 || !IPS_VariableExists($sensorId)) {
             return true; // If no sensor configured, assume closed
         }
         
         $currentVal = GetValue($sensorId);
-        $closedVal = $this->ReadPropertyString('DoorClosedValue');
+        $closedVal = $lock['ClosedValue'] ?? 'false';
         return $this->ValuesMatch($currentVal, $closedVal);
     }
 
@@ -473,21 +493,59 @@ class SmartHomeEntrance extends IPSModuleStrict
         },
         {
             "type": "ExpansionPanel",
-            "caption": "🔒 Smart Lock (Tedee) & Tür-Sicherheit",
+            "caption": "🔒 Smart Locks (Türen & Keller)",
             "items": [
                 {
-                    "type": "RowLayout",
-                    "items": [
-                        { "type": "SelectVariable", "name": "TargetTedeeLock", "caption": "Schloss (Aktor-Variable)" },
-                        { "type": "ValidationTextBox", "name": "TedeeLockValue", "caption": "Wert f. Verriegeln (z.B. 1)" },
-                        { "type": "ValidationTextBox", "name": "TedeeUnlockValue", "caption": "Wert f. Entriegeln (z.B. 0)" }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        { "type": "SelectVariable", "name": "SensorDoorState", "caption": "Tür-Kontakt (Sensor)" },
-                        { "type": "ValidationTextBox", "name": "DoorClosedValue", "caption": "Wert f. Geschlossen (z.B. false)" }
+                    "type": "List",
+                    "name": "LockVariables",
+                    "caption": "Schlösser (z.B. Tedee)",
+                    "rowCount": 5,
+                    "add": true,
+                    "delete": true,
+                    "changeOrder": true,
+                    "columns": [
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "150px",
+                            "add": "",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Schloss (Aktor)",
+                            "name": "LockVariableID",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": { "type": "SelectVariable" }
+                        },
+                        {
+                            "caption": "Wert f. Zu",
+                            "name": "LockValue",
+                            "width": "80px",
+                            "add": "1",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Wert f. Auf",
+                            "name": "UnlockValue",
+                            "width": "80px",
+                            "add": "0",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Tür-Kontakt",
+                            "name": "SensorVariableID",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": { "type": "SelectVariable" }
+                        },
+                        {
+                            "caption": "Kontakt-Wert f. Geschlossen",
+                            "name": "ClosedValue",
+                            "width": "100px",
+                            "add": "false",
+                            "edit": { "type": "ValidationTextBox" }
+                        }
                     ]
                 },
                 {
