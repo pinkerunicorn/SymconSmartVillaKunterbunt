@@ -265,9 +265,9 @@ class SmartActiveLighting extends IPSModuleStrict
         $details = "Name: $name | ID: $targetId | Wert: $formattedVal";
 
         if ($success) {
-            $this->SLog('INFO', $message, $details);
+            $this->SLogInfo( $message, $details);
         } else {
-            $this->SLog('WARNING', $message, $details);
+            $this->SLogWarning( $message, $details);
         }
     }
 
@@ -782,13 +782,7 @@ class SmartActiveLighting extends IPSModuleStrict
             }
         }
         $this->WriteAttributeString('ActiveTimers', '[]');
-        $this->SLog('INFO', 'Haus-Modus gewechselt — Bewegungslichter aus', "Neuer Modus: $mode");
-    }
-
-    protected function LogMessage(string $Message, int $Type): bool
-    {
-        $this->SLog('INFO', $Message);
-        return true;
+        $this->SLogInfo( 'Haus-Modus gewechselt — Bewegungslichter aus', "Neuer Modus: $mode");
     }
 
     public function GetConfigurationForm(): string

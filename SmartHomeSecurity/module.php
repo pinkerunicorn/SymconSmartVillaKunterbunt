@@ -243,18 +243,18 @@ class SmartHomeSecurity extends IPSModuleStrict
                         if ($this->IsDoorClosed($door)) {
                             if (!@RequestAction($id, $this->GetActionValue($door, 'LockValue', 1))) {
                                 $devName = @IPS_GetName($id) ?: "ID:$id";
-                                $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
+                                $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
                             } else {
-                                $this->SLog('INFO', 'Aktor verriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
+                                $this->SLogInfo( 'Aktor verriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
                             }
                         } else {
                             $name = isset($door['Name']) && $door['Name'] != '' ? $door['Name'] : IPS_GetName($id);
-                            $this->SLog('WARNING', 'Verriegelung übersprungen, da Tür offen.', "Name: $name | ID: $id");
+                            $this->SLogWarning( 'Verriegelung übersprungen, da Tür offen.', "Name: $name | ID: $id");
                         }
                     }
                 }
             }
-            $this->SLog('INFO', 'Verriegelung der konfigurierten Türen durchgeführt.', "Hausmodus: Abwesend/Schlafen/Heimkino");
+            $this->SLogInfo( 'Verriegelung der konfigurierten Türen durchgeführt.', "Hausmodus: Abwesend/Schlafen/Heimkino");
         } else {
             foreach ($doorVars as $door) {
                 // Fallback für alte Konfigurationen: false
@@ -263,21 +263,21 @@ class SmartHomeSecurity extends IPSModuleStrict
                     $id = $door['VariableID'];
                     if ($id > 0 && IPS_VariableExists($id)) {
                         if (!@RequestAction($id, $this->GetActionValue($door, 'UnlockValue', 0))) {
-                            $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
+                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
                         } else {
-                            $this->SLog('INFO', 'Aktor entriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
+                            $this->SLogInfo( 'Aktor entriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
                         }
                     }
                 }
             }
-            $this->SLog('INFO', 'Aufsperren der konfigurierten Türen durchgeführt.', "Hausmodus: Anwesend");
+            $this->SLogInfo( 'Aufsperren der konfigurierten Türen durchgeführt.', "Hausmodus: Anwesend");
         }
         // Alarm Check
         if ($isAbsence) {
             $this->CalculateOpenWindows();
             if ($this->GetValue('OpenWindowsCount') > 0) {
                 $this->SetValueIfChanged('AlarmWindowsOpenDuringAbsence', true);
-                $this->SLog('WARNING', 'Alarm: Fenster/Türen offen!', "Liste: " . $this->GetValue('OpenWindowsList'));
+                $this->SLogWarning( 'Alarm: Fenster/Türen offen!', "Liste: " . $this->GetValue('OpenWindowsList'));
             }
         }
     }
@@ -363,18 +363,18 @@ class SmartHomeSecurity extends IPSModuleStrict
                 if ($id > 0 && IPS_VariableExists($id)) {
                     if ($this->IsDoorClosed($door)) {
                         if (!@RequestAction($id, $this->GetActionValue($door, 'LockValue', 1))) {
-                            $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
+                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
                         } else {
-                            $this->SLog('INFO', 'Aktor automatisch verriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
+                            $this->SLogInfo( 'Aktor automatisch verriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'LockValue', 1), true));
                         } // Verriegeln
                     } else {
                         $name = isset($door['Name']) && $door['Name'] != '' ? $door['Name'] : IPS_GetName($id);
-                        $this->SLog('WARNING', 'Auto-Lock übersprungen, da Tür offen.', "Name: $name | ID: $id");
+                        $this->SLogWarning( 'Auto-Lock übersprungen, da Tür offen.', "Name: $name | ID: $id");
                     }
                 }
             }
         }
-        $this->SLog('INFO', 'Automatisches Verriegeln der Türen durchgeführt.');
+        $this->SLogInfo( 'Automatisches Verriegeln der Türen durchgeführt.');
         
         $this->UpdateTimers();
     }
@@ -387,7 +387,7 @@ class SmartHomeSecurity extends IPSModuleStrict
         $isAbsent = $this->IsAway() || $this->IsVacation();
         
         if ($onlyWhenPresent && $isAbsent) {
-            $this->SLog('INFO', 'Automatisches Aufsperren übersprungen.', "Grund: Abwesenheit aktiv");
+            $this->SLogInfo( 'Automatisches Aufsperren übersprungen.', "Grund: Abwesenheit aktiv");
             return;
         }
 
@@ -398,26 +398,19 @@ class SmartHomeSecurity extends IPSModuleStrict
                 $id = $door['VariableID'];
                 if ($id > 0 && IPS_VariableExists($id)) {
                     if (!@RequestAction($id, $this->GetActionValue($door, 'UnlockValue', 0))) {
-                        $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
+                        $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
                     } else {
-                        $this->SLog('INFO', 'Aktor automatisch entriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
+                        $this->SLogInfo( 'Aktor automatisch entriegelt.', "ID: $id | Wert: " . var_export($this->GetActionValue($door, 'UnlockValue', 0), true));
                     } // Aufsperren
                     $unlockedDoors[] = IPS_GetName($id);
                 }
             }
             if (!empty($unlockedDoors)) {
-                $this->SLog('INFO', 'Automatisches Aufsperren durchgeführt.', 'Türen: ' . implode(', ', $unlockedDoors));
+                $this->SLogInfo( 'Automatisches Aufsperren durchgeführt.', 'Türen: ' . implode(', ', $unlockedDoors));
             } else {
-                $this->SLog('INFO', 'Automatisches Aufsperren der Türen durchgeführt.');
+                $this->SLogInfo( 'Automatisches Aufsperren der Türen durchgeführt.');
             }
         }
-    }
-
-    protected function LogMessage(string $Message, int $Type): bool
-    {
-        $this->SLog('INFO', $Message);
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeSecurity: ' . $Message);
-        return true;
     }
 
     public function GetConfigurationForm(): string

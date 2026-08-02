@@ -261,7 +261,7 @@ class SmartHomeShading extends IPSModuleStrict
         $threshold = $this->ReadPropertyFloat('WindThreshold');
         if ($windSpeed >= $threshold) {
             $this->SetValue('AlarmWindWarning', true);
-            $this->SLog('WARNING', 'Sturmwarnung aktiv — Rollläden werden eingefahren.', "Windgeschwindigkeit: {$windSpeed} | Schwelle: {$threshold}");
+            $this->SLogWarning( 'Sturmwarnung aktiv — Rollläden werden eingefahren.', "Windgeschwindigkeit: {$windSpeed} | Schwelle: {$threshold}");
         }
     }
 
@@ -419,7 +419,7 @@ class SmartHomeShading extends IPSModuleStrict
             if ($currentState !== $targetState) {
                 $this->ExecuteAction($id, $targetValueStr);
                 $states[$id] = $targetState;
-                $this->SLog('INFO', "Rollladen $id fährt auf Zustand: $targetState");
+                $this->SLogInfo( "Rollladen $id fährt auf Zustand: $targetState");
             }
             
             if ($targetState === 'SHADING') {
@@ -459,7 +459,7 @@ class SmartHomeShading extends IPSModuleStrict
         
         $result = RequestAction($targetID, $val);
         if (!$result) {
-            $this->SLog('ERROR', "RequestAction für ID $targetID fehlgeschlagen!");
+            $this->SLogError( "RequestAction für ID $targetID fehlgeschlagen!");
         }
     }
 

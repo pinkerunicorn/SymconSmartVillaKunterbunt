@@ -285,7 +285,7 @@ class SmartHomeControl extends IPSModuleStrict
     public function SetPresenceMode(int $mode): void
     {
         if ($mode < 0 || $mode > 2) {
-            $this->SLog('ERROR', 'Ungültiger PresenceMode: ' . $mode);
+            $this->SLogError( 'Ungültiger PresenceMode: ' . $mode);
             return;
         }
 
@@ -315,7 +315,7 @@ class SmartHomeControl extends IPSModuleStrict
             self::PRESENCE_VACATION => 'Urlaub',
             default                 => 'Unbekannt'
         };
-        $this->SLog('INFO', 'Anwesenheit gewechselt auf: ' . $modeName);
+        $this->SLogInfo( 'Anwesenheit gewechselt auf: ' . $modeName);
 
         // Auto-Reset: ActivityMode Ã¢â€ â€™ Normal when leaving
         if ($mode !== self::PRESENCE_HOME) {
@@ -323,7 +323,7 @@ class SmartHomeControl extends IPSModuleStrict
             if ($currentActivity !== self::ACTIVITY_NORMAL) {
                 $this->TriggerSequencer('ActivitySequencers', $currentActivity, false);
                 $this->SetValue('ActivityMode', self::ACTIVITY_NORMAL);
-                $this->SLog('INFO', 'Auto-Reset: Aktivität zurück auf Normal (Haus verlassen).');
+                $this->SLogInfo( 'Auto-Reset: Aktivität zurück auf Normal (Haus verlassen).');
                 $this->TriggerSequencer('ActivitySequencers', self::ACTIVITY_NORMAL, true);
             }
         }
@@ -337,13 +337,13 @@ class SmartHomeControl extends IPSModuleStrict
     public function SetActivityMode(int $mode): void
     {
         if ($mode < 0 || $mode > 3) {
-            $this->SLog('ERROR', 'Ungültiger ActivityMode: ' . $mode);
+            $this->SLogError( 'Ungültiger ActivityMode: ' . $mode);
             return;
         }
 
         // ActivityMode kann nur geÃƒÂ¤ndert werden wenn jemand Zuhause ist
         if ((int)$this->GetValue('PresenceMode') !== self::PRESENCE_HOME) {
-            $this->SLog('WARNING', 'Aktivität kann nur geÃƒÂ¤ndert werden wenn jemand Zuhause ist.');
+            $this->SLogWarning( 'Aktivität kann nur geÃƒÂ¤ndert werden wenn jemand Zuhause ist.');
             return;
         }
 
@@ -362,7 +362,7 @@ class SmartHomeControl extends IPSModuleStrict
             self::ACTIVITY_PARTY  => 'Party',
             default               => 'Unbekannt'
         };
-        $this->SLog('INFO', 'Aktivität gewechselt auf: ' . $modeName);
+        $this->SLogInfo( 'Aktivität gewechselt auf: ' . $modeName);
 
         if ($oldMode !== $mode) {
             // Execute entry sequence for new activity mode
@@ -373,7 +373,7 @@ class SmartHomeControl extends IPSModuleStrict
     public function SetFireplaceActive(bool $active): void
     {
         $this->SetValue('FireplaceActive', $active);
-        $this->SLog('INFO', 'Kamin: ' . ($active ? 'Aktiv' : 'Aus'));
+        $this->SLogInfo( 'Kamin: ' . ($active ? 'Aktiv' : 'Aus'));
     }
 
     public function SetAlarmLevel(int $level): void
@@ -388,7 +388,7 @@ class SmartHomeControl extends IPSModuleStrict
             default             => 'Unbekannt'
         };
         $this->SetValue('AlarmLevel', $levelName);
-        $this->SLog('INFO', 'Alarm-Stufe: ' . $levelName);
+        $this->SLogInfo( 'Alarm-Stufe: ' . $levelName);
     }
 
     public function SetMediaPlaying(bool $playing): void
@@ -438,7 +438,7 @@ class SmartHomeControl extends IPSModuleStrict
     {
         $url = $this->ReadPropertyString('CalendarURL');
         if (empty($url)) {
-            $this->SLog('DEBUG', 'CheckCalendar: Keine iCal-URL hinterlegt.');
+            $this->SLogDebug( 'CheckCalendar: Keine iCal-URL hinterlegt.');
             return;
         }
 
@@ -446,7 +446,7 @@ class SmartHomeControl extends IPSModuleStrict
         $icalData = @file_get_contents($url, false, $ctx);
         if ($icalData === false) {
             $error = error_get_last();
-            $this->SLog('ERROR', 'CheckCalendar: Konnte Kalenderdaten nicht abrufen.', $error['message'] ?? 'Unbekannter Fehler');
+            $this->SLogError( 'CheckCalendar: Konnte Kalenderdaten nicht abrufen.', $error['message'] ?? 'Unbekannter Fehler');
             return;
         }
 
@@ -498,16 +498,16 @@ class SmartHomeControl extends IPSModuleStrict
         $currentPresence = (int)$this->GetValue('PresenceMode');
 
         if ($vacationFound && $currentPresence !== self::PRESENCE_VACATION) {
-            $this->SLog('INFO', 'Kalender: Urlaubstermin aktiv! Wechsle in den Urlaubs-Modus.');
+            $this->SLogInfo( 'Kalender: Urlaubstermin aktiv! Wechsle in den Urlaubs-Modus.');
             $this->WriteAttributeBoolean('VacationFromCalendar', true);
             $this->SetPresenceMode(self::PRESENCE_VACATION);
         } elseif (!$vacationFound && $currentPresence === self::PRESENCE_VACATION) {
             if ($this->ReadAttributeBoolean('VacationFromCalendar')) {
-                $this->SLog('INFO', 'Kalender: Urlaubstermin beendet! Wechsle zurück auf Zuhause.');
+                $this->SLogInfo( 'Kalender: Urlaubstermin beendet! Wechsle zurück auf Zuhause.');
                 $this->WriteAttributeBoolean('VacationFromCalendar', false);
                 $this->SetPresenceMode(self::PRESENCE_HOME);
             } else {
-                $this->SLog('DEBUG', 'CheckCalendar: Kein Urlaub im Kalender, aber manuell gesetzt. ÃƒÅ“berschreibe nicht.');
+                $this->SLogDebug( 'CheckCalendar: Kein Urlaub im Kalender, aber manuell gesetzt. ÃƒÅ“berschreibe nicht.');
             }
         }
     }
@@ -531,10 +531,10 @@ class SmartHomeControl extends IPSModuleStrict
                 if ($seqInst > 0 && IPS_InstanceExists($seqInst)) {
                     if ($isEntry && function_exists('SHSQ_RunSequence')) {
                         SHSQ_RunSequence($seqInst);
-                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
+                        $this->SLogInfo( ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
                     } elseif (!$isEntry && function_exists('SHSQ_RunDeactivationSequence')) {
                         SHSQ_RunDeactivationSequence($seqInst);
-                        $this->SLog('INFO', ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
+                        $this->SLogInfo( ($isEntry ? 'Eintritts' : 'Austritts') . '-Sequenz ausgeführt.', 'Instanz: ' . $seqInst);
                     }
                 }
                 break;
@@ -615,12 +615,6 @@ class SmartHomeControl extends IPSModuleStrict
     // =========================================================================
     // Logging
     // =========================================================================
-
-    protected function LogMessage(string $Message, int $Type): bool
-    {
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeControl: ' . $Message);
-        return true;
-    }
 
     // =========================================================================
     // Configuration Form

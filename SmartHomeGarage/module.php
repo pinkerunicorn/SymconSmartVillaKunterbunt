@@ -184,7 +184,7 @@ class SmartHomeGarage extends IPSModuleStrict
                     if ($SenderID == $btn['VariableID']) {
                         $currentVal = GetValue($SenderID);
                         if ($this->ValuesMatch($currentVal, $btn['TriggerValue'])) {
-                            $this->SLog('INFO', 'Tor-Aktion durch Taster ausgelöst.', "Taster-ID: $SenderID");
+                            $this->SLogInfo( 'Tor-Aktion durch Taster ausgelöst.', "Taster-ID: $SenderID");
                             $this->TriggerDoor();
                         }
                     }
@@ -199,13 +199,13 @@ class SmartHomeGarage extends IPSModuleStrict
         if ($motorId > 0 && IPS_VariableExists($motorId)) {
             if (!@RequestAction($motorId, true)) {
                 $devName = @IPS_GetName($motorId) ?: "ID:$motorId";
-                $this->SLog('WARNING', "Aktor fehlgeschlagen: $devName", "ID: $motorId | Ziel: true");
+                $this->SLogWarning( "Aktor fehlgeschlagen: $devName", "ID: $motorId | Ziel: true");
             } else {
-                $this->SLog('INFO', 'Aktor (Motor) geschaltet.', "ID: $motorId | Wert: true");
+                $this->SLogInfo( 'Aktor (Motor) geschaltet.', "ID: $motorId | Wert: true");
             }
             $this->SetTimerInterval('RelayOffTimer', 1000); // Trigger release after 1s
         } else {
-            $this->SLog('ERROR', 'Tor konnte nicht getriggert werden.', "Grund: Kein Motor-Aktor konfiguriert");
+            $this->SLogError( 'Tor konnte nicht getriggert werden.', "Grund: Kein Motor-Aktor konfiguriert");
         }
 
         // Calculate expected state
@@ -237,9 +237,9 @@ class SmartHomeGarage extends IPSModuleStrict
         $motorId = $this->ReadPropertyInteger('MotorVariableID');
         if ($motorId > 0 && IPS_VariableExists($motorId)) {
             if (!@RequestAction($motorId, false)) {
-                $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $motorId | Wert: false");
+                $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $motorId | Wert: false");
             } else {
-                $this->SLog('INFO', 'Aktor (Motor) ausgeschaltet.', "ID: $motorId | Wert: false");
+                $this->SLogInfo( 'Aktor (Motor) ausgeschaltet.', "ID: $motorId | Wert: false");
             }
         }
     }
@@ -311,7 +311,7 @@ class SmartHomeGarage extends IPSModuleStrict
     {
         $this->SetTimerInterval('OpenAlarmTimer', 0);
         $this->SetValueIfChanged('AlarmOpenTooLong', true);
-        $this->SLog('WARNING', 'Alarm ausgelöst!', 'Grund: Garagentor steht zu lange offen');
+        $this->SLogWarning( 'Alarm ausgelöst!', 'Grund: Garagentor steht zu lange offen');
     }
 
     private function UpdateLEDs(int $state): void
@@ -344,9 +344,9 @@ class SmartHomeGarage extends IPSModuleStrict
             $instId = $led['InstanceID'];
             if ($instId > 0 && IPS_InstanceExists($instId)) {
                 if (!@HM_WriteValueString($instId, 'COMBINED_PARAMETER', $string)) {
-                    $this->SLog('WARNING', 'HM-Befehl fehlgeschlagen', "Instanz: $instId");
+                    $this->SLogWarning( 'HM-Befehl fehlgeschlagen', "Instanz: $instId");
                 } else {
-                    $this->SLog('INFO', 'HM-LED Zustand aktualisiert.', "Instanz: $instId | String: $string");
+                    $this->SLogInfo( 'HM-LED Zustand aktualisiert.', "Instanz: $instId | String: $string");
                 }
             }
         }
@@ -397,10 +397,10 @@ class SmartHomeGarage extends IPSModuleStrict
                 if ($this->ReadPropertyBoolean('CloseOnAbsence')) {
                     $state = GetValue($this->GetIDForIdent('DoorState'));
                     if ($state != 0 && $state != 3) {
-                        $this->SLog('INFO', 'Schließe Garagentor automatisch.', "Hausmodus: Abwesenheit aktiv");
+                        $this->SLogInfo( 'Schließe Garagentor automatisch.', "Hausmodus: Abwesenheit aktiv");
                         $this->TriggerDoor();
                     } else {
-                        $this->SLog('INFO', 'Automatisches Schließen übersprungen.', "Grund: Tor bereits zu");
+                        $this->SLogInfo( 'Automatisches Schließen übersprungen.', "Grund: Tor bereits zu");
                     }
                 }
             }
@@ -413,13 +413,6 @@ class SmartHomeGarage extends IPSModuleStrict
         if (GetValue($id) !== $Value) {
             SetValue($id, $Value);
         }
-    }
-
-    protected function LogMessage(string $Message, int $Type): bool
-    {
-        $this->SLog('INFO', $Message);
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeGarage: '. $Message);
-        return true;
     }
 
     public function GetConfigurationForm(): string

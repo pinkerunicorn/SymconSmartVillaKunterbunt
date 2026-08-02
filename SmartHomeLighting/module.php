@@ -217,14 +217,14 @@ class SmartHomeLighting extends IPSModuleStrict
             $this->GenerateAiSchedule();
             IPS_SetEventActive($eid, true);
             $this->SetTimerInterval('LightExecutionTimer', 60000);
-            $this->SLog('INFO', 'Präsenzsimulation gestartet.', "Hausmodus: Abwesend");
+            $this->SLogInfo( 'Präsenzsimulation gestartet.', "Hausmodus: Abwesend");
             $this->TurnOffAllSimulatedLights(); // Zuerst alles aus
             
             // Check if any lights are STILL on (meaning they were manually turned on and forgotten)
             $this->CalculateActiveLights();
             if ($this->GetValue('ActiveLightsCount') > 0) {
                 $this->SetValueIfChanged('AlarmLightsOnDuringAbsence', true);
-                $this->SLog('WARNING', 'Alarm: Bei Abwesenheit ist noch Licht an!', "Aktive Lampen: " . $this->GetValue('ActiveLightsList'));
+                $this->SLogWarning( 'Alarm: Bei Abwesenheit ist noch Licht an!', "Aktive Lampen: " . $this->GetValue('ActiveLightsList'));
             }
         } else {
             // Wenn Präsenzsimulation lief, schalten wir sie ab
@@ -240,13 +240,13 @@ class SmartHomeLighting extends IPSModuleStrict
             
             if ($isSleep) { // Schlafen
                 $this->TurnOffAllSimulatedLights();
-                $this->SLog('INFO', 'Alle Lichter aus.', 'Grund: Schlafen aktiv');
+                $this->SLogInfo( 'Alle Lichter aus.', 'Grund: Schlafen aktiv');
             } else {
                 // Bei Rückkehr (0, 3, 4) machen wir die simulierten Lichter aus, 
                 // aber nur wenn die Simulation davor lief.
                 if ($wasActive) {
                     $this->TurnOffAllSimulatedLights(true);
-                    $this->SLog('INFO', 'Präsenzsimulation gestoppt und Lichter aus.', "Hausmodus: Anwesend");
+                    $this->SLogInfo( 'Präsenzsimulation gestoppt und Lichter aus.', "Hausmodus: Anwesend");
                 }
             }
         }
@@ -464,12 +464,12 @@ class SmartHomeLighting extends IPSModuleStrict
 
                 if (IPS_VariableExists($devId)) {
                     if (!@RequestAction($devId, $devState)) {
-                        $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $devId | Ziel: $stateLabel | Zeit: {$action['time']}");
+                        $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $devId | Ziel: $stateLabel | Zeit: {$action['time']}");
                     } else {
-                        $this->SLog('INFO', "Licht (KI Plan) geschaltet: $devName → $stateLabel", "ID: $devId | Zeit: {$action['time']}");
+                        $this->SLogInfo( "Licht (KI Plan) geschaltet: $devName → $stateLabel", "ID: $devId | Zeit: {$action['time']}");
                     }
                 } else {
-                    $this->SLog('WARNING', "Gerät nicht gefunden (KI Plan)", "ID: $devId | Name aus Plan: $devName | Zeit: {$action['time']}");
+                    $this->SLogWarning( "Gerät nicht gefunden (KI Plan)", "ID: $devId | Name aus Plan: $devName | Zeit: {$action['time']}");
                 }
                 $executedSomething = true;
             } else {
@@ -529,18 +529,18 @@ class SmartHomeLighting extends IPSModuleStrict
                     if ($varObj['VariableType'] == 0) {
                         if (GetValue($id) === true) {
                             if (!@RequestAction($id, false)) {
-                                $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Ziel: AUS");
+                                $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Ziel: AUS");
                             } else {
-                                $this->SLog('INFO', "Licht ausgeschaltet: $devName", "ID: $id");
+                                $this->SLogInfo( "Licht ausgeschaltet: $devName", "ID: $id");
                             }
                             usleep(100000);
                         }
                     } else {
                         if (GetValue($id) > 0) {
                             if (!@RequestAction($id, 0)) {
-                                $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
+                                $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
                             } else {
-                                $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
+                                $this->SLogInfo( "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
                             }
                             usleep(100000);
                         }
@@ -560,9 +560,9 @@ class SmartHomeLighting extends IPSModuleStrict
                 if ($id > 0 && IPS_VariableExists($id)) {
                     if (GetValue($id) > 0) {
                         if (!@RequestAction($id, 0)) {
-                            $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
+                            $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
                         } else {
-                            $this->SLog('INFO', "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
+                            $this->SLogInfo( "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
                         }
                         usleep(100000);
                     }
@@ -610,10 +610,10 @@ class SmartHomeLighting extends IPSModuleStrict
         $scheduleStr = $this->ReadAttributeString('LightSchedule');
         $schedule = json_decode($scheduleStr, true);
         if (!is_array($schedule) || count($schedule) == 0) {
-            $this->SLog('INFO', 'Präsenzsimulation nach Neustart wiederhergestellt.', 'Generiere neuen KI-Plan.');
+            $this->SLogInfo( 'Präsenzsimulation nach Neustart wiederhergestellt.', 'Generiere neuen KI-Plan.');
             $this->GenerateAiSchedule();
         } else {
-            $this->SLog('INFO', 'Präsenzsimulation nach Neustart wiederhergestellt.', 'Bestehender Plan mit ' . count($schedule) . ' Einträgen aktiv.');
+            $this->SLogInfo( 'Präsenzsimulation nach Neustart wiederhergestellt.', 'Bestehender Plan mit ' . count($schedule) . ' Einträgen aktiv.');
         }
     }
     
@@ -630,13 +630,6 @@ class SmartHomeLighting extends IPSModuleStrict
         if (GetValue($id) !== $Value) {
             $this->SetValue($Ident, $Value);
         }
-    }
-
-    protected function LogMessage(string $Message, int $Type): bool
-    {
-        $this->SLog('INFO', $Message);
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeLighting: '. $Message);
-        return true;
     }
 
     public function GetConfigurationForm(): string

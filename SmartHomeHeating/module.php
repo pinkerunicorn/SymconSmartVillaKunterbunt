@@ -183,7 +183,7 @@ class SmartHomeHeating extends IPSModuleStrict
             if (!$isHeatingSeason) {
                 $this->SetValue('IsAbsenkbetrieb', false);
                 $this->SetValue('HeatingStatus', '☀ Heizpause (Sommer) - Keine Absenkung');
-                $this->SLog('INFO', 'Sommerbetrieb aktiv.', 'Heizkörper werden nicht abgesenkt');
+                $this->SLogInfo( 'Sommerbetrieb aktiv.', 'Heizkörper werden nicht abgesenkt');
                 return;
             }
             
@@ -235,15 +235,15 @@ class SmartHomeHeating extends IPSModuleStrict
                     if (is_string($currentMode)) {
                         if (!@RequestAction($controlModeId, 'MANUAL')) {
                             $devName = @IPS_GetName($controlModeId) ?: "ID:$controlModeId";
-                            $this->SLog('WARNING', "Aktor-Befehl fehlgeschlagen: $devName", "ID: $controlModeId | Wert: 'MANUAL'");
+                            $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $controlModeId | Wert: 'MANUAL'");
                         } else {
-                            $this->SLog('INFO', 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 'MANUAL'");
+                            $this->SLogInfo( 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 'MANUAL'");
                         }
                     } else {
                         if (!@RequestAction($controlModeId, 1)) {
-                            $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $controlModeId | Wert: 1");
+                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $controlModeId | Wert: 1");
                         } else {
-                            $this->SLog('INFO', 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 1");
+                            $this->SLogInfo( 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 1");
                         } // Meistens 1 = Manu
                     }
                     usleep(200000); // Kurz warten für Homematic
@@ -251,9 +251,9 @@ class SmartHomeHeating extends IPSModuleStrict
 
                 if ($targetTempId > 0 && IPS_VariableExists($targetTempId)) {
                     if (!@RequestAction($targetTempId, $individualTemp)) {
-                        $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $targetTempId | Wert: " . var_export($individualTemp, true));
+                        $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $targetTempId | Wert: " . var_export($individualTemp, true));
                     } else {
-                        $this->SLog('INFO', 'Ziel-Temperatur gesetzt.', "ID: $targetTempId | Wert: " . var_export($individualTemp, true));
+                        $this->SLogInfo( 'Ziel-Temperatur gesetzt.', "ID: $targetTempId | Wert: " . var_export($individualTemp, true));
                     }
                 }
             }
@@ -262,10 +262,10 @@ class SmartHomeHeating extends IPSModuleStrict
             if ($isVacation) {
                 $dateStr = ($vacationEndTime > 0) ? "bis ". date('d.m. H:i', $vacationEndTime) : "";
                 $this->SetValue('HeatingStatus', '🧳 Urlaub aktiv'. $dateStr . '('. $roomCount . 'Räume tief abgesenkt)');
-                $this->SLog('INFO', 'Urlaubs-Absenktemperatur aktiviert.', "Ziel-Temp: $globalTargetTemp | Räume: $roomCount");
+                $this->SLogInfo( 'Urlaubs-Absenktemperatur aktiviert.', "Ziel-Temp: $globalTargetTemp | Räume: $roomCount");
             } else {
                 $this->SetValue('HeatingStatus', '🌙 Abwesenheit aktiv ('. $roomCount . 'Räume manuell abgesenkt)');
-                $this->SLog('INFO', 'Absenktemperatur aktiviert.', "Ziel-Temp: $globalTargetTemp | Räume: $roomCount");
+                $this->SLogInfo( 'Absenktemperatur aktiviert.', "Ziel-Temp: $globalTargetTemp | Räume: $roomCount");
             }
         } else {
             // Modus 0 (Anwesenheit), 3 (Party), 4 (Heimkino), 6 (Putzen) -> Heizung normal!
@@ -273,7 +273,7 @@ class SmartHomeHeating extends IPSModuleStrict
             $isHeatingSeason = GetValue($this->GetIDForIdent('HeatingSeason'));
             if (!$isHeatingSeason) {
                 $this->SetValue('HeatingStatus', '☀ Heizpause (Sommer) - Inaktiv');
-                $this->SLog('INFO', 'Sommerbetrieb aktiv.', 'Keine Änderungen beim Statuswechsel.');
+                $this->SLogInfo( 'Sommerbetrieb aktiv.', 'Keine Änderungen beim Statuswechsel.');
                 return;
             }
 
@@ -288,22 +288,22 @@ class SmartHomeHeating extends IPSModuleStrict
 
                     if ($modeId > 0 && $prevMode !== null && IPS_VariableExists($modeId)) {
                         if (!@RequestAction($modeId, $prevMode)) {
-                            $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($prevMode, true));
+                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($prevMode, true));
                         } else {
-                            $this->SLog('INFO', 'Aktor-Modus wiederhergestellt.', "ID: $modeId | Wert: " . var_export($prevMode, true));
+                            $this->SLogInfo( 'Aktor-Modus wiederhergestellt.', "ID: $modeId | Wert: " . var_export($prevMode, true));
                         }
                     } elseif ($tempId > 0 && $prevTemp !== null && IPS_VariableExists($tempId)) {
                         if (!@RequestAction($tempId, $prevTemp)) {
-                            $this->SLog('WARNING', 'Aktor-Befehl fehlgeschlagen', "ID: $tempId | Wert: " . var_export($prevTemp, true));
+                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $tempId | Wert: " . var_export($prevTemp, true));
                         } else {
-                            $this->SLog('INFO', 'Ziel-Temperatur wiederhergestellt.', "ID: $tempId | Wert: " . var_export($prevTemp, true));
+                            $this->SLogInfo( 'Ziel-Temperatur wiederhergestellt.', "ID: $tempId | Wert: " . var_export($prevTemp, true));
                         }
                     }
                 }
             }
             $this->WriteAttributeString('PreviousStates', '{}');
             $this->SetValue('HeatingStatus', '🟢 Normalbetrieb (Profil gesteuert)');
-            $this->SLog('INFO', 'Normaltemperatur / Auto-Modus wiederhergestellt.', "Räume: $roomCount");
+            $this->SLogInfo( 'Normaltemperatur / Auto-Modus wiederhergestellt.', "Räume: $roomCount");
         }
         $this->UpdateAverageTemperature();
     }
@@ -355,7 +355,7 @@ class SmartHomeHeating extends IPSModuleStrict
             if ($avg < $frostThreshold) {
                 if (!$this->GetValue('AlarmFrostWarning')) {
                     $this->SetValue('AlarmFrostWarning', true);
-                    $this->SLog('WARNING', 'Frostgefahr erkannt!', "Ø-Temperatur: $avg °C");
+                    $this->SLogWarning( 'Frostgefahr erkannt!', "Ø-Temperatur: $avg °C");
                 }
             } else {
                 if ($this->GetValue('AlarmFrostWarning')) {
@@ -371,13 +371,6 @@ class SmartHomeHeating extends IPSModuleStrict
         if (GetValue($id) !== $Value) {
             $this->SetValue($Ident, $Value);
         }
-    }
-
-    protected function LogMessage(string $Message, int $Type): bool
-    {
-        $this->SLog('INFO', $Message);
-        IPS_LogMessage('SmartVillaKunterbunt', 'SmartHomeHeating: '. $Message);
-        return true;
     }
 
     public function GetConfigurationForm(): string

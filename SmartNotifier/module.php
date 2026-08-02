@@ -162,7 +162,7 @@ EOT;
     {
         $payload = json_decode($PayloadJSON, true);
         if (!is_array($payload)) {
-            $this->SLog('ERROR', 'SmartNotifier: Invalid JSON payload');
+            $this->SLogError( 'SmartNotifier: Invalid JSON payload');
             return;
         }
         
@@ -184,7 +184,7 @@ EOT;
 
     private function ProcessEvent(string $title, string $message, int $priority, array $actions): void
     {
-        $this->SLog('INFO', "Message received: [$title] $message (Prio: $priority)");
+        $this->SLogInfo( "Message received: [$title] $message (Prio: $priority)");
 
         $isHome = $this->IsHome();
         $isSleeping = $this->IsSleeping();
@@ -255,7 +255,7 @@ EOT;
         ];
 
         $this->SetBuffer('MessageQueue', json_encode($queue));
-        $this->SLog('INFO', "Nachricht in Morning-Queue gespeichert: $message");
+        $this->SLogInfo( "Nachricht in Morning-Queue gespeichert: $message");
     }
 
     private function ProcessMorningQueue(): void
@@ -271,7 +271,7 @@ EOT;
         }
 
         $count = count($queue);
-        $this->SLog('INFO', "Guten Morgen. Verarbeite $count gesammelte Nachrichten.");
+        $this->SLogInfo( "Guten Morgen. Verarbeite $count gesammelte Nachrichten.");
 
         $ttsMsg = "Guten Morgen. WÃ¤hrend du geschlafen hast, gab es $count Meldungen. ";
         foreach ($queue as $item) {
@@ -312,7 +312,7 @@ EOT;
                     @SNS_PlayText($sonosId, $message);
                 }
             } catch (Exception $e) {
-                $this->SLog('ERROR', "Fehler bei Sonos TTS: " . $e->getMessage());
+                $this->SLogError( "Fehler bei Sonos TTS: " . $e->getMessage());
             }
         }
     }
@@ -332,7 +332,7 @@ EOT;
                     @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $param);
                 }
             } catch (Exception $e) {
-                $this->SLog('ERROR', 'Fehler MP3P Fallback: ' . $e->getMessage());
+                $this->SLogError( 'Fehler MP3P Fallback: ' . $e->getMessage());
             }
         }
     }
@@ -347,7 +347,7 @@ EOT;
                 // Aufruf der PushAlert-Methode im VestaboardGenerator (resume = true)
                 @IPS_RunScriptText("VESTAG_PushAlert($vestaId, " . var_export(substr($message, 0, 132), true) . ", true);");
             } catch (Exception $e) {
-                $this->SLog('ERROR', 'Fehler beim Senden an Vestaboard: ' . $e->getMessage());
+                $this->SLogError( 'Fehler beim Senden an Vestaboard: ' . $e->getMessage());
             }
         }
     }
