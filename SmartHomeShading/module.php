@@ -396,7 +396,7 @@ class SmartHomeShading extends IPSModuleStrict
             // Let's deduce targetState from $targetValueInt!
             
             // We can just use the int to find the state or recalculate internally
-            $targetValueStr = (string)$targetValueInt;
+            $targetValueStr = (string)$targetValueFloat;
             $targetState = 'OPEN';
             
             // Or better, CalculateBlindState returns the TARGET value! Let's deduce state.
