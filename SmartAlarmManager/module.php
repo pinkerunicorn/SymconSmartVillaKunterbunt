@@ -71,17 +71,15 @@ class SmartAlarmManager extends IPSModuleStrict
         }
         // ---------------------------------
         
-        $options = json_encode([
+        $parameters = json_encode([
             ['Value' => 0, 'Caption' => 'Alles OK', 'IconValue' => 'Ok', 'ColorDisplay' => 0x00FF00, 'ColorValue' => 0x00FF00, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
             ['Value' => 1, 'Caption' => 'Info / Hinweis', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFFFF00, 'ColorValue' => 0xFFFF00, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 2, 'Caption' => 'ALARM!', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 3, 'Caption' => 'ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 4, 'Caption' => 'VOLLALARM', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
+            ['Value' => 2, 'Caption' => 'ALARM! / ESKALATION', 'IconValue' => 'Alert', 'ColorDisplay' => 0xFF0000, 'ColorValue' => 0xFF0000, 'IconActive' => true, 'ColorActive' => true, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
         ]);
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Information', 'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $options
+            'ICON' => 'Information', 'DISPLAY_TYPE' => 1, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
+            'PARAMETERS' => $parameters
         ]);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), '');
 
