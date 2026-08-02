@@ -22,11 +22,9 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->RegisterPropertyInteger("TargetNotifier", 0);
         
         $this->RegisterTimer("EscalationTimer", 0, 'SAM_CheckEscalation($_IPS[\'TARGET\']);');
-        $this->RegisterTimer("DelayTimer", 0, 'SAM_HandleDelays($_IPS[\'TARGET\']);');
         $this->RegisterTimer("StatusResetTimer", 0, 'SAM_UpdateStatusVariables($_IPS[\'TARGET\']); IPS_SetScriptTimer($_IPS[\'TARGET\'], "StatusResetTimer", 0);');
         
         $this->SetBuffer("ActiveAlarms", "{}");
-        $this->SetBuffer("ActiveDelays", "{}");
 
         // Summary Variables for Tile UI
         $this->RegisterVariableInteger("SystemStatus", "System Status", [
@@ -107,7 +105,7 @@ class SmartAlarmManager extends IPSModuleStrict
             if ($vid > 0 && IPS_VariableExists($vid)) {
                 $this->RegisterMessage($vid, VM_UPDATE);
                 
-                if (($item['AlarmType'] ?? 0) == 0 || ($item['AlarmType'] ?? 0) == 2) {
+                if (($item['AlarmLevel'] ?? 1) > 0) {
                     $ident = "Alarm_". $vid;
                     $activeIdents[] = $ident;
                     $this->MaintainVariable($ident, "Status: ". ($item['Message'] ?? 'Alarm'), 0, "", 0, true);
@@ -154,34 +152,12 @@ class SmartAlarmManager extends IPSModuleStrict
             if ($vid == $SenderID) {
                 $triggerVal = $item['TriggerValue'] ?? 'true';
                 if ($this->IsTriggered($currentVal, $triggerVal)) {
-                    $delay = $item['DelaySeconds'] ?? 0;
-                    if ($delay > 0) {
-                        $delays = json_decode($this->GetBuffer("ActiveDelays"), true) ?: [];
-                        if (!isset($delays[$vid])) {
-                            $delays[$vid] = [
-                                "triggerTime"=> time() + $delay,
-                                "item"=> $item
-                            ];
-                            $this->SetBuffer("ActiveDelays", json_encode($delays));
-                            $this->SetTimerInterval("DelayTimer", 1000);
-                        }
-                    } else {
-                        $this->HandleTrigger($item);
-                    }
+                    $this->HandleTrigger($item);
                 } else {
-                    $delays = json_decode($this->GetBuffer("ActiveDelays"), true) ?: [];
-                    if (isset($delays[$vid])) {
-                        unset($delays[$vid]);
-                        $this->SetBuffer("ActiveDelays", json_encode($delays));
-                        if (empty($delays)) {
-                            $this->SetTimerInterval("DelayTimer", 0);
-                        }
-                    }
-                    
-                    if (($item['AlarmType'] ?? 0) == 2) {
+                    if (($item['AutoReset'] ?? false)) {
                         $alarms = json_decode($this->GetBuffer("ActiveAlarms"), true) ?: [];
                         if (isset($alarms[$vid])) {
-                            $this->SLogInfo("Auto-Reset fÃ¼r Sensor/Variable $vid");
+                            $this->SLogInfo("Auto-Reset für Sensor/Variable $vid");
                             $this->RequestAction("Alarm_".$vid, false);
                         }
                     }
@@ -190,43 +166,16 @@ class SmartAlarmManager extends IPSModuleStrict
         }
     }
 
-    public function HandleDelays(): void
-    {
-        $delays = json_decode($this->GetBuffer("ActiveDelays"), true) ?: [];
-        if (empty($delays)) {
-            $this->SetTimerInterval("DelayTimer", 0);
-            return;
-        }
-
-        $now = time();
-        $changed = false;
-
-        foreach ($delays as $vid => $delayObj) {
-            if ($now >= $delayObj['triggerTime']) {
-                $this->HandleTrigger($delayObj['item']);
-                unset($delays[$vid]);
-                $changed = true;
-            }
-        }
-
-        if ($changed) {
-            $this->SetBuffer("ActiveDelays", json_encode($delays));
-            if (empty($delays)) {
-                $this->SetTimerInterval("DelayTimer", 0);
-            }
-        }
-    }
-
     private function HandleTrigger($item)
     {
-        $type = $item['AlarmType'] ?? 0;
-        $msg = $item['Message'] ?? "Alarm ausgelÃ¶st";
+        $level = (int)($item['AlarmLevel'] ?? 1);
+        $msg = $item['Message'] ?? "Alarm ausgelöst";
         $vid = $item['VariableID'];
         
         $notifier = $this->ReadPropertyInteger('TargetNotifier');
 
-        if ($type == 1) {
-            $this->SLogInfo("Info/Event ausgelÃ¶st: ". $msg);
+        if ($level == 0) {
+            $this->SLogInfo("Info/Event ausgelöst: ". $msg);
             $this->SendDebug("Trigger", "Info/Event: ". $msg, 0);
             
             if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
@@ -245,16 +194,16 @@ class SmartAlarmManager extends IPSModuleStrict
             if (!isset($alarms[$vid])) {
                 $alarms[$vid] = [
                     "timestamp"=> time(),
-                    "level"=> 1,
+                    "level"=> $level,
                     "item"=> $item
                 ];
                 $this->SetBuffer("ActiveAlarms", json_encode($alarms));
                 
-                $this->SLogWarning("ALARM ausgelÃ¶st (Stufe 1): ". $msg);
-                $this->SendDebug("Trigger", "Alarm Stufe 1: ". $msg, 0);
+                $this->SLogWarning("ALARM ausgelöst (Stufe $level): ". $msg);
+                $this->SendDebug("Trigger", "Alarm Stufe $level: ". $msg, 0);
                 
                 if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
-                    $payload = json_encode(['Title' => 'Alarm', 'Message' => $msg, 'Priority' => 1]);
+                    $payload = json_encode(['Title' => 'Alarm', 'Message' => $msg, 'Priority' => $level]);
                     @NOTIFY_SendEvent($notifier, $payload);
                 }
                 
@@ -410,13 +359,13 @@ class SmartAlarmManager extends IPSModuleStrict
 
             // ErgÃ¤nze Alarme im Puffer, falls eine Alarm-Variable aktiv (true) ist, aber im Puffer fehlt
             foreach ($monitoredMap as $vid => $item) {
-                if (($item['AlarmType'] ?? 0) == 0 || ($item['AlarmType'] ?? 0) == 2) {
+                if (($item['AlarmLevel'] ?? 1) > 0) {
                     $ident = "Alarm_" . $vid;
                     if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID) && $this->GetValue($ident)) {
                         if (!isset($alarms[$vid])) {
                             $alarms[$vid] = [
                                 "timestamp" => time(),
-                                "level"     => 1,
+                                "level"     => (int)($item['AlarmLevel'] ?? 1),
                                 "item"      => $item
                             ];
                         }
@@ -565,35 +514,35 @@ class SmartAlarmManager extends IPSModuleStrict
                     }
                 },
                 {
-                    "caption": "Verzögerung (s)",
-                    "name": "DelaySeconds",
-                    "width": "100px",
-                    "add": 0,
-                    "edit": {
-                        "type": "NumberSpinner"
-                    }
-                },
-                {
-                    "caption": "Alarm/Eskalations-Typ",
-                    "name": "AlarmType",
+                    "caption": "Stufe (Level)",
+                    "name": "AlarmLevel",
                     "width": "150px",
-                    "add": 0,
+                    "add": 1,
                     "edit": {
                         "type": "Select",
                         "options": [
                             {
-                                "caption": "Alarm (mit Eskalation)",
+                                "caption": "Normal (Nur Info)",
                                 "value": 0
                             },
                             {
-                                "caption": "Info / Türklingel (Einmalig)",
+                                "caption": "Warnung",
                                 "value": 1
                             },
                             {
-                                "caption": "Alarm (Eskalation, Auto-Reset)",
+                                "caption": "Fehler / Alarm",
                                 "value": 2
                             }
                         ]
+                    }
+                },
+                {
+                    "caption": "Auto-Reset",
+                    "name": "AutoReset",
+                    "width": "100px",
+                    "add": false,
+                    "edit": {
+                        "type": "CheckBox"
                     }
                 }
             ]
