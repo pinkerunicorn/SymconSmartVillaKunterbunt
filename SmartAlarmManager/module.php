@@ -52,6 +52,26 @@ class SmartAlarmManager extends IPSModuleStrict
     public function ApplyChanges(): void{
         parent::ApplyChanges();
         $this->DA_ApplyPresentation();
+
+        // --- Sicherstellung: Summary-Variablen existieren (auch nach manuellem Löschen) ---
+        $this->RegisterVariableInteger("SystemStatus", "System Status", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Information'
+        ], 1);
+        $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Warning'
+        ], 2);
+        $this->RegisterVariableString("LastEvent", "Letztes Ereignis", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Flag'
+        ], 3);
+        $this->RegisterVariableBoolean("AcknowledgeAll", "Alle Alarme quittieren", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON'         => 'Ok'
+        ], 4);
+        $this->EnableAction("AcknowledgeAll");
+
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
