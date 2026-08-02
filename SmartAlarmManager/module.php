@@ -58,6 +58,11 @@ class SmartAlarmManager extends IPSModuleStrict
         IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
             'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
             'ICON' => 'Information',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
             'INTERVALS_ACTIVE' => true,
             'INTERVALS' => json_encode([
                 [
@@ -175,15 +180,14 @@ class SmartAlarmManager extends IPSModuleStrict
                 if (($item['AlarmLevel'] ?? 1) > 0) {
                     $ident = "Alarm_". $vid;
                     $activeIdents[] = $ident;
-                    $this->MaintainVariable($ident, "Status: ". ($item['Message'] ?? 'Alarm'), 0, "", 0, true);
-                    $varID = $this->GetIDForIdent($ident);
-                    IPS_SetVariableCustomPresentation($varID, [
+                    $this->RegisterVariableBoolean($ident, "Status: ". ($item['Message'] ?? 'Alarm'), [
                         'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
                         'ICON'         => 'Alert'
-                    ]);
+                    ], 0);
                     $this->EnableAction($ident);
 
                     // Nur Alarme sichtbar machen, die zu quittieren sind
+                    $varID = $this->GetIDForIdent($ident);
                     $isAlarmActive = (bool)$this->GetValue($ident);
                     IPS_SetHidden($varID, !$isAlarmActive);
                 }
@@ -194,7 +198,7 @@ class SmartAlarmManager extends IPSModuleStrict
             $ident = IPS_GetObject($childID)['ObjectIdent'];
             if (strpos($ident, "Alarm_") === 0) {
                 if (!in_array($ident, $activeIdents)) {
-                    $this->MaintainVariable($ident, "", 0, "", 0, false);
+                    $this->UnregisterVariable($ident);
                 }
             }
         }

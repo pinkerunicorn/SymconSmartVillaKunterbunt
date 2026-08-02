@@ -200,12 +200,11 @@ class SmartActiveLighting extends IPSModuleStrict
         }
 
         foreach ($activeGroups as $ident => $name) {
-            $this->MaintainVariable($ident, $name, 0, '', 0, true);
-            $this->EnableAction($ident);
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent($ident), [
+            $this->RegisterVariableBoolean($ident, $name, [
                 'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
                 'ICON' => 'Bulb'
-            ]);
+            ], 0);
+            $this->EnableAction($ident);
         }
         
         // Delete inactive groups
@@ -213,7 +212,7 @@ class SmartActiveLighting extends IPSModuleStrict
             $obj = IPS_GetObject($childID);
             if (strpos($obj['ObjectIdent'], 'Group_') === 0) {
                 if (!isset($activeGroups[$obj['ObjectIdent']])) {
-                    $this->MaintainVariable($obj['ObjectIdent'], '', 0, '', 0, false);
+                    $this->UnregisterVariable($obj['ObjectIdent']);
                 }
             }
         }

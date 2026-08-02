@@ -263,8 +263,8 @@ class SmartHomeControl extends IPSModuleStrict
         $this->ApplyIrrigationPresentation();
 
         // === Remove old legacy variables ===
-        $this->MaintainVariable('HouseMode', '', 0, '', 0, false);
-        $this->MaintainVariable('AbsenceStatus', '', 0, '', 0, false);
+        $this->UnregisterVariable('HouseMode');
+        $this->UnregisterVariable('AbsenceStatus');
 
         // Clean up old profile
         $oldProfile = 'SmartAbsence.HouseMode.' . $this->InstanceID;

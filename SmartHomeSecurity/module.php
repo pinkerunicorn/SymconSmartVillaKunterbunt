@@ -40,9 +40,9 @@ class SmartHomeSecurity extends IPSModuleStrict
         $this->EnableAction('AlarmWindowsOpenDuringAbsence');
         
         $this->RegisterVariableString('VestaboardStatus', 'Kurz-Status (Vestaboard)', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Information'
         ], 4);
-        IPS_SetIcon($this->GetIDForIdent('VestaboardStatus'), 'Information');
     }
 
     public function ApplyChanges(): void
@@ -78,11 +78,7 @@ class SmartHomeSecurity extends IPSModuleStrict
         }
         // ---------------------------------
 
-        $this->MaintainVariable('VestaboardStatus', 'Kurz-Status (Vestaboard)', 3, '', 4, true);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('VestaboardStatus'), [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information'
-        ]);
+        // VestaboardStatus wird nun in Create() über RegisterVariable verwaltet
 
         $windowVars = json_decode($this->ReadPropertyString('WindowVariables'), true);
         if (is_array($windowVars)) {
