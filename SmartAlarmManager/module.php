@@ -27,9 +27,10 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->SetBuffer("ActiveAlarms", "{}");
 
         // Summary Variables for Tile UI
-        // SystemStatus: Legacy-Profil wird in ApplyChanges() zugewiesen
-        // (einziger zuverlässiger Weg für read-only Integer mit Text+Farbe+Icon)
-        $this->MaintainVariable('SystemStatus', 'System Status', 1, '', 1, true);
+        $this->RegisterVariableInteger("SystemStatus", "System Status", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Information'
+        ], 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Warning'
@@ -52,17 +53,19 @@ class SmartAlarmManager extends IPSModuleStrict
         parent::ApplyChanges();
         $this->DA_ApplyPresentation();
 
-        // --- SystemStatus: Legacy-Profil (einzig zuverlässiger Weg für read-only Integer mit Assoziationen) ---
-        $profileName = 'SAM.SystemStatus.' . $this->InstanceID;
-        if (!IPS_VariableProfileExists($profileName)) {
-            IPS_CreateVariableProfile($profileName, 1); // 1 = Integer
-        }
-        IPS_SetVariableProfileAssociation($profileName, 0, 'Alles OK',        'Ok',      0x00FF00);
-        IPS_SetVariableProfileAssociation($profileName, 1, 'Info / Hinweis',  'Warning', 0xFFFF00);
-        IPS_SetVariableProfileAssociation($profileName, 2, 'ALARM!',          'Alert',   0xFF0000);
-        IPS_SetVariableProfileAssociation($profileName, 3, 'ESKALATION',      'Alert',   0xFF0000);
-        IPS_SetVariableProfileAssociation($profileName, 4, 'VOLLALARM',       'Alert',   0xFF0000);
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('SystemStatus'), $profileName);
+        // --- SystemStatus: Wertanzeige mit Intervall-Konstanten (Ampel) ---
+        // Entspricht: "Verwende aktualisierte Parameter für spezifische Intervalle" = AN
+        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Information',
+            'INTERVALS_ACTIVE' => true,
+            'INTERVALS' => json_encode([
+                ['START' => 0, 'END' => 1, 'CAPTION' => 'Alles OK',       'ICON' => 'Ok',      'COLOR' => 0x00FF00],
+                ['START' => 1, 'END' => 2, 'CAPTION' => 'Info / Hinweis', 'ICON' => 'Warning', 'COLOR' => 0xFFFF00],
+                ['START' => 2, 'END' => 3, 'CAPTION' => 'ALARM!',         'ICON' => 'Alert',   'COLOR' => 0xFF0000],
+                ['START' => 3, 'END' => 4, 'CAPTION' => 'ESKALATION',     'ICON' => 'Alert',   'COLOR' => 0xFF0000]
+            ])
+        ]);
 
         // --- Sicherstellung: Summary-Variablen ---
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
