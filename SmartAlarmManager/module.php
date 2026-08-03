@@ -56,12 +56,12 @@ class SmartAlarmManager extends IPSModuleStrict
         $this->EnableAction("AcknowledgeAll");
 
         // Windows/Doors count variables
-        $this->RegisterVariableInteger('OpenWindowsCount', '🚪 Offene Fenster / Türen (Zähler)', [
+        $this->RegisterVariableInteger('OpenWindowsCount', 'Offene Fenster / Türen (Zähler)', [
             'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'           => 'Window',
             'SUFFIX'         => ' offen'
         ], 5);
-        $this->RegisterVariableString('OpenWindowsList', '📝 Offene Fenster / Türen (Namen)', [
+        $this->RegisterVariableString('OpenWindowsList', 'Offene Fenster / Türen (Namen)', [
             'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'           => 'Information'
         ], 6);
