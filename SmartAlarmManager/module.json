@@ -1,10 +1,10 @@
 {
     "id": "{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}",
-    "name": "SmartAlarmManager",
+    "name": "SmartSecurityManager",
     "type": 3,
     "vendor": "Florian Gra\u00dfinger",
     "aliases": [
-        "Smart Alarm Manager"
+        "Smart Security Manager"
     ],
     "parentRequirements": [],
     "childRequirements": [],
