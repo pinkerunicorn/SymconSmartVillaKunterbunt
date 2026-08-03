@@ -11,7 +11,7 @@
     "implemented": [],
     "prefix": "SAM",
     "author": "Florian Gra\u00dfinger",
-    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartAlarmManager",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartSecurityManager",
     "properties": {
         "MonitoredVariables": {
             "type": "string",
