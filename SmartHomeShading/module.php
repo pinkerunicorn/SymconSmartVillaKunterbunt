@@ -51,7 +51,7 @@ class SmartHomeShading extends IPSModuleStrict
         ], 2);
         
         $this->RegisterVariableBoolean('StatusIsNight', 'Status: Es ist Nacht', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Moon',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
@@ -64,7 +64,7 @@ class SmartHomeShading extends IPSModuleStrict
             ])
         ], 10);
         $this->RegisterVariableBoolean('StatusIsHotAndBright', 'Status: Hitze & Helligkeit erreicht', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Sun',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
@@ -92,6 +92,7 @@ class SmartHomeShading extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
 
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);

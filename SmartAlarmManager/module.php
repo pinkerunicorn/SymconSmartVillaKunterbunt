@@ -51,6 +51,7 @@ class SmartAlarmManager extends IPSModuleStrict
 
     public function ApplyChanges(): void{
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
 
         // --- SystemStatus: Wertanzeige mit Intervall-Konstanten (Ampel) ---
         $intervals = json_encode([

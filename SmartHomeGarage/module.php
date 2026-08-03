@@ -124,6 +124,7 @@ class SmartHomeGarage extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
 
         $this->SubscribeToCentralStates(['PresenceMode']);
         // --- Auto-generated References ---

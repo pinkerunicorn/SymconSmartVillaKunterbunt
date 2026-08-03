@@ -26,7 +26,7 @@ class SmartHomeLighting extends IPSModuleStrict
             'ICON'        => 'Clock'
         ], 1);
         $this->RegisterVariableBoolean('GeminiError', 'Fehler aufgetreten', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Alert',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,

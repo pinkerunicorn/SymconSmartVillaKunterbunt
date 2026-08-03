@@ -68,7 +68,7 @@ class SmartHomeEntrance extends IPSModuleStrict
             IPS_DeleteVariable($vid);
         }
         $this->RegisterVariableBoolean('MailboxState', 'Briefkasten', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Mailbox',
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
@@ -84,7 +84,7 @@ class SmartHomeEntrance extends IPSModuleStrict
         ], 1);
         
         $this->RegisterVariableBoolean('Doorbell1', 'Klingel 1', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Bell',
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
@@ -100,7 +100,7 @@ class SmartHomeEntrance extends IPSModuleStrict
         ], 2);
         
         $this->RegisterVariableBoolean('Doorbell2', 'Klingel 2', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Bell',
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
@@ -121,6 +121,7 @@ class SmartHomeEntrance extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         

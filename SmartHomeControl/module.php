@@ -59,7 +59,7 @@ class SmartHomeControl extends IPSModuleStrict
 
         // === Central State Variables (read-only, set by other modules via public API) ===
         $this->RegisterVariableBoolean('FireplaceActive', 'Kamin aktiv', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Flame',
             'DIGITS' => 2,
             'COLOR' => -1,
@@ -83,7 +83,7 @@ class SmartHomeControl extends IPSModuleStrict
         ], 11);
 
         $this->RegisterVariableBoolean('MediaPlaying', 'Medien aktiv', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Speaker',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
@@ -101,7 +101,7 @@ class SmartHomeControl extends IPSModuleStrict
         ], 12);
 
         $this->RegisterVariableBoolean('IrrigationActive', 'Bewässerung aktiv', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Drops',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
