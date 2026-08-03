@@ -59,9 +59,22 @@ class SmartHomeControl extends IPSModuleStrict
 
         // === Central State Variables (read-only, set by other modules via public API) ===
         $this->RegisterVariableBoolean('FireplaceActive', 'Kamin aktiv', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
             'ICON' => 'Flame',
-            'DIGITS' => 2
+            'DIGITS' => 2,
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Flame', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
+                ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Flame', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
+            ])
         ], 10);
 
         $this->RegisterVariableString('AlarmLevel', 'Alarm-Stufe', [
@@ -70,13 +83,39 @@ class SmartHomeControl extends IPSModuleStrict
         ], 11);
 
         $this->RegisterVariableBoolean('MediaPlaying', 'Medien aktiv', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Speaker'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Speaker',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Speaker', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
+                ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Speaker', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x00AAFF, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00AAFF]
+            ])
         ], 12);
 
         $this->RegisterVariableBoolean('IrrigationActive', 'Bewässerung aktiv', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Drops'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Drops',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Drops', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
+                ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Drops', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x0088FF, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x0088FF]
+            ])
         ], 13);
 
         // === Energy Price Properties ===
@@ -258,9 +297,6 @@ class SmartHomeControl extends IPSModuleStrict
         $this->SetValue('VarPriceGas', $this->ReadPropertyFloat('PriceGas') * 100);
         $this->SetValue('VarBasePriceGas', $this->ReadPropertyFloat('BasePriceGas'));
 
-        $this->ApplyFireplacePresentation();
-        $this->ApplyMediaPlayingPresentation();
-        $this->ApplyIrrigationPresentation();
 
         // === Remove old legacy variables ===
         $this->UnregisterVariable('HouseMode');
@@ -577,60 +613,6 @@ class SmartHomeControl extends IPSModuleStrict
         }
     }
 
-    private function ApplyFireplacePresentation(): void
-    {
-        $options = json_encode([
-            ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Flame', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-            ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Flame', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('FireplaceActive'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Flame',
-            'DIGITS' => 2, 'COLOR' => -1, 'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $options
-        ]);
-    }
-
-    private function ApplyMediaPlayingPresentation(): void
-    {
-        $options = json_encode([
-            ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Speaker', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-            ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Speaker', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x00AAFF, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00AAFF]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('MediaPlaying'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Speaker', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $options
-        ]);
-    }
-
-    private function ApplyIrrigationPresentation(): void
-    {
-        $options = json_encode([
-            ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Drops', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-            ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Drops', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x0088FF, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x0088FF]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('IrrigationActive'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Drops', 'COLOR' => -1, 'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $options
-        ]);
-    }
 
     // =========================================================================
     // Logging

@@ -51,12 +51,30 @@ class SmartHomeShading extends IPSModuleStrict
         ], 2);
         
         $this->RegisterVariableBoolean('StatusIsNight', 'Status: Es ist Nacht', [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Moon'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Moon',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Tag', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFFCC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFCC00],
+                ['Value' => true, 'Caption' => 'Nacht', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x003399, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x003399]
+            ])
         ], 10);
         $this->RegisterVariableBoolean('StatusIsHotAndBright', 'Status: Hitze & Helligkeit erreicht', [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Sun'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Sun',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Normal', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
+                ['Value' => true, 'Caption' => 'Heiss & hell!', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF6600, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF6600]
+            ])
         ], 11);
         $this->RegisterVariableInteger('StatusSunInSectorCount', 'Status: Rollläden in der Sonne (Anzahl)', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
@@ -74,56 +92,7 @@ class SmartHomeShading extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->DA_ApplyPresentation();
-        
-        // Ensure existing instances get updated presentations
-        if (function_exists('IPS_SetVariableCustomPresentation')) {
-            $varsToUpdate = [
-                'AlarmWindWarning' => [VARIABLE_PRESENTATION_SWITCH, 'Warning'],
-                'ActiveShadingCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'WindowBlind'],
-                'StatusSunInSectorCount' => [VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'Count'],
-                'StatusLastEvaluation' => [VARIABLE_PRESENTATION_DATE_TIME, 'Clock']
-            ];
-            foreach ($varsToUpdate as $ident => $settings) {
-                $varID = @$this->GetIDForIdent($ident);
-                if ($varID !== false && $varID > 0) {
-                    IPS_SetVariableCustomPresentation($varID, [
-                        'PRESENTATION' => $settings[0],
-                        'ICON' => $settings[1]
-                    ]);
-                }
-            }
 
-            $nightOptions = json_encode([
-                ['Value' => false, 'Caption' => 'Tag', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFFCC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFCC00],
-                ['Value' => true, 'Caption' => 'Nacht', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x003399, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x003399]
-            ]);
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusIsNight'), [
-                'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-                'ICON' => 'Moon',
-                'COLOR' => -1,
-                'CONTENT_COLOR' => -1,
-                'DISPLAY_TYPE' => 0,
-                'PREVIEW_STYLE' => 1,
-                'SHOW_PREVIEW' => true,
-                'OPTIONS' => $nightOptions
-            ]);
-
-            $hotOptions = json_encode([
-                ['Value' => false, 'Caption' => 'Normal', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-                ['Value' => true, 'Caption' => 'Heiss & hell!', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF6600, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF6600]
-            ]);
-            IPS_SetVariableCustomPresentation($this->GetIDForIdent('StatusIsHotAndBright'), [
-                'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-                'ICON' => 'Sun',
-                'COLOR' => -1,
-                'CONTENT_COLOR' => -1,
-                'DISPLAY_TYPE' => 0,
-                'PREVIEW_STYLE' => 1,
-                'SHOW_PREVIEW' => true,
-                'OPTIONS' => $hotOptions
-            ]);
-        }
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---

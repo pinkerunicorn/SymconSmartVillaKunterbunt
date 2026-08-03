@@ -26,8 +26,17 @@ class SmartHomeLighting extends IPSModuleStrict
             'ICON'        => 'Clock'
         ], 1);
         $this->RegisterVariableBoolean('GeminiError', 'Fehler aufgetreten', [
-            'PRESENTATION'  => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'          => 'Alert'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Alert',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'OK', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
+                ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
+            ])
         ], 2);
         
         $this->RegisterVariableInteger('ActiveLightsCount', '💡 Aktive Lampen (Zähler)', [
@@ -85,20 +94,6 @@ class SmartHomeLighting extends IPSModuleStrict
         }
         // ---------------------------------
         
-        $geminiOptions = json_encode([
-            ['Value' => false, 'Caption' => 'OK', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
-            ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('GeminiError'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Alert',
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'PREVIEW_STYLE' => 1,
-            'SHOW_PREVIEW' => true,
-            'OPTIONS' => $geminiOptions
-        ]);
 
         $geminiInstances = IPS_GetInstanceListByModuleID('{4C8B2A6D-9E3F-4A7B-8C5D-1F6E2A3B7C4D}');
         if (empty($geminiInstances)) {

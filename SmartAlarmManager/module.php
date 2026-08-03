@@ -51,77 +51,72 @@ class SmartAlarmManager extends IPSModuleStrict
 
     public function ApplyChanges(): void{
         parent::ApplyChanges();
-        $this->DA_ApplyPresentation();
 
         // --- SystemStatus: Wertanzeige mit Intervall-Konstanten (Ampel) ---
-        // Entspricht: "Verwende aktualisierte Parameter für spezifische Intervalle" = AN
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('SystemStatus'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Information',
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'PREVIEW_STYLE' => 1,
-            'SHOW_PREVIEW' => true,
-            'INTERVALS_ACTIVE' => true,
-            'INTERVALS' => json_encode([
-                [
-                    'IntervalMinValue' => 0, 'IntervalMaxValue' => 1,
-                    'ConstantActive' => true, 'ConstantValue' => 'Alles OK',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Ok',
-                    'ColorActive' => true, 'ColorValue' => 0x00CC00,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ],
-                [
-                    'IntervalMinValue' => 1, 'IntervalMaxValue' => 2,
-                    'ConstantActive' => true, 'ConstantValue' => 'Info / Hinweis',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Warning',
-                    'ColorActive' => true, 'ColorValue' => 0xFFFF00,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ],
-                [
-                    'IntervalMinValue' => 2, 'IntervalMaxValue' => 3,
-                    'ConstantActive' => true, 'ConstantValue' => 'ALARM!',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Alert',
-                    'ColorActive' => true, 'ColorValue' => 0xFF0000,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ],
-                [
-                    'IntervalMinValue' => 3, 'IntervalMaxValue' => 4,
-                    'ConstantActive' => true, 'ConstantValue' => 'ESKALATION',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Alert',
-                    'ColorActive' => true, 'ColorValue' => 0xFF0000,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ],
-                [
-                    'IntervalMinValue' => 4, 'IntervalMaxValue' => 5,
-                    'ConstantActive' => true, 'ConstantValue' => 'VOLLALARM',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Alert',
-                    'ColorActive' => true, 'ColorValue' => 0xFF0000,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ]
-            ])
+        $intervals = json_encode([
+            [
+                'IntervalMinValue' => 0, 'IntervalMaxValue' => 1,
+                'ConstantActive' => true, 'ConstantValue' => 'Alles OK',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Ok',
+                'ColorActive' => true, 'ColorValue' => 0x00CC00,
+                'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
+            ],
+            [
+                'IntervalMinValue' => 1, 'IntervalMaxValue' => 2,
+                'ConstantActive' => true, 'ConstantValue' => 'Info / Hinweis',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Warning',
+                'ColorActive' => true, 'ColorValue' => 0xFFFF00,
+                'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
+            ],
+            [
+                'IntervalMinValue' => 2, 'IntervalMaxValue' => 3,
+                'ConstantActive' => true, 'ConstantValue' => 'ALARM!',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Alert',
+                'ColorActive' => true, 'ColorValue' => 0xFF0000,
+                'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
+            ],
+            [
+                'IntervalMinValue' => 3, 'IntervalMaxValue' => 4,
+                'ConstantActive' => true, 'ConstantValue' => 'ESKALATION',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Alert',
+                'ColorActive' => true, 'ColorValue' => 0xFF0000,
+                'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
+            ],
+            [
+                'IntervalMinValue' => 4, 'IntervalMaxValue' => 5,
+                'ConstantActive' => true, 'ConstantValue' => 'VOLLALARM',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Alert',
+                'ColorActive' => true, 'ColorValue' => 0xFF0000,
+                'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
+            ]
         ]);
+
+        $this->RegisterVariableInteger("SystemStatus", "System Status", [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Information',
+            'INTERVALS_ACTIVE' => true,
+            'INTERVALS' => $intervals
+        ], 1);
 
         // --- Sicherstellung: Summary-Variablen ---
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [

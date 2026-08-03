@@ -68,18 +68,51 @@ class SmartHomeEntrance extends IPSModuleStrict
             IPS_DeleteVariable($vid);
         }
         $this->RegisterVariableBoolean('MailboxState', 'Briefkasten', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Mailbox'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Mailbox',
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Leer', 'IconValue' => 'mailbox', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
+                ['Value' => true, 'Caption' => 'Voll', 'IconValue' => 'mailbox-flag-up', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFFD700, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFD700]
+            ])
         ], 1);
         
         $this->RegisterVariableBoolean('Doorbell1', 'Klingel 1', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Bell'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Bell',
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Ruhe', 'IconValue' => 'Bell', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => -1, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
+                ['Value' => true, 'Caption' => 'Klingelt', 'IconValue' => 'Bell', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
+            ])
         ], 2);
         
         $this->RegisterVariableBoolean('Doorbell2', 'Klingel 2', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Bell'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Bell',
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Ruhe', 'IconValue' => 'Bell', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => -1, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
+                ['Value' => true, 'Caption' => 'Klingelt', 'IconValue' => 'Bell', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
+            ])
         ], 3);
         
         // No EnableAction on Doorbells - Read Only for Visu/History
@@ -88,7 +121,7 @@ class SmartHomeEntrance extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->DA_ApplyPresentation();
+
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         
         // --- Auto-generated References ---
@@ -122,39 +155,6 @@ class SmartHomeEntrance extends IPSModuleStrict
             }
         }
         
-        // --- Variables CustomPresentation ---
-        $mailboxOptions = json_encode([
-            ['Value' => false, 'Caption' => 'Leer', 'IconValue' => 'mailbox', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-            ['Value' => true, 'Caption' => 'Voll', 'IconValue' => 'mailbox-flag-up', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0xFFD700, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFD700]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('MailboxState'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Mailbox', 'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $mailboxOptions
-        ]);
-
-        $bellOptions = json_encode([
-            ['Value' => false, 'Caption' => 'Ruhe', 'IconValue' => 'Bell', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => -1, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-            ['Value' => true, 'Caption' => 'Klingelt', 'IconValue' => 'Bell', 'IconActive' => true,
-             'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
-             'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('Doorbell1'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Bell', 'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $bellOptions
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('Doorbell2'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Bell', 'DISPLAY_TYPE' => 0, 'PREVIEW_STYLE' => 1, 'SHOW_PREVIEW' => true,
-            'OPTIONS' => $bellOptions
-        ]);
 
         $this->UpdateTimers();
         $this->DA_SetAvailable(true);

@@ -47,8 +47,17 @@ class SmartHomeHeating extends IPSModuleStrict
         $this->EnableAction('HeatingSeason');
         
         $this->RegisterVariableBoolean('IsAbsenkbetrieb', '📉 Absenkbetrieb', [
-            'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'TrendDown'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'ICON' => 'Radiator',
+            'COLOR' => -1,
+            'CONTENT_COLOR' => -1,
+            'DISPLAY_TYPE' => 0,
+            'PREVIEW_STYLE' => 1,
+            'SHOW_PREVIEW' => true,
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Normalbetrieb', 'IconValue' => 'Radiator', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
+                ['Value' => true, 'Caption' => 'Absenkung aktiv', 'IconValue' => 'Radiator', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x0088FF, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x0088FF]
+            ])
         ], 15);
         $this->RegisterVariableBoolean('AlarmFrostWarning', 'Alarm: Frostgefahr', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
@@ -61,7 +70,7 @@ class SmartHomeHeating extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->DA_ApplyPresentation();
+
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
@@ -78,20 +87,6 @@ class SmartHomeHeating extends IPSModuleStrict
         }
         // ---------------------------------
         
-        $absenkOptions = json_encode([
-            ['Value' => false, 'Caption' => 'Normalbetrieb', 'IconValue' => 'Radiator', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
-            ['Value' => true, 'Caption' => 'Absenkung aktiv', 'IconValue' => 'Radiator', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x0088FF, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x0088FF]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('IsAbsenkbetrieb'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'ICON' => 'Radiator',
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'PREVIEW_STYLE' => 1,
-            'SHOW_PREVIEW' => true,
-            'OPTIONS' => $absenkOptions
-        ]);
 
         // Variable Aggregation (Logging) für Ø Haus-Temperatur aktivieren
         $avgTempId = $this->GetIDForIdent('AverageTemperature');

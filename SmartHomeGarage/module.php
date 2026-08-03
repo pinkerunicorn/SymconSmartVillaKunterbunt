@@ -45,8 +45,15 @@ class SmartHomeGarage extends IPSModuleStrict
 
         // Variables
         $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information'
+            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
+            'DISPLAY_TYPE' => 0,
+            'OPTIONS' => json_encode([
+                ['Value' => 0, 'Caption' => 'Zu', 'IconValue' => 'LockClosed', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 1, 'Caption' => 'Auf', 'IconValue' => 'LockOpen', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 2, 'Caption' => 'Fährt Auf...', 'IconValue' => 'ArrowUp', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 3, 'Caption' => 'Fährt Zu...', 'IconValue' => 'ArrowDown', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => 4, 'Caption' => 'Teiloffen / Gestoppt', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFF8000, 'ColorValue' => 0xFF8000, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
+            ])
         ], 1);
         $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
@@ -64,7 +71,7 @@ class SmartHomeGarage extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->DA_ApplyPresentation();
+
         $this->SubscribeToCentralStates(['PresenceMode']);
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
@@ -103,19 +110,7 @@ class SmartHomeGarage extends IPSModuleStrict
         // ---------------------------------
         
         
-        $options = json_encode([
-            ['Value' => 0, 'Caption' => 'Zu', 'IconValue' => 'LockClosed', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 1, 'Caption' => 'Auf', 'IconValue' => 'LockOpen', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 2, 'Caption' => 'Fährt Auf...', 'IconValue' => 'ArrowUp', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 3, 'Caption' => 'Fährt Zu...', 'IconValue' => 'ArrowDown', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-            ['Value' => 4, 'Caption' => 'Teiloffen / Gestoppt', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFF8000, 'ColorValue' => 0xFF8000, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
-        ]);
-        IPS_SetVariableCustomPresentation($this->GetIDForIdent('DoorState'), [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'DISPLAY_TYPE' => 0,
-            'OPTIONS' => $options
-        ]);
-        IPS_SetVariableCustomProfile($this->GetIDForIdent('DoorState'), '');
+
 
         // Register messages for sensors
         $sensorClosed = $this->ReadPropertyInteger('SensorClosedID');
