@@ -17,6 +17,14 @@
             "type": "string",
             "default": "[]"
         },
+        "DoorVariables": {
+            "type": "string",
+            "default": "[]"
+        },
+        "WindowVariables": {
+            "type": "string",
+            "default": "[]"
+        },
         "EscalationTimeLvl2": {
             "type": "integer",
             "default": 300

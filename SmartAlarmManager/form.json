@@ -1,0 +1,174 @@
+{
+    "elements": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "📢 Notifier & Eskalation",
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Wähle hier die SmartNotifier Instanz aus, um Alarme zentral zu melden."
+                },
+                {
+                    "type": "SelectInstance",
+                    "name": "TargetNotifier",
+                    "caption": "SmartNotifier Instanz"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "NumberSpinner",
+                            "name": "EscalationTimeLvl2",
+                            "caption": "Stufe 2 (Sekunden)",
+                            "suffix": "s"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "EscalationTimeLvl3",
+                            "caption": "Stufe 3 (Sekunden)",
+                            "suffix": "s"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🚨 Generische Alarm-Sensoren",
+            "items": [
+                {
+                    "type": "Button",
+                    "caption": "🔍 Auto-Scan: Fehlende Alarme/Warnungen suchen",
+                    "onClick": "SAM_DiscoverVariables($id);"
+                },
+                {
+                    "type": "List",
+                    "name": "MonitoredVariables",
+                    "caption": "Variablen",
+                    "add": true,
+                    "delete": true,
+                    "changeOrder": true,
+                    "rowCount": 15,
+                    "columns": [
+                        {
+                            "caption": "Sensor/Auslöser",
+                            "name": "VariableID",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": { "type": "SelectVariable" }
+                        },
+                        {
+                            "caption": "Nachricht/Titel",
+                            "name": "Message",
+                            "width": "250px",
+                            "add": "Neuer Alarm",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Auslöse-Wert",
+                            "name": "TriggerValue",
+                            "width": "150px",
+                            "add": "true",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Stufe (Level)",
+                            "name": "AlarmLevel",
+                            "width": "150px",
+                            "add": 1,
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    { "caption": "Normal (Nur Info)", "value": 0 },
+                                    { "caption": "Warnung", "value": 1 },
+                                    { "caption": "Fehler / Alarm", "value": 2 }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Auto-Reset",
+                            "name": "AutoReset",
+                            "width": "100px",
+                            "add": false,
+                            "edit": { "type": "CheckBox" }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🚪 Sicherheit: Türen & Fenster (Abwesenheit)",
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Diese Kontakte werden überwacht. Wenn beim Verlassen des Hauses ein Kontakt offen ist, löst das automatisch einen Stufe 2 Alarm aus."
+                },
+                {
+                    "type": "List",
+                    "name": "DoorVariables",
+                    "caption": "Türen",
+                    "rowCount": 5,
+                    "add": true,
+                    "delete": true,
+                    "changeOrder": true,
+                    "columns": [
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "150px",
+                            "add": "",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Tür-Kontakt (Sensor)",
+                            "name": "SensorVariableID",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": { "type": "SelectVariable" }
+                        },
+                        {
+                            "caption": "Wert f. Geschlossen",
+                            "name": "ClosedValue",
+                            "width": "150px",
+                            "add": "false",
+                            "edit": { "type": "ValidationTextBox" }
+                        }
+                    ]
+                },
+                {
+                    "type": "List",
+                    "name": "WindowVariables",
+                    "caption": "Fenster",
+                    "rowCount": 10,
+                    "add": true,
+                    "delete": true,
+                    "changeOrder": true,
+                    "columns": [
+                        {
+                            "caption": "Name",
+                            "name": "Name",
+                            "width": "150px",
+                            "add": "",
+                            "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Variable",
+                            "name": "VariableID",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": { "type": "SelectVariable" }
+                        },
+                        {
+                            "caption": "Wert f. Geschlossen",
+                            "name": "ClosedValue",
+                            "width": "150px",
+                            "add": "false",
+                            "edit": { "type": "ValidationTextBox" }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
