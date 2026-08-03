@@ -128,15 +128,40 @@ class SmartHomeShading extends IPSModuleStrict
             $this->RegisterReference($ref_SunsetVariableID);
         }
         $list_BlindVariables = json_decode($this->ReadPropertyString('BlindVariables'), true);
+        $activeModeIdents = [];
         if (is_array($list_BlindVariables)) {
             foreach ($list_BlindVariables as $item) {
                 $vid = $item['VariableID'] ?? 0;
                 if ($vid > 1 && @IPS_ObjectExists($vid)) {
                     $this->RegisterReference($vid);
+                    
+                    $ident = 'Mode_' . $vid;
+                    $activeModeIdents[] = $ident;
+                    $name = 'Modus: ' . IPS_GetName($vid);
+                    $this->RegisterVariableInteger($ident, $name, [
+                        'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+                        'OPTIONS' => json_encode([
+                            ['Value' => 0, 'Caption' => 'Automatik', 'IconActive' => true, 'IconValue' => 'Robot', 'Color' => 0x00CC00],
+                            ['Value' => 1, 'Caption' => 'Manuell: Auf', 'IconActive' => true, 'IconValue' => 'ArrowUp', 'Color' => 0x3366FF],
+                            ['Value' => 2, 'Caption' => 'Manuell: Zu', 'IconActive' => true, 'IconValue' => 'ArrowDown', 'Color' => 0x3366FF],
+                            ['Value' => 3, 'Caption' => 'Manuell: Schatten', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => 0x3366FF]
+                        ])
+                    ], 50);
+                    $this->EnableAction($ident);
                 }
                 $vid = $item['ContactID'] ?? 0;
                 if ($vid > 1 && @IPS_ObjectExists($vid)) {
                     $this->RegisterReference($vid);
+                }
+            }
+        }
+
+        $children = IPS_GetChildrenIDs($this->InstanceID);
+        foreach ($children as $childID) {
+            $obj = IPS_GetObject($childID);
+            if (strpos($obj['ObjectIdent'], 'Mode_') === 0) {
+                if (!in_array($obj['ObjectIdent'], $activeModeIdents)) {
+                    $this->UnregisterVariable($obj['ObjectIdent']);
                 }
             }
         }
@@ -218,6 +243,36 @@ class SmartHomeShading extends IPSModuleStrict
     {
         if ($Ident === 'AlarmWindWarning') {
             $this->SetValue($Ident, false);
+        } elseif (strpos($Ident, 'Mode_') === 0) {
+            $this->SetValue($Ident, $Value);
+            $varId = (int)substr($Ident, 5);
+            
+            if ($Value != 0) {
+                $blinds = json_decode($this->ReadPropertyString('BlindVariables'), true);
+                $matchedBlind = null;
+                if (is_array($blinds)) {
+                    foreach ($blinds as $blind) {
+                        if (($blind['VariableID'] ?? 0) == $varId) {
+                            $matchedBlind = $blind;
+                            break;
+                        }
+                    }
+                }
+                if ($matchedBlind) {
+                    $targetValueStr = "";
+                    if ($Value == 1) $targetValueStr = $matchedBlind['ValueOpen'] ?? "0";
+                    if ($Value == 2) $targetValueStr = $matchedBlind['ValueClose'] ?? "1";
+                    if ($Value == 3) $targetValueStr = $matchedBlind['ValueShade'] ?? "0.1";
+                    
+                    $this->ExecuteAction($varId, $targetValueStr);
+                    
+                    $states = json_decode($this->ReadAttributeString('CurrentState'), true);
+                    $states[$varId] = 'MANUAL';
+                    $this->WriteAttributeString('CurrentState', json_encode($states));
+                }
+            } else {
+                $this->EvaluateConditions();
+            }
         }
     }
     
@@ -345,6 +400,14 @@ class SmartHomeShading extends IPSModuleStrict
                 continue;
             }
             
+            $ident = 'Mode_' . $id;
+            if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID) !== false) {
+                $mode = $this->GetValue($ident);
+                if ($mode != 0) {
+                    continue;
+                }
+            }
+
             // Für StatusSunInSectorCount
             $aziFrom = (float)($blind['AzimuthFrom'] ?? 90);
             $aziTo = (float)($blind['AzimuthTo'] ?? 270);
