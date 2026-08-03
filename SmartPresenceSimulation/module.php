@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
-class SmartHomeLighting extends IPSModuleStrict
+class SmartPresenceSimulation extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use CentralStateAware_Trait;
@@ -21,7 +21,7 @@ class SmartHomeLighting extends IPSModuleStrict
 
         $this->RegisterAttributeString('LightSchedule', '[]');
 
-        $this->RegisterVariableString('LightScheduleStatus', '🤖 Aktueller KI-Schaltplan', [
+        $this->RegisterVariableString('LightScheduleStatus', 'Aktueller KI-Schaltplan', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'        => 'Clock'
         ], 1);
@@ -39,12 +39,12 @@ class SmartHomeLighting extends IPSModuleStrict
             ])
         ], 2);
         
-        $this->RegisterVariableInteger('ActiveLightsCount', '💡 Aktive Lampen (Zähler)', [
+        $this->RegisterVariableInteger('ActiveLightsCount', 'Aktive Lampen (Zähler)', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'        => 'Bulb',
             'SUFFIX'      => ' an'
         ], 3);
-        $this->RegisterVariableString('ActiveLightsList', '📝 Aktive Lampen (Namen)', [
+        $this->RegisterVariableString('ActiveLightsList', 'Aktive Lampen (Namen)', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'        => 'Bulb'
         ], 4);

@@ -1,15 +1,15 @@
 {
     "id": "{C3D4E5F6-A7B8-49AB-A1B2-C3D4E5F6A7B8}",
-    "name": "SmartHomeLighting",
+    "name": "SmartPresenceSimulation",
     "type": 3,
     "vendor": "Florian Gra\u00dfinger",
     "aliases": [
-        "SmartHomeLighting"
+        "Smart Presence Simulation"
     ],
     "parentRequirements": [],
     "childRequirements": [],
     "implemented": [],
-    "prefix": "SHL",
-    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartHomeLighting",
+    "prefix": "SPS",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartPresenceSimulation",
     "author": "Florian Gra\u00dfinger"
 }
