@@ -44,16 +44,69 @@ class SmartHomeGarage extends IPSModuleStrict
         $this->RegisterTimer('OpenAlarmTimer', 0, 'SHG_TriggerOpenAlarm($_IPS[\'TARGET\']);');
 
         // Variables
+        $doorIntervals = json_encode([
+            [
+                'IntervalMinValue' => 0, 'IntervalMaxValue' => 0,
+                'ConstantActive' => true, 'ConstantValue' => 'Zu',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'LockClosed',
+                'ColorActive' => false, 'ColorValue' => 0,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ],
+            [
+                'IntervalMinValue' => 1, 'IntervalMaxValue' => 1,
+                'ConstantActive' => true, 'ConstantValue' => 'Auf',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'LockOpen',
+                'ColorActive' => false, 'ColorValue' => 0,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ],
+            [
+                'IntervalMinValue' => 2, 'IntervalMaxValue' => 2,
+                'ConstantActive' => true, 'ConstantValue' => 'Fährt Auf...',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'ArrowUp',
+                'ColorActive' => false, 'ColorValue' => 0,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ],
+            [
+                'IntervalMinValue' => 3, 'IntervalMaxValue' => 3,
+                'ConstantActive' => true, 'ConstantValue' => 'Fährt Zu...',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'ArrowDown',
+                'ColorActive' => false, 'ColorValue' => 0,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ],
+            [
+                'IntervalMinValue' => 4, 'IntervalMaxValue' => 4,
+                'ConstantActive' => true, 'ConstantValue' => 'Teiloffen / Gestoppt',
+                'ConversionFactor' => 1,
+                'PrefixActive' => false, 'PrefixValue' => '',
+                'SuffixActive' => false, 'SuffixValue' => '',
+                'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Warning',
+                'ColorActive' => true, 'ColorValue' => 0xFF8000,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ]
+        ]);
+
         $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', [
-            'PRESENTATION' => '{3319437D-7CDE-699D-750A-3C6A3841FA75}',
-            'DISPLAY_TYPE' => 0,
-            'OPTIONS' => json_encode([
-                ['Value' => 0, 'Caption' => 'Zu', 'IconValue' => 'LockClosed', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 1, 'Caption' => 'Auf', 'IconValue' => 'LockOpen', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 2, 'Caption' => 'Fährt Auf...', 'IconValue' => 'ArrowUp', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 3, 'Caption' => 'Fährt Zu...', 'IconValue' => 'ArrowDown', 'ColorDisplay' => -1, 'ColorValue' => -1, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
-                ['Value' => 4, 'Caption' => 'Teiloffen / Gestoppt', 'IconValue' => 'Warning', 'ColorDisplay' => 0xFF8000, 'ColorValue' => 0xFF8000, 'IconActive' => false, 'ColorActive' => false, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
-            ])
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Information',
+            'INTERVALS_ACTIVE' => true,
+            'INTERVALS' => $doorIntervals
         ], 1);
         $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
