@@ -28,7 +28,7 @@ class SmartSecurityManager extends IPSModuleStrict
         $this->RegisterPropertyInteger("TargetNotifier", 0);
         
         $this->RegisterTimer("EscalationTimer", 0, 'SAM_CheckEscalation($_IPS[\'TARGET\']);');
-        $this->RegisterTimer("StatusResetTimer", 0, 'SAM_UpdateStatusVariables($_IPS[\'TARGET\']); IPS_SetScriptTimer($_IPS[\'TARGET\'], "StatusResetTimer", 0);');
+        $this->RegisterTimer("StatusResetTimer", 0, 'SAM_UpdateStatusVariables($_IPS[\'TARGET\']); SAM_SetTimerInterval($_IPS[\'TARGET\'], "StatusResetTimer", 0);');
         
         $this->SetBuffer("ActiveAlarms", "{}");
 
