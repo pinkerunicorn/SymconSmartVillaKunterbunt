@@ -6,7 +6,7 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
-class SmartHomeShading extends IPSModuleStrict
+class SmartShading extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use CentralStateAware_Trait;

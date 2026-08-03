@@ -13,7 +13,7 @@ require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
  * @author Florian Graßinger
  * @url https://github.com/pinkerunicorn/
  */
-class SmartHomeEntrance extends IPSModuleStrict
+class SmartEntrance extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use CentralStateAware_Trait;

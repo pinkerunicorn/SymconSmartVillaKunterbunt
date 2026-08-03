@@ -1,8 +1,8 @@
 {
     "id": "{9F8E7D6C-5B4A-3C2D-1E0F-A1B2C3D4E5F6}",
-    "name": "SmartHomeSequencer",
+    "name": "SmartSequencer",
     "type": 3,
-    "vendor": "Florian Gra\u00dfinger",
+    "vendor": "Florian Graßinger",
     "aliases": [
         "Villa Kunterbunt Sequencer"
     ],
@@ -10,6 +10,6 @@
     "childRequirements": [],
     "implemented": [],
     "prefix": "SHSQ",
-    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartHomeSequencer",
-    "author": "Florian Gra\u00dfinger"
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartSequencer",
+    "author": "Florian Graßinger"
 }

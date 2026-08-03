@@ -1,10 +1,10 @@
 {
     "id": "{E9A1C4D2-F8B3-4A51-9D2E-B7C6F1A8D4E3}",
-    "name": "SmartHomeEntrance",
+    "name": "SmartEntrance",
     "type": 3,
     "vendor": "Florian Graßinger",
     "aliases": [
-        "Smart Home Entrance"
+        "Smart Entrance"
     ],
     "parentRequirements": [
         "{794FCE72-FF88-46D0-BE66-1B32070D7C90}"

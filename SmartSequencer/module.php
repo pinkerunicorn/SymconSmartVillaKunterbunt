@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 
-class SmartHomeSequencer extends IPSModuleStrict
+class SmartSequencer extends IPSModuleStrict
 {
     use SmartLog_Trait;
 

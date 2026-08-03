@@ -1,0 +1,15 @@
+{
+    "id": "{7F9F8083-156B-4FCB-855A-ABC6A7F224E3}",
+    "name": "SmartGarage",
+    "type": 3,
+    "vendor": "Florian Graßinger",
+    "aliases": [
+        "SmartGarage"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "SHG",
+    "author": "Florian Graßinger",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartGarage"
+}
