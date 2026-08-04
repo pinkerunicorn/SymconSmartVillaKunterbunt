@@ -30,25 +30,25 @@ class SmartHeating extends IPSModuleStrict
         $this->RegisterAttributeString('PreviousStates', '{}');
 
         // GUI Variables
-        $this->RegisterVariableString('HeatingStatus', 'ℹ Status', [
+        $this->RegisterVariableString('HeatingStatus', 'Status', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'        => 'Information'
         ], 1);
-        $this->RegisterVariableFloat('AverageTemperature', '🌡 Ø Haus-Temperatur', [
+        $this->RegisterVariableFloat('AverageTemperature', 'Ø Haus-Temperatur', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'        => 'Temperature',
             'SUFFIX'      => '°C'
         ], 2);
         
-        $this->RegisterVariableBoolean('HeatingSeason', '❄ Heizperiode aktiv', [
+        $this->RegisterVariableBoolean('HeatingSeason', 'Heizperiode aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Flame'
+            'ICON' => 'Snowflake'
         ], 10);
         $this->EnableAction('HeatingSeason');
         
-        $this->RegisterVariableBoolean('IsAbsenkbetrieb', '📉 Absenkbetrieb', [
+        $this->RegisterVariableBoolean('IsAbsenkbetrieb', 'Absenkbetrieb', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Radiator',
+            'ICON' => 'Temperature',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0,
@@ -77,7 +77,7 @@ class SmartHeating extends IPSModuleStrict
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $list_HeatingInstances = json_decode($this->ReadPropertyString('HeatingInstances'), true);
+        $list_HeatingInstances = $this->safeJsonDecode($this->ReadPropertyString('HeatingInstances'), true);
         if (is_array($list_HeatingInstances)) {
             foreach ($list_HeatingInstances as $item) {
                 $vid = $item['InstanceID'] ?? 0;
@@ -118,7 +118,7 @@ class SmartHeating extends IPSModuleStrict
         }
 
         // Register new messages for actual temperatures
-        $heatingInsts = json_decode($this->ReadPropertyString('HeatingInstances'), true);
+        $heatingInsts = $this->safeJsonDecode($this->ReadPropertyString('HeatingInstances'), true);
         if (is_array($heatingInsts)) {
             foreach ($heatingInsts as $heating) {
                 $instId = $heating['InstanceID'];
@@ -166,7 +166,7 @@ class SmartHeating extends IPSModuleStrict
     private function updateHeatingMode(): void
     {
         $vacationEndTime = 0;
-        $heatingInsts = json_decode($this->ReadPropertyString('HeatingInstances'), true);
+        $heatingInsts = $this->safeJsonDecode($this->ReadPropertyString('HeatingInstances'), true);
         if (!is_array($heatingInsts)) return;
         
         $roomCount = count($heatingInsts);
@@ -229,24 +229,23 @@ class SmartHeating extends IPSModuleStrict
                 if ($controlModeId > 0 && IPS_VariableExists($controlModeId)) {
                     $currentMode = GetValue($controlModeId);
                     if (is_string($currentMode)) {
-                        if (!@RequestAction($controlModeId, 'MANUAL')) {
+                        if (!$this->safeRequestAction($controlModeId, 'MANUAL')) {
                             $devName = @IPS_GetName($controlModeId) ?: "ID:$controlModeId";
                             $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $controlModeId | Wert: 'MANUAL'");
                         } else {
                             $this->SLogInfo( 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 'MANUAL'");
                         }
                     } else {
-                        if (!@RequestAction($controlModeId, 1)) {
+                        if (!$this->safeRequestAction($controlModeId, 1)) {
                             $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $controlModeId | Wert: 1");
                         } else {
                             $this->SLogInfo( 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 1");
                         } // Meistens 1 = Manu
                     }
-                    usleep(200000); // Kurz warten für Homematic
                 }
 
                 if ($targetTempId > 0 && IPS_VariableExists($targetTempId)) {
-                    if (!@RequestAction($targetTempId, $individualTemp)) {
+                    if (!$this->safeRequestAction($targetTempId, $individualTemp)) {
                         $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $targetTempId | Wert: " . var_export($individualTemp, true));
                     } else {
                         $this->SLogInfo( 'Ziel-Temperatur gesetzt.', "ID: $targetTempId | Wert: " . var_export($individualTemp, true));
@@ -274,7 +273,7 @@ class SmartHeating extends IPSModuleStrict
             }
 
             $previousStatesStr = $this->ReadAttributeString('PreviousStates');
-            $previousStates = json_decode($previousStatesStr, true);
+            $previousStates = $this->safeJsonDecode($previousStatesStr, true);
             if (is_array($previousStates)) {
                 foreach ($previousStates as $instId => $state) {
                     $modeId = isset($state['modeId']) ? $state['modeId'] : 0;
@@ -283,13 +282,13 @@ class SmartHeating extends IPSModuleStrict
                     $prevTemp = isset($state['prevTemp']) ? $state['prevTemp'] : null;
 
                     if ($modeId > 0 && $prevMode !== null && IPS_VariableExists($modeId)) {
-                        if (!@RequestAction($modeId, $prevMode)) {
+                        if (!$this->safeRequestAction($modeId, $prevMode)) {
                             $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($prevMode, true));
                         } else {
                             $this->SLogInfo( 'Aktor-Modus wiederhergestellt.', "ID: $modeId | Wert: " . var_export($prevMode, true));
                         }
                     } elseif ($tempId > 0 && $prevTemp !== null && IPS_VariableExists($tempId)) {
-                        if (!@RequestAction($tempId, $prevTemp)) {
+                        if (!$this->safeRequestAction($tempId, $prevTemp)) {
                             $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $tempId | Wert: " . var_export($prevTemp, true));
                         } else {
                             $this->SLogInfo( 'Ziel-Temperatur wiederhergestellt.', "ID: $tempId | Wert: " . var_export($prevTemp, true));
@@ -306,7 +305,7 @@ class SmartHeating extends IPSModuleStrict
 
     public function UpdateAverageTemperature(): void
     {
-        $heatingInsts = json_decode($this->ReadPropertyString('HeatingInstances'), true);
+        $heatingInsts = $this->safeJsonDecode($this->ReadPropertyString('HeatingInstances'), true);
         if (!is_array($heatingInsts) || count($heatingInsts) == 0) return;
 
         $sumTemp = 0.0;
@@ -437,6 +436,28 @@ class SmartHeating extends IPSModuleStrict
 }
 EOT;
     }
+
+    private function safeRequestAction(int $id, mixed $value): bool {
+        try {
+            $res = RequestAction($id, $value);
+            if ($res === false) {
+                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
+            }
+            return $res;
+        } catch (\Throwable $e) {
+            $this->SLogWarning("RequestAction Exception", $e->getMessage());
+            return false;
+        }
+    }
+
+    private function safeJsonDecode(string $json, bool $assoc = true) {
+        try {
+            if (trim($json) === '') return $assoc ? [] : null;
+            return $this->safeJsonDecode($json, $assoc, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable $e) {
+            $this->SLogWarning("JSON Decode Exception", $e->getMessage());
+            return $assoc ? [] : null;
+        }
+    }
+
 }
-
-

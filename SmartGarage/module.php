@@ -102,9 +102,9 @@ class SmartGarage extends IPSModuleStrict
             ]
         ]);
 
-        $this->RegisterVariableInteger('DoorState', '🚪 Torstatus', [
+        $this->RegisterVariableInteger('DoorState', 'Torstatus', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information',
+            'ICON' => 'Garage',
             'INTERVALS_ACTIVE' => true,
             'INTERVALS' => $doorIntervals
         ], 1);
@@ -143,7 +143,7 @@ class SmartGarage extends IPSModuleStrict
         if ($ref_SensorOpenID > 1 && @IPS_ObjectExists($ref_SensorOpenID)) {
             $this->RegisterReference($ref_SensorOpenID);
         }
-        $list_ButtonVariables = json_decode($this->ReadPropertyString('ButtonVariables'), true);
+        $list_ButtonVariables = $this->safeJsonDecode($this->ReadPropertyString('ButtonVariables'), true);
         if (is_array($list_ButtonVariables)) {
             foreach ($list_ButtonVariables as $item) {
                 $vid = $item['VariableID'] ?? 0;
@@ -152,7 +152,7 @@ class SmartGarage extends IPSModuleStrict
                 }
             }
         }
-        $list_LEDInstances = json_decode($this->ReadPropertyString('LEDInstances'), true);
+        $list_LEDInstances = $this->safeJsonDecode($this->ReadPropertyString('LEDInstances'), true);
         if (is_array($list_LEDInstances)) {
             foreach ($list_LEDInstances as $item) {
                 $vid = $item['InstanceID'] ?? 0;
@@ -188,7 +188,7 @@ class SmartGarage extends IPSModuleStrict
         }
 
         // Register messages for buttons
-        $buttons = json_decode($this->ReadPropertyString('ButtonVariables'), true);
+        $buttons = $this->safeJsonDecode($this->ReadPropertyString('ButtonVariables'), true);
         if (is_array($buttons)) {
             foreach ($buttons as $btn) {
                 $id = $btn['VariableID'];
@@ -227,7 +227,7 @@ class SmartGarage extends IPSModuleStrict
             }
 
             // Check if it's a button
-            $buttons = json_decode($this->ReadPropertyString('ButtonVariables'), true);
+            $buttons = $this->safeJsonDecode($this->ReadPropertyString('ButtonVariables'), true);
             if (is_array($buttons)) {
                 foreach ($buttons as $btn) {
                     if ($SenderID == $btn['VariableID']) {
@@ -246,7 +246,7 @@ class SmartGarage extends IPSModuleStrict
     {
         $motorId = $this->ReadPropertyInteger('MotorVariableID');
         if ($motorId > 0 && IPS_VariableExists($motorId)) {
-            if (!@RequestAction($motorId, true)) {
+            if (!$this->safeRequestAction($motorId, true)) {
                 $devName = @IPS_GetName($motorId) ?: "ID:$motorId";
                 $this->SLogWarning( "Aktor fehlgeschlagen: $devName", "ID: $motorId | Ziel: true");
             } else {
@@ -285,7 +285,7 @@ class SmartGarage extends IPSModuleStrict
         $this->SetTimerInterval('RelayOffTimer', 0); // Disable timer
         $motorId = $this->ReadPropertyInteger('MotorVariableID');
         if ($motorId > 0 && IPS_VariableExists($motorId)) {
-            if (!@RequestAction($motorId, false)) {
+            if (!$this->safeRequestAction($motorId, false)) {
                 $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $motorId | Wert: false");
             } else {
                 $this->SLogInfo( 'Aktor (Motor) ausgeschaltet.', "ID: $motorId | Wert: false");
@@ -365,7 +365,7 @@ class SmartGarage extends IPSModuleStrict
 
     private function UpdateLEDs(int $state): void
     {
-        $leds = json_decode($this->ReadPropertyString('LEDInstances'), true);
+        $leds = $this->safeJsonDecode($this->ReadPropertyString('LEDInstances'), true);
         if (!is_array($leds) || count($leds) == 0) return;
 
         // Homematic COMBINED_PARAMETER Strings
@@ -602,6 +602,28 @@ class SmartGarage extends IPSModuleStrict
 }
 EOT;
     }
+
+    private function safeRequestAction(int $id, mixed $value): bool {
+        try {
+            $res = RequestAction($id, $value);
+            if ($res === false) {
+                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
+            }
+            return $res;
+        } catch (\Throwable $e) {
+            $this->SLogWarning("RequestAction Exception", $e->getMessage());
+            return false;
+        }
+    }
+
+    private function safeJsonDecode(string $json, bool $assoc = true) {
+        try {
+            if (trim($json) === '') return $assoc ? [] : null;
+            return $this->safeJsonDecode($json, $assoc, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable $e) {
+            $this->SLogWarning("JSON Decode Exception", $e->getMessage());
+            return $assoc ? [] : null;
+        }
+    }
+
 }
-
-

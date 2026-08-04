@@ -39,7 +39,7 @@
                 {
                     "type": "Button",
                     "caption": "🔍 Auto-Scan: Fehlende Alarme/Warnungen suchen",
-                    "onClick": "SAM_DiscoverVariables($id);"
+                    "onClick": "SAM_DiscoverVariables($id, true);"
                 },
                 {
                     "type": "List",

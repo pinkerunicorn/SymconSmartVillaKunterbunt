@@ -144,7 +144,7 @@ class SmartEntrance extends IPSModuleStrict
             }
         }
         
-        $lockVars = json_decode($this->ReadPropertyString('LockVariables'), true);
+        $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
         if (is_array($lockVars)) {
             foreach ($lockVars as $lock) {
                 if (isset($lock['SensorVariableID']) && $lock['SensorVariableID'] > 1 && @IPS_ObjectExists($lock['SensorVariableID'])) {
@@ -294,7 +294,7 @@ class SmartEntrance extends IPSModuleStrict
 
     private function LockDoor(): void
     {
-        $lockVars = json_decode($this->ReadPropertyString('LockVariables'), true);
+        $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
         if (!is_array($lockVars)) return;
 
         foreach ($lockVars as $lock) {
@@ -309,7 +309,7 @@ class SmartEntrance extends IPSModuleStrict
             }
 
             $lockValue = $this->ParseTypedValue($lock['LockValue'] ?? '1');
-            if (!@RequestAction($lockId, $lockValue)) {
+            if (!$this->safeRequestAction($lockId, $lockValue)) {
                 $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen für: $name");
             } else {
                 $this->SLogInfo('Türschloss', "Erfolgreich verriegelt: $name");
@@ -319,7 +319,7 @@ class SmartEntrance extends IPSModuleStrict
 
     private function UnlockDoor(): void
     {
-        $lockVars = json_decode($this->ReadPropertyString('LockVariables'), true);
+        $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
         if (!is_array($lockVars)) return;
 
         foreach ($lockVars as $lock) {
@@ -329,7 +329,7 @@ class SmartEntrance extends IPSModuleStrict
             $name = isset($lock['Name']) && $lock['Name'] != '' ? $lock['Name'] : IPS_GetName($lockId);
             $unlockValue = $this->ParseTypedValue($lock['UnlockValue'] ?? '0');
             
-            if (!@RequestAction($lockId, $unlockValue)) {
+            if (!$this->safeRequestAction($lockId, $unlockValue)) {
                 $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen (Aufsperren) für: $name");
             } else {
                 $this->SLogInfo('Türschloss', "Erfolgreich entriegelt: $name");
@@ -392,7 +392,7 @@ class SmartEntrance extends IPSModuleStrict
 
     private function GetMillisecondsToTime(string $timeStr): int
     {
-        $time = json_decode($timeStr, true);
+        $time = $this->safeJsonDecode($timeStr, true);
         if (!is_array($time)) return 0;
         
         $now = time();
@@ -579,4 +579,28 @@ class SmartEntrance extends IPSModuleStrict
 }
 EOT;
     }
+
+    private function safeRequestAction(int $id, mixed $value): bool {
+        try {
+            $res = RequestAction($id, $value);
+            if ($res === false) {
+                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
+            }
+            return $res;
+        } catch (\Throwable $e) {
+            $this->SLogWarning("RequestAction Exception", $e->getMessage());
+            return false;
+        }
+    }
+
+    private function safeJsonDecode(string $json, bool $assoc = true) {
+        try {
+            if (trim($json) === '') return $assoc ? [] : null;
+            return $this->safeJsonDecode($json, $assoc, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable $e) {
+            $this->SLogWarning("JSON Decode Exception", $e->getMessage());
+            return $assoc ? [] : null;
+        }
+    }
+
 }

@@ -29,26 +29,7 @@ class SmartController extends IPSModuleStrict
         parent::Create();
 
         // === Main Axes ===
-        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
-            'OPTIONS' => json_encode([
-                ['Value' => self::PRESENCE_HOME, 'Caption' => 'Zuhause', 'IconActive' => true, 'IconValue' => 'House', 'Color' => 0x00CC00],
-                ['Value' => self::PRESENCE_AWAY, 'Caption' => 'Kurz weg', 'IconActive' => true, 'IconValue' => 'Motion', 'Color' => 0xFFAA00],
-                ['Value' => self::PRESENCE_VACATION, 'Caption' => 'Urlaub', 'IconActive' => true, 'IconValue' => 'Suitcase', 'Color' => 0xFF4400]
-            ])
-        ], 1);
-        $this->EnableAction('PresenceMode');
-
-        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
-            'OPTIONS' => json_encode([
-                ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => -1],
-                ['Value' => self::ACTIVITY_CINEMA, 'Caption' => 'Heimkino', 'IconActive' => true, 'IconValue' => 'Movie', 'Color' => 0x6644CC],
-                ['Value' => self::ACTIVITY_SLEEP, 'Caption' => 'Schlafen', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388],
-                ['Value' => self::ACTIVITY_PARTY, 'Caption' => 'Party', 'IconActive' => true, 'IconValue' => 'Party', 'Color' => 0xFF00AA]
-            ])
-        ], 2);
-        $this->EnableAction('ActivityMode');
+        $this->registerModeVariables();
 
         // Google Home / Alexa Interface (Boolean Toggle)
         $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
@@ -192,48 +173,9 @@ class SmartController extends IPSModuleStrict
     {
         // --- Migration & Fix for stripped IDs in JSON ---
         $presenceDef = [0 => 'Zuhause', 1 => 'Kurz weg', 2 => 'Urlaub'];
-        $presenceJson = $this->ReadPropertyString('PresenceSequencers');
-        $presenceList = json_decode($presenceJson, true) ?: [];
-        $mapP = [];
-        foreach ($presenceList as $index => $p) {
-            $id = (isset($p['ModeID']) && $p['ModeID'] !== '') ? (int)$p['ModeID'] : $index;
-            $mapP[$id] = $p;
-        }
-        $presenceValues = [];
-        foreach ($presenceDef as $id => $name) {
-            $presenceValues[] = [
-                'ModeID' => $id,
-                'ModeName' => $name,
-                'EntrySequencer' => $mapP[$id]['EntrySequencer'] ?? 0,
-                'ExitSequencer' => $mapP[$id]['ExitSequencer'] ?? 0
-            ];
-        }
-        $newPresenceJson = json_encode($presenceValues);
-        if ($newPresenceJson !== $presenceJson) {
-            IPS_SetProperty($this->InstanceID, 'PresenceSequencers', $newPresenceJson);
-        }
-
+        $this->migrateSequencerProperty('PresenceSequencers', $presenceDef);
         $activityDef = [0 => 'Normal', 1 => 'Heimkino', 2 => 'Schlafen', 3 => 'Party'];
-        $activityJson = $this->ReadPropertyString('ActivitySequencers');
-        $activityList = json_decode($activityJson, true) ?: [];
-        $mapA = [];
-        foreach ($activityList as $index => $a) {
-            $id = (isset($a['ModeID']) && $a['ModeID'] !== '') ? (int)$a['ModeID'] : $index;
-            $mapA[$id] = $a;
-        }
-        $activityValues = [];
-        foreach ($activityDef as $id => $name) {
-            $activityValues[] = [
-                'ModeID' => $id,
-                'ModeName' => $name,
-                'EntrySequencer' => $mapA[$id]['EntrySequencer'] ?? 0,
-                'ExitSequencer' => $mapA[$id]['ExitSequencer'] ?? 0
-            ];
-        }
-        $newActivityJson = json_encode($activityValues);
-        if ($newActivityJson !== $activityJson) {
-            IPS_SetProperty($this->InstanceID, 'ActivitySequencers', $newActivityJson);
-        }
+        $this->migrateSequencerProperty('ActivitySequencers', $activityDef);
 
         parent::ApplyChanges();
 
@@ -258,26 +200,7 @@ class SmartController extends IPSModuleStrict
         }
         
         // --- Sicherstellung der Variablen bei "Übernehmen" (falls manuell gelöscht) ---
-        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
-            'OPTIONS' => json_encode([
-                ['Value' => self::PRESENCE_HOME, 'Caption' => 'Zuhause', 'IconActive' => true, 'IconValue' => 'House', 'Color' => 0x00CC00],
-                ['Value' => self::PRESENCE_AWAY, 'Caption' => 'Kurz weg', 'IconActive' => true, 'IconValue' => 'Motion', 'Color' => 0xFFAA00],
-                ['Value' => self::PRESENCE_VACATION, 'Caption' => 'Urlaub', 'IconActive' => true, 'IconValue' => 'Suitcase', 'Color' => 0xFF4400]
-            ])
-        ], 1);
-        $this->EnableAction('PresenceMode');
-
-        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
-            'OPTIONS' => json_encode([
-                ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => -1],
-                ['Value' => self::ACTIVITY_CINEMA, 'Caption' => 'Heimkino', 'IconActive' => true, 'IconValue' => 'Movie', 'Color' => 0x6644CC],
-                ['Value' => self::ACTIVITY_SLEEP, 'Caption' => 'Schlafen', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388],
-                ['Value' => self::ACTIVITY_PARTY, 'Caption' => 'Party', 'IconActive' => true, 'IconValue' => 'Party', 'Color' => 0xFF00AA]
-            ])
-        ], 2);
-        $this->EnableAction('ActivityMode');
+        $this->registerModeVariables();
 
         // Sync disabled state for ActivityMode on startup / apply changes
         if ((int)$this->GetValue('PresenceMode') === self::PRESENCE_HOME) {
@@ -498,11 +421,9 @@ class SmartController extends IPSModuleStrict
             return;
         }
 
-        $ctx = stream_context_create(['http' => ['timeout' => 5]]);
-        $icalData = @file_get_contents($url, false, $ctx);
+        $icalData = @Sys_GetURLContentEx($url, ['Timeout' => 5000]);
         if ($icalData === false) {
-            $error = error_get_last();
-            $this->SLogError( 'CheckCalendar: Konnte Kalenderdaten nicht abrufen.', $error['message'] ?? 'Unbekannter Fehler');
+            $this->SLogError('CheckCalendar: Konnte Kalenderdaten nicht abrufen.', 'Timeout oder Verbindungsfehler');
             return;
         }
 
@@ -570,12 +491,62 @@ class SmartController extends IPSModuleStrict
 
     // =========================================================================
     // Private Helpers
+
+    private function registerModeVariables(): void
+    {
+        $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'OPTIONS' => json_encode([
+                ['Value' => self::PRESENCE_HOME, 'Caption' => 'Zuhause', 'IconActive' => true, 'IconValue' => 'House', 'Color' => 0x00CC00],
+                ['Value' => self::PRESENCE_AWAY, 'Caption' => 'Kurz weg', 'IconActive' => true, 'IconValue' => 'Motion', 'Color' => 0xFFAA00],
+                ['Value' => self::PRESENCE_VACATION, 'Caption' => 'Urlaub', 'IconActive' => true, 'IconValue' => 'Suitcase', 'Color' => 0xFF4400]
+            ])
+        ], 1);
+        $this->EnableAction('PresenceMode');
+
+        $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
+            'OPTIONS' => json_encode([
+                ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => -1],
+                ['Value' => self::ACTIVITY_CINEMA, 'Caption' => 'Heimkino', 'IconActive' => true, 'IconValue' => 'Movie', 'Color' => 0x6644CC],
+                ['Value' => self::ACTIVITY_SLEEP, 'Caption' => 'Schlafen', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388],
+                ['Value' => self::ACTIVITY_PARTY, 'Caption' => 'Party', 'IconActive' => true, 'IconValue' => 'Party', 'Color' => 0xFF00AA]
+            ])
+        ], 2);
+        $this->EnableAction('ActivityMode');
+    }
+
+
+    private function migrateSequencerProperty(string $propertyName, array $defaults): void
+    {
+        $json = $this->ReadPropertyString($propertyName);
+        $list = $this->safeJsonDecode($json, true) ?: [];
+        $map = [];
+        foreach ($list as $index => $item) {
+            $id = (isset($item['ModeID']) && $item['ModeID'] !== '') ? (int)$item['ModeID'] : $index;
+            $map[$id] = $item;
+        }
+        $values = [];
+        foreach ($defaults as $id => $name) {
+            $values[] = [
+                'ModeID' => $id,
+                'ModeName' => $name,
+                'EntrySequencer' => $map[$id]['EntrySequencer'] ?? 0,
+                'ExitSequencer' => $map[$id]['ExitSequencer'] ?? 0
+            ];
+        }
+        $newJson = json_encode($values);
+        if ($newJson !== $json) {
+            IPS_SetProperty($this->InstanceID, $propertyName, $newJson);
+        }
+    }
+
     // =========================================================================
 
     private function TriggerSequencer(string $property, int $modeID, bool $isEntry): void
     {
         $sequencersJson = $this->ReadPropertyString($property);
-        $sequencers = json_decode($sequencersJson, true);
+        $sequencers = $this->safeJsonDecode($sequencersJson, true);
         if (!is_array($sequencers)) {
             return;
         }
@@ -600,7 +571,7 @@ class SmartController extends IPSModuleStrict
 
     private function RegisterSequencerReferences(string $property): void
     {
-        $list = json_decode($this->ReadPropertyString($property), true);
+        $list = $this->safeJsonDecode($this->ReadPropertyString($property), true);
         if (is_array($list)) {
             foreach ($list as $item) {
                 foreach (['EntrySequencer', 'ExitSequencer'] as $key) {
@@ -827,4 +798,28 @@ EOT;
 
         return $json;
     }
+
+    private function safeRequestAction(int $id, mixed $value): bool {
+        try {
+            $res = RequestAction($id, $value);
+            if ($res === false) {
+                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
+            }
+            return $res;
+        } catch (\Throwable $e) {
+            $this->SLogWarning("RequestAction Exception", $e->getMessage());
+            return false;
+        }
+    }
+
+    private function safeJsonDecode(string $json, bool $assoc = true) {
+        try {
+            if (trim($json) === '') return $assoc ? [] : null;
+            return $this->safeJsonDecode($json, $assoc, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable $e) {
+            $this->SLogWarning("JSON Decode Exception", $e->getMessage());
+            return $assoc ? [] : null;
+        }
+    }
+
 }

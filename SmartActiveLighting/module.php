@@ -30,12 +30,7 @@ class SmartActiveLighting extends IPSModuleStrict
         // Timer for daily recalculation of sunset/sunrise
         $this->RegisterTimer('DailyTwilightRecalc', 0, 'SAL_CalculateTwilightTimers($_IPS[\'TARGET\']);');
 
-        // Pre-register timers for up to 50 rules per category (mandatory in IPS 7+)
-        for ($i = 0; $i < 50; $i++) {
-            $this->RegisterTimer("MotionOffTimer_$i", 0, 'SAL_ProcessMotionOff($_IPS[\'TARGET\'], ' . $i . ');');
-            $this->RegisterTimer("DoorOffTimer_$i", 0, 'SAL_ProcessDoorOff($_IPS[\'TARGET\'], ' . $i . ');');
-            $this->RegisterTimer("TwilightTimer_$i", 0, 'SAL_ProcessTwilightTrigger($_IPS[\'TARGET\'], ' . $i . ');');
-        }
+        
     }
 
     public function ApplyChanges(): void
@@ -58,7 +53,7 @@ class SmartActiveLighting extends IPSModuleStrict
         if ($ref_GlobalLuxSensorID > 1 && @IPS_ObjectExists($ref_GlobalLuxSensorID)) {
             $this->RegisterReference($ref_GlobalLuxSensorID);
         }
-        $list_MotionRules = json_decode($this->ReadPropertyString('MotionRules'), true);
+        $list_MotionRules = $this->safeJsonDecode($this->GetBuffer('MotionRulesCache'), true);
         if (is_array($list_MotionRules)) {
             foreach ($list_MotionRules as $item) {
                 $vid = $item['MotionVariableID'] ?? 0;
@@ -71,7 +66,7 @@ class SmartActiveLighting extends IPSModuleStrict
                 }
             }
         }
-        $list_DoorRules = json_decode($this->ReadPropertyString('DoorRules'), true);
+        $list_DoorRules = $this->safeJsonDecode($this->GetBuffer('DoorRulesCache'), true);
         if (is_array($list_DoorRules)) {
             foreach ($list_DoorRules as $item) {
                 $vid = $item['DoorVariableID'] ?? 0;
@@ -84,7 +79,7 @@ class SmartActiveLighting extends IPSModuleStrict
                 }
             }
         }
-        $list_TwilightRules = json_decode($this->ReadPropertyString('TwilightRules'), true);
+        $list_TwilightRules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true);
         if (is_array($list_TwilightRules)) {
             foreach ($list_TwilightRules as $item) {
                 $vid = $item['TargetLightID'] ?? 0;
@@ -93,7 +88,7 @@ class SmartActiveLighting extends IPSModuleStrict
                 }
             }
         }
-        $list_SceneRules = json_decode($this->ReadPropertyString('SceneRules'), true);
+        $list_SceneRules = $this->safeJsonDecode($this->GetBuffer('SceneRulesCache'), true);
         if (is_array($list_SceneRules)) {
             foreach ($list_SceneRules as $item) {
                 $vid = $item['SceneVariableID'] ?? 0;
@@ -106,7 +101,7 @@ class SmartActiveLighting extends IPSModuleStrict
                 }
             }
         }
-        $list_ButtonRules = json_decode($this->ReadPropertyString('ButtonRules'), true);
+        $list_ButtonRules = $this->safeJsonDecode($this->GetBuffer('ButtonRulesCache'), true);
         if (is_array($list_ButtonRules)) {
             foreach ($list_ButtonRules as $item) {
                 $vid = $item['ButtonVariableID'] ?? 0;
@@ -119,7 +114,7 @@ class SmartActiveLighting extends IPSModuleStrict
                 }
             }
         }
-        $list_SyncRules = json_decode($this->ReadPropertyString('SyncRules'), true);
+        $list_SyncRules = $this->safeJsonDecode($this->GetBuffer('SyncRulesCache'), true);
         if (is_array($list_SyncRules)) {
             foreach ($list_SyncRules as $item) {
                 $vid = $item['MasterVariableID'] ?? 0;
@@ -135,6 +130,29 @@ class SmartActiveLighting extends IPSModuleStrict
         // ---------------------------------
 
 
+        
+        $motionRules = $this->safeJsonDecode($this->GetBuffer('MotionRulesCache'), true) ?: [];
+        $this->SetBuffer('MotionRulesCache', json_encode($motionRules));
+        for ($i = 0; $i < count($motionRules); $i++) {
+            $this->RegisterTimer("MotionOffTimer_$i", 0, 'SAL_ProcessMotionOff($_IPS[\'TARGET\'], ' . $i . ');');
+        }
+
+        $doorRules = $this->safeJsonDecode($this->GetBuffer('DoorRulesCache'), true) ?: [];
+        $this->SetBuffer('DoorRulesCache', json_encode($doorRules));
+        for ($i = 0; $i < count($doorRules); $i++) {
+            $this->RegisterTimer("DoorOffTimer_$i", 0, 'SAL_ProcessDoorOff($_IPS[\'TARGET\'], ' . $i . ');');
+        }
+
+        $twilightRules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true) ?: [];
+        $this->SetBuffer('TwilightRulesCache', json_encode($twilightRules));
+        for ($i = 0; $i < count($twilightRules); $i++) {
+            $this->RegisterTimer("TwilightTimer_$i", 0, 'SAL_ProcessTwilightTrigger($_IPS[\'TARGET\'], ' . $i . ');');
+        }
+        
+        $this->SetBuffer('SceneRulesCache', $this->GetBuffer('SceneRulesCache'));
+        $this->SetBuffer('ButtonRulesCache', $this->GetBuffer('ButtonRulesCache'));
+        $this->SetBuffer('SyncRulesCache', $this->GetBuffer('SyncRulesCache'));
+
         // Unregister all previous messages to prevent duplicates
         $messages = $this->GetMessageList();
         foreach ($messages as $senderID => $senderMessages) {
@@ -144,7 +162,7 @@ class SmartActiveLighting extends IPSModuleStrict
         }
 
         // Register Motion Sensors
-        $motionRules = json_decode($this->ReadPropertyString('MotionRules'), true);
+        $motionRules = $this->safeJsonDecode($this->GetBuffer('MotionRulesCache'), true);
         if (is_array($motionRules)) {
             foreach ($motionRules as $rule) {
                 if (isset($rule['MotionVariableID']) && $rule['MotionVariableID'] > 0) {
@@ -154,7 +172,7 @@ class SmartActiveLighting extends IPSModuleStrict
         }
 
         // Register Door Sensors
-        $doorRules = json_decode($this->ReadPropertyString('DoorRules'), true);
+        $doorRules = $this->safeJsonDecode($this->GetBuffer('DoorRulesCache'), true);
         if (is_array($doorRules)) {
             foreach ($doorRules as $rule) {
                 if (isset($rule['DoorVariableID']) && $rule['DoorVariableID'] > 0) {
@@ -164,7 +182,7 @@ class SmartActiveLighting extends IPSModuleStrict
         }
 
         // Register Scene Triggers
-        $sceneRules = json_decode($this->ReadPropertyString('SceneRules'), true);
+        $sceneRules = $this->safeJsonDecode($this->GetBuffer('SceneRulesCache'), true);
         if (is_array($sceneRules)) {
             foreach ($sceneRules as $rule) {
                 if (isset($rule['SceneVariableID']) && $rule['SceneVariableID'] > 0) {
@@ -174,7 +192,7 @@ class SmartActiveLighting extends IPSModuleStrict
         }
 
         // Register Button Triggers & Maintain Group Variables
-        $buttonRules = json_decode($this->ReadPropertyString('ButtonRules'), true);
+        $buttonRules = $this->safeJsonDecode($this->GetBuffer('ButtonRulesCache'), true);
         $activeGroups = [];
         if (is_array($buttonRules)) {
             foreach ($buttonRules as $rule) {
@@ -190,7 +208,7 @@ class SmartActiveLighting extends IPSModuleStrict
         }
 
         // Register Sync Triggers
-        $syncRules = json_decode($this->ReadPropertyString('SyncRules'), true);
+        $syncRules = $this->safeJsonDecode($this->GetBuffer('SyncRulesCache'), true);
         if (is_array($syncRules)) {
             foreach ($syncRules as $rule) {
                 if (isset($rule['MasterVariableID']) && $rule['MasterVariableID'] > 0) {
@@ -234,7 +252,40 @@ class SmartActiveLighting extends IPSModuleStrict
         }
     }
 
-    private function GetObjectLabel(int $id): string
+    
+    private function isNightMode(): bool
+    {
+        $hour = (int)date('H');
+        return ($hour >= 23 || $hour < 6);
+    }
+
+    private function isAboveLuxThreshold(int $ruleMaxLux): bool
+    {
+        $luxId = $this->ReadPropertyInteger('GlobalLuxSensorID');
+        if ($luxId > 0 && IPS_VariableExists($luxId)) {
+            $currentLux = GetValue($luxId);
+            return $currentLux >= $ruleMaxLux;
+        }
+        return false;
+    }
+
+    private function switchActors(array $actors, bool $state): void
+    {
+        foreach ($actors as $tid) {
+            if ($tid > 0 && IPS_VariableExists($tid)) {
+                $var = IPS_GetVariable($tid);
+                if ($var['VariableType'] == 0) {
+                    $res = $this->safeRequestAction($tid, $state);
+                    $this->LogSwitch($tid, $state, $res, 'Gruppenschaltung');
+                } else {
+                    $actVal = $state ? 100 : 0;
+                    $res = $this->safeRequestAction($tid, $actVal);
+                    $this->LogSwitch($tid, $actVal, $res, 'Gruppenschaltung');
+                }
+            }
+        }
+    }
+private function GetObjectLabel(int $id): string
     {
         if ($id <= 0 || !@IPS_ObjectExists($id)) {
             return 'Unbekannt (' . $id . ')';
@@ -272,7 +323,7 @@ class SmartActiveLighting extends IPSModuleStrict
 
     private function SwitchGroup(string $Ident, bool $Value): void
     {
-        $buttonRules = json_decode($this->ReadPropertyString('ButtonRules'), true);
+        $buttonRules = $this->safeJsonDecode($this->GetBuffer('ButtonRulesCache'), true);
         if (is_array($buttonRules)) {
             $groupIdent = str_replace('Group_', '', $Ident);
             foreach ($buttonRules as $rule) {
@@ -285,11 +336,11 @@ class SmartActiveLighting extends IPSModuleStrict
                             $var = IPS_GetVariable($tid);
                             $context = 'Gruppe: ' . $ruleGroupName;
                             if ($var['VariableType'] == 0) {
-                                $res = @RequestAction($tid, $Value);
+                                $res = $this->safeRequestAction($tid, $Value);
                                 $this->LogSwitch($tid, $Value, $res, $context);
                             } else {
                                 $actVal = $Value ? 100 : 0;
-                                $res = @RequestAction($tid, $actVal);
+                                $res = $this->safeRequestAction($tid, $actVal);
                                 $this->LogSwitch($tid, $actVal, $res, $context);
                             }
                         }
@@ -315,7 +366,7 @@ class SmartActiveLighting extends IPSModuleStrict
             }
 
             // Check if Sender is a Motion Sensor
-            $motionRules = json_decode($this->ReadPropertyString('MotionRules'), true);
+            $motionRules = $this->safeJsonDecode($this->GetBuffer('MotionRulesCache'), true);
             if (is_array($motionRules)) {
                 foreach ($motionRules as $index => $rule) {
                     if (isset($rule['MotionVariableID']) && $rule['MotionVariableID'] == $SenderID) {
@@ -331,7 +382,7 @@ class SmartActiveLighting extends IPSModuleStrict
             }
 
             // Check if Sender is a Door Sensor
-            $doorRules = json_decode($this->ReadPropertyString('DoorRules'), true);
+            $doorRules = $this->safeJsonDecode($this->GetBuffer('DoorRulesCache'), true);
             if (is_array($doorRules)) {
                 foreach ($doorRules as $index => $rule) {
                     if (isset($rule['DoorVariableID']) && $rule['DoorVariableID'] == $SenderID) {
@@ -341,7 +392,7 @@ class SmartActiveLighting extends IPSModuleStrict
             }
 
             // Check if Sender is a Scene Trigger
-            $sceneRules = json_decode($this->ReadPropertyString('SceneRules'), true);
+            $sceneRules = $this->safeJsonDecode($this->GetBuffer('SceneRulesCache'), true);
             if (is_array($sceneRules)) {
                 foreach ($sceneRules as $rule) {
                     if (isset($rule['SceneVariableID']) && $rule['SceneVariableID'] == $SenderID && $isTrigger) {
@@ -351,7 +402,7 @@ class SmartActiveLighting extends IPSModuleStrict
             }
 
             // Check if Sender is a Master in SyncRules
-            $syncRules = json_decode($this->ReadPropertyString('SyncRules'), true);
+            $syncRules = $this->safeJsonDecode($this->GetBuffer('SyncRulesCache'), true);
             if (is_array($syncRules)) {
                 foreach ($syncRules as $rule) {
                     if (isset($rule['MasterVariableID']) && $rule['MasterVariableID'] == $SenderID) {
@@ -390,7 +441,7 @@ class SmartActiveLighting extends IPSModuleStrict
                                 $actionValue = (float)$actionValue;
                             }
                             
-                            $res = @RequestAction($targetId, $actionValue);
+                            $res = $this->safeRequestAction($targetId, $actionValue);
                             $this->LogSwitch($targetId, $actionValue, $res, 'Sync');
                         }
                     }
@@ -398,7 +449,7 @@ class SmartActiveLighting extends IPSModuleStrict
             }
 
             // Check if Sender is a Button Trigger (Toggle)
-            $buttonRules = json_decode($this->ReadPropertyString('ButtonRules'), true);
+            $buttonRules = $this->safeJsonDecode($this->GetBuffer('ButtonRulesCache'), true);
             if (is_array($buttonRules)) {
                 $targetsToToggle = [];
                 $associatedGroups = [];
@@ -448,11 +499,11 @@ class SmartActiveLighting extends IPSModuleStrict
                     foreach ($targetsToToggle as $tid) {
                         $var = IPS_GetVariable($tid);
                         if ($var['VariableType'] == 0) {
-                            $res = @RequestAction($tid, $newState);
+                            $res = $this->safeRequestAction($tid, $newState);
                             $this->LogSwitch($tid, $newState, $res, 'Taster');
                         } else {
                             $actVal = $newState ? 100 : 0;
-                            $res = @RequestAction($tid, $actVal);
+                            $res = $this->safeRequestAction($tid, $actVal);
                             $this->LogSwitch($tid, $actVal, $res, 'Taster');
                         }
                     }
@@ -474,39 +525,30 @@ class SmartActiveLighting extends IPSModuleStrict
         if ($targetId <= 0 || !IPS_VariableExists($targetId)) return;
 
         // Check Lux
-        $luxId = $this->ReadPropertyInteger('GlobalLuxSensorID');
         $maxLux = $rule['MaxLux'] ?? 50;
-        if ($luxId > 0 && IPS_VariableExists($luxId)) {
-            $currentLux = GetValue($luxId);
-            if ($currentLux >= $maxLux) {
-                return; // Too bright, do not turn on
-            }
+        if ($this->isAboveLuxThreshold($maxLux)) {
+            return;
         }
 
         // Night Mode?
         $nightMode = $rule['NightMode'] ?? false;
         $targetValue = true; // Default Boolean Switch
         if ($nightMode) {
-            $hour = (int)date('H');
-            if ($hour >= 23 || $hour < 6) { // Night time
-                $targetValue = 10; // 10%
-            } else {
-                $targetValue = 100; // 100%
-            }
+            if ($this->isNightMode()) { $targetValue = 10; } else { $targetValue = 100; }
         }
 
         // Turn on
         if (is_bool($targetValue)) {
-            $res = @RequestAction($targetId, true);
+            $res = $this->safeRequestAction($targetId, true);
             $this->LogSwitch($targetId, true, $res, 'Bewegung');
         } else {
             // Check if target is a boolean or integer/float (dimmer)
             $var = IPS_GetVariable($targetId);
             if ($var['VariableType'] == 0) { // Boolean
-                $res = @RequestAction($targetId, true);
+                $res = $this->safeRequestAction($targetId, true);
                 $this->LogSwitch($targetId, true, $res, 'Bewegung');
             } else {
-                $res = @RequestAction($targetId, $targetValue);
+                $res = $this->safeRequestAction($targetId, $targetValue);
                 $this->LogSwitch($targetId, $targetValue, $res, 'Bewegung');
             }
         }
@@ -517,7 +559,7 @@ class SmartActiveLighting extends IPSModuleStrict
         $this->SetTimerInterval($timerName, $duration * 1000);
         
         // Track active timer
-        $activeTimers = json_decode($this->ReadAttributeString('ActiveTimers'), true);
+        $activeTimers = $this->safeJsonDecode($this->ReadAttributeString('ActiveTimers'), true);
         if (!is_array($activeTimers)) $activeTimers = [];
         $activeTimers[$timerName] = $targetId;
         $this->WriteAttributeString('ActiveTimers', json_encode($activeTimers));
@@ -528,16 +570,16 @@ class SmartActiveLighting extends IPSModuleStrict
         $timerName = 'MotionOffTimer_'. $ruleIndex;
         $this->SetTimerInterval($timerName, 0); // Stop timer
 
-        $motionRules = json_decode($this->ReadPropertyString('MotionRules'), true);
+        $motionRules = $this->safeJsonDecode($this->GetBuffer('MotionRulesCache'), true);
         if (is_array($motionRules) && isset($motionRules[$ruleIndex])) {
             $targetId = $motionRules[$ruleIndex]['TargetLightID'] ?? 0;
             if ($targetId > 0 && IPS_VariableExists($targetId)) {
                 $var = IPS_GetVariable($targetId);
                 if ($var['VariableType'] == 0) {
-                    $res = @RequestAction($targetId, false);
+                    $res = $this->safeRequestAction($targetId, false);
                     $this->LogSwitch($targetId, false, $res, 'Bewegung-Nachlauf');
                 } else {
-                    $res = @RequestAction($targetId, 0);
+                    $res = $this->safeRequestAction($targetId, 0);
                     $this->LogSwitch($targetId, 0, $res, 'Bewegung-Nachlauf');
                 }
             }
@@ -556,39 +598,30 @@ class SmartActiveLighting extends IPSModuleStrict
             $this->SetTimerInterval($timerName, 0);
 
             // Check Lux
-            $luxId = $this->ReadPropertyInteger('GlobalLuxSensorID');
             $maxLux = $rule['MaxLux'] ?? 1000;
-            if ($luxId > 0 && IPS_VariableExists($luxId)) {
-                $currentLux = GetValue($luxId);
-                if ($currentLux >= $maxLux) {
-                    return; // Too bright, do not turn on
-                }
-            }
+        if ($this->isAboveLuxThreshold($maxLux)) {
+            return;
+        }
 
             // Night Mode?
             $nightMode = $rule['NightMode'] ?? false;
             $targetValue = true; // Default Boolean Switch
             if ($nightMode) {
-                $hour = (int)date('H');
-                if ($hour >= 23 || $hour < 6) { // Night time
-                    $targetValue = 10; // 10%
-                } else {
-                    $targetValue = 100; // 100%
-                }
+                if ($this->isNightMode()) { $targetValue = 10; } else { $targetValue = 100; }
             }
 
             // Turn on
             $var = IPS_GetVariable($targetId);
             if ($var['VariableType'] == 0) { // Boolean
-                $res = @RequestAction($targetId, true);
+                $res = $this->safeRequestAction($targetId, true);
                 $this->LogSwitch($targetId, true, $res, 'Tür/Fenster');
             } else {
-                $res = @RequestAction($targetId, $targetValue);
+                $res = $this->safeRequestAction($targetId, $targetValue);
                 $this->LogSwitch($targetId, $targetValue, $res, 'Tür/Fenster');
             }
             
             // Track active timer (reusing active timer dict so house mode can clear it)
-            $activeTimers = json_decode($this->ReadAttributeString('ActiveTimers'), true);
+            $activeTimers = $this->safeJsonDecode($this->ReadAttributeString('ActiveTimers'), true);
             if (!is_array($activeTimers)) $activeTimers = [];
             $activeTimers[$timerName] = $targetId;
             $this->WriteAttributeString('ActiveTimers', json_encode($activeTimers));
@@ -609,16 +642,16 @@ class SmartActiveLighting extends IPSModuleStrict
         $timerName = 'DoorOffTimer_' . $ruleIndex;
         $this->SetTimerInterval($timerName, 0); // Stop timer
 
-        $doorRules = json_decode($this->ReadPropertyString('DoorRules'), true);
+        $doorRules = $this->safeJsonDecode($this->GetBuffer('DoorRulesCache'), true);
         if (is_array($doorRules) && isset($doorRules[$ruleIndex])) {
             $targetId = $doorRules[$ruleIndex]['TargetLightID'] ?? 0;
             if ($targetId > 0 && IPS_VariableExists($targetId)) {
                 $var = IPS_GetVariable($targetId);
                 if ($var['VariableType'] == 0) {
-                    $res = @RequestAction($targetId, false);
+                    $res = $this->safeRequestAction($targetId, false);
                     $this->LogSwitch($targetId, false, $res, 'Tür/Fenster-Nachlauf');
                 } else {
-                    $res = @RequestAction($targetId, 0);
+                    $res = $this->safeRequestAction($targetId, 0);
                     $this->LogSwitch($targetId, 0, $res, 'Tür/Fenster-Nachlauf');
                 }
             }
@@ -638,7 +671,7 @@ class SmartActiveLighting extends IPSModuleStrict
         elseif (is_numeric($targetValStr)) $targetVal = (float)$targetValStr;
         else $targetVal = $targetValStr;
 
-        $res = @RequestAction($targetId, $targetVal);
+        $res = $this->safeRequestAction($targetId, $targetVal);
         $this->LogSwitch($targetId, $targetVal, $res, 'Szene');
     }
 
@@ -650,7 +683,7 @@ class SmartActiveLighting extends IPSModuleStrict
             $this->SetTimerInterval("TwilightTimer_$i", 0);
         }
 
-        $rules = json_decode($this->ReadPropertyString('TwilightRules'), true);
+        $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true);
         if (!is_array($rules)) return;
 
         $sunsetId = $this->ReadPropertyInteger('SunsetVariableID');
@@ -713,7 +746,7 @@ class SmartActiveLighting extends IPSModuleStrict
         $timerName = 'TwilightTimer_'. $ruleIndex;
         $this->SetTimerInterval($timerName, 0);
 
-        $rules = json_decode($this->ReadPropertyString('TwilightRules'), true);
+        $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true);
         if (is_array($rules) && isset($rules[$ruleIndex])) {
             $isActive = $rules[$ruleIndex]['Active'] ?? true;
             if ($isActive) {
@@ -724,11 +757,11 @@ class SmartActiveLighting extends IPSModuleStrict
                     $var = IPS_GetVariable($targetId);
                     if ($var['VariableType'] == 0) {
                         $actVal = ($actionVal == 1);
-                        $res = @RequestAction($targetId, $actVal);
+                        $res = $this->safeRequestAction($targetId, $actVal);
                         $this->LogSwitch($targetId, $actVal, $res, 'Dämmerung');
                     } else {
                         $actVal = ($actionVal == 1) ? 100 : 0;
-                        $res = @RequestAction($targetId, $actVal);
+                        $res = $this->safeRequestAction($targetId, $actVal);
                         $this->LogSwitch($targetId, $actVal, $res, 'Dämmerung');
                     }
                 }
@@ -764,17 +797,17 @@ class SmartActiveLighting extends IPSModuleStrict
 
     private function TurnOffMotionLights(int $mode): void
     {
-        $activeTimers = json_decode($this->ReadAttributeString('ActiveTimers'), true);
+        $activeTimers = $this->safeJsonDecode($this->ReadAttributeString('ActiveTimers'), true);
         if (is_array($activeTimers)) {
             foreach ($activeTimers as $timerName => $targetId) {
                 $this->SetTimerInterval($timerName, 0);
                 if ($targetId > 0 && IPS_VariableExists($targetId)) {
                     $var = IPS_GetVariable($targetId);
                     if ($var['VariableType'] == 0) {
-                        $res = @RequestAction($targetId, false);
+                        $res = $this->safeRequestAction($targetId, false);
                         $this->LogSwitch($targetId, false, $res, 'Haus-Modus');
                     } else {
-                        $res = @RequestAction($targetId, 0);
+                        $res = $this->safeRequestAction($targetId, 0);
                         $this->LogSwitch($targetId, 0, $res, 'Haus-Modus');
                     }
                 }
@@ -1162,4 +1195,28 @@ EOT;
         
         return ['min' => $min, 'max' => $max];
     }
+
+    private function safeRequestAction(int $id, mixed $value): bool {
+        try {
+            $res = RequestAction($id, $value);
+            if ($res === false) {
+                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
+            }
+            return $res;
+        } catch (\Throwable $e) {
+            $this->SLogWarning("RequestAction Exception", $e->getMessage());
+            return false;
+        }
+    }
+
+    private function safeJsonDecode(string $json, bool $assoc = true) {
+        try {
+            if (trim($json) === '') return $assoc ? [] : null;
+            return $this->safeJsonDecode($json, $assoc, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable $e) {
+            $this->SLogWarning("JSON Decode Exception", $e->getMessage());
+            return $assoc ? [] : null;
+        }
+    }
+
 }

@@ -74,7 +74,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
         if ($ref_ArchiveControlID > 1 && @IPS_ObjectExists($ref_ArchiveControlID)) {
             $this->RegisterReference($ref_ArchiveControlID);
         }
-        $list_LightVariables = json_decode($this->ReadPropertyString('LightVariables'), true);
+        $list_LightVariables = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
         if (is_array($list_LightVariables)) {
             foreach ($list_LightVariables as $item) {
                 $vid = $item['VariableID'] ?? 0;
@@ -83,7 +83,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 }
             }
         }
-        $list_DimmerVariables = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        $list_DimmerVariables = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
         if (is_array($list_DimmerVariables)) {
             foreach ($list_DimmerVariables as $item) {
                 $vid = $item['VariableID'] ?? 0;
@@ -101,7 +101,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             return;
         }
 
-        $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
         if (is_array($lightVars)) {
             foreach ($lightVars as $light) {
                 $id = $light['VariableID'];
@@ -110,7 +110,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 }
             }
         }
-        $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
         if (is_array($dimmerVars)) {
             foreach ($dimmerVars as $light) {
                 $id = $light['VariableID'];
@@ -140,9 +140,9 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     private function CalculateActiveLights(): void
     {
-        $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
         if (!is_array($lightVars)) $lightVars = [];
-        $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
         if (!is_array($dimmerVars)) $dimmerVars = [];
         
         $allVars = array_merge($lightVars, $dimmerVars);
@@ -290,9 +290,9 @@ class SmartPresenceSimulation extends IPSModuleStrict
             }
         }
 
-        $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
         if (!is_array($lightVars)) $lightVars = [];
-        $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
         if (!is_array($dimmerVars)) $dimmerVars = [];
         
         if (count($lightVars) == 0 && count($dimmerVars) == 0) return;
@@ -369,16 +369,16 @@ class SmartPresenceSimulation extends IPSModuleStrict
             return;
         }
 
-        $scheduleArray = json_decode($scheduleJson, true);
+        $scheduleArray = $this->safeJsonDecode($scheduleJson, true);
         if (is_array($scheduleArray)) {
             $this->WriteAttributeString('LightSchedule', json_encode($scheduleArray));
             $this->SetBuffer('GeminiRetryCount', '0');
             $this->SetTimerInterval('GeminiRetryTimer', 0);
             $this->SetValue('GeminiError', false);
 
-            $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+            $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
             if (!is_array($lightVars)) $lightVars = [];
-            $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+            $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
             if (!is_array($dimmerVars)) $dimmerVars = [];
 
             $allVars = array_merge($lightVars, $dimmerVars);
@@ -422,13 +422,13 @@ class SmartPresenceSimulation extends IPSModuleStrict
     public function CheckAndExecuteLightSchedule(): void
     {
         $scheduleStr = $this->ReadAttributeString('LightSchedule');
-        $schedule = json_decode($scheduleStr, true);
+        $schedule = $this->safeJsonDecode($scheduleStr, true);
         if (!is_array($schedule) || count($schedule) == 0) return;
 
         // Gerätenamen-Lookup für lesbares Logging aufbauen
-        $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
         if (!is_array($lightVars)) $lightVars = [];
-        $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
         if (!is_array($dimmerVars)) $dimmerVars = [];
         $lightNames = [];
         foreach (array_merge($lightVars, $dimmerVars) as $l) {
@@ -458,7 +458,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 }
 
                 if (IPS_VariableExists($devId)) {
-                    if (!@RequestAction($devId, $devState)) {
+                    if (!$this->safeRequestAction($devId, $devState)) {
                         $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $devId | Ziel: $stateLabel | Zeit: {$action['time']}");
                     } else {
                         $this->SLogInfo( "Licht (KI Plan) geschaltet: $devName → $stateLabel", "ID: $devId | Zeit: {$action['time']}");
@@ -477,9 +477,9 @@ class SmartPresenceSimulation extends IPSModuleStrict
         if ($executedSomething) {
             $this->WriteAttributeString('LightSchedule', json_encode($remainingSchedule));
             
-            $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+            $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
             if (!is_array($lightVars)) $lightVars = [];
-            $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+            $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
             if (!is_array($dimmerVars)) $dimmerVars = [];
             
             $allVars = array_merge($lightVars, $dimmerVars);
@@ -511,7 +511,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     private function TurnOffAllSimulatedLights(bool $respectKeepOnReturn = false): void
     {
-        $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
+        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
         if (is_array($lightVars)) {
             foreach ($lightVars as $light) {
                 if ($respectKeepOnReturn && isset($light['KeepOnReturn']) && $light['KeepOnReturn']) {
@@ -523,7 +523,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                     $varObj = IPS_GetVariable($id);
                     if ($varObj['VariableType'] == 0) {
                         if (GetValue($id) === true) {
-                            if (!@RequestAction($id, false)) {
+                            if (!$this->safeRequestAction($id, false)) {
                                 $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Ziel: AUS");
                             } else {
                                 $this->SLogInfo( "Licht ausgeschaltet: $devName", "ID: $id");
@@ -532,7 +532,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                         }
                     } else {
                         if (GetValue($id) > 0) {
-                            if (!@RequestAction($id, 0)) {
+                            if (!$this->safeRequestAction($id, 0)) {
                                 $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
                             } else {
                                 $this->SLogInfo( "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
@@ -544,7 +544,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             }
         }
         
-        $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
         if (is_array($dimmerVars)) {
             foreach ($dimmerVars as $light) {
                 if ($respectKeepOnReturn && isset($light['KeepOnReturn']) && $light['KeepOnReturn']) {
@@ -554,7 +554,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 $devName = (isset($light['Name']) && $light['Name'] !== '') ? $light['Name'] : IPS_GetName($id);
                 if ($id > 0 && IPS_VariableExists($id)) {
                     if (GetValue($id) > 0) {
-                        if (!@RequestAction($id, 0)) {
+                        if (!$this->safeRequestAction($id, 0)) {
                             $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
                         } else {
                             $this->SLogInfo( "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
@@ -603,7 +603,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
         // Wenn kein Schedule existiert, neuen generieren
         $scheduleStr = $this->ReadAttributeString('LightSchedule');
-        $schedule = json_decode($scheduleStr, true);
+        $schedule = $this->safeJsonDecode($scheduleStr, true);
         if (!is_array($schedule) || count($schedule) == 0) {
             $this->SLogInfo( 'Präsenzsimulation nach Neustart wiederhergestellt.', 'Generiere neuen KI-Plan.');
             $this->GenerateAiSchedule();
@@ -745,8 +745,8 @@ EOT;
             return;
         }
 
-        $lightVars = json_decode($this->ReadPropertyString('LightVariables'), true);
-        $dimmerVars = json_decode($this->ReadPropertyString('DimmerVariables'), true);
+        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
+        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
         
         $vars = [];
         if (is_array($lightVars)) {
@@ -802,7 +802,7 @@ EOT;
             IPS_SetName($catID, $name);
         }
 
-        $vars = json_decode($this->ReadPropertyString($propertyName), true);
+        $vars = $this->safeJsonDecode($this->ReadPropertyString($propertyName), true);
         if (!is_array($vars)) {
             $vars = [];
         }
@@ -913,6 +913,28 @@ EOT;
             IPS_SetPosition($item['id'], $pos++);
         }
     }
+
+    private function safeRequestAction(int $id, mixed $value): bool {
+        try {
+            $res = RequestAction($id, $value);
+            if ($res === false) {
+                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
+            }
+            return $res;
+        } catch (\Throwable $e) {
+            $this->SLogWarning("RequestAction Exception", $e->getMessage());
+            return false;
+        }
+    }
+
+    private function safeJsonDecode(string $json, bool $assoc = true) {
+        try {
+            if (trim($json) === '') return $assoc ? [] : null;
+            return $this->safeJsonDecode($json, $assoc, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable $e) {
+            $this->SLogWarning("JSON Decode Exception", $e->getMessage());
+            return $assoc ? [] : null;
+        }
+    }
+
 }
-
-
