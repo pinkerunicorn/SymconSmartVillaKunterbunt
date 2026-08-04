@@ -54,8 +54,8 @@ class SmartPresenceSimulation extends IPSModuleStrict
         ], 5);
         $this->EnableAction('AlarmLightsOnDuringAbsence');
 
-        $this->RegisterTimer('LightExecutionTimer', 0, 'SHL_CheckAndExecuteLightSchedule($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('GeminiRetryTimer', 0, 'SHL_GenerateAiSchedule($_IPS[\'TARGET\'], true);');
+        $this->RegisterTimer('LightExecutionTimer', 0, 'SPS_CheckAndExecuteLightSchedule($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('GeminiRetryTimer', 0, 'SPS_GenerateAiSchedule($_IPS[\'TARGET\'], true);');
     }
 
     public function ApplyChanges(): void
@@ -357,7 +357,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 \'application/json\',
                 0.2
             );
-            SHL_ProcessGeminiResult(' . $instanceId . ', $result);
+            SPS_ProcessGeminiResult(' . $instanceId . ', $result);
         ';
         IPS_RunScriptText($script);
     }
@@ -580,7 +580,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             IPS_SetEventCyclicTimeFrom($eid, 12, 0, 0);
             IPS_SetEventActive($eid, false);
         }
-        IPS_SetEventScript($eid, "SHL_GenerateAiSchedule(\$_IPS['TARGET']);");
+        IPS_SetEventScript($eid, "SPS_GenerateAiSchedule(\$_IPS['TARGET']);");
         return $eid;
     }
 
