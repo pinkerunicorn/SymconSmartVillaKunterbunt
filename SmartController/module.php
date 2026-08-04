@@ -815,7 +815,7 @@ EOT;
     private function safeJsonDecode(string $json, bool $assoc = true) {
         try {
             if (trim($json) === '') return $assoc ? [] : null;
-            return $this->safeJsonDecode($json, $assoc, 512, JSON_THROW_ON_ERROR);
+            return json_decode($json, $assoc, 512, JSON_THROW_ON_ERROR);
         } catch (\Throwable $e) {
             $this->SLogWarning("JSON Decode Exception", $e->getMessage());
             return $assoc ? [] : null;
