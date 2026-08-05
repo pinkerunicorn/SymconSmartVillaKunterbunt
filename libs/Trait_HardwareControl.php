@@ -40,8 +40,10 @@ if (!trait_exists('HardwareControl_Trait')) {
 
             // 2. Prüfe lokalen Simulationsmodus im aktuellen Modul
             $localSimulation = false;
-            if (@IPS_PropertyExists($this->InstanceID, 'SimulationMode')) {
+            try {
                 $localSimulation = $this->ReadPropertyBoolean('SimulationMode');
+            } catch (\Throwable $e) {
+                // Property existiert bei diesem Modul (noch) nicht
             }
 
             // 3. Auswertung
