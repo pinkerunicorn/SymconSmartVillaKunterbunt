@@ -306,7 +306,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $id = $light['VariableID'];
             $name = isset($light['Name']) && $light['Name'] != ''? $light['Name'] : "Schalter ".$id;
             if ($id > 0) {
-                if (!AC_GetLoggingStatus($archiveId, $id)) continue;
+                if (!IPS_VariableExists($id) || !AC_GetLoggingStatus($archiveId, $id)) continue;
                 $values = AC_GetLoggedValues($archiveId, $id, $startTime, $endTime, 50);
                 $compactLog = [];
                 foreach ($values as $v) {
@@ -323,7 +323,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $id = $light['VariableID'];
             $name = isset($light['Name']) && $light['Name'] != ''? $light['Name'] : "Dimmer ".$id;
             if ($id > 0) {
-                if (!AC_GetLoggingStatus($archiveId, $id)) continue;
+                if (!IPS_VariableExists($id) || !AC_GetLoggingStatus($archiveId, $id)) continue;
                 $values = AC_GetLoggedValues($archiveId, $id, $startTime, $endTime, 50);
                 $compactLog = [];
                 foreach ($values as $v) {
