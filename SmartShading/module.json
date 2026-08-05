@@ -11,5 +11,11 @@
     "implemented": [],
     "prefix": "SHSH",
     "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartShading",
-    "author": "Florian Graßinger"
+    "author": "Florian Graßinger",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
 }

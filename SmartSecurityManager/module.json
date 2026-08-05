@@ -17,6 +17,10 @@
             "type": "integer",
             "default": 0
         },
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        },
         "MonitoredVariables": {
             "type": "string",
             "default": "[]"

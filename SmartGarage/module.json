@@ -11,5 +11,11 @@
     "implemented": [],
     "prefix": "SHG",
     "author": "Florian Graßinger",
-    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartGarage"
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartGarage",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
 }

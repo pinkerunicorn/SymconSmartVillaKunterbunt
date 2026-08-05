@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
 class SmartHeating extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
 
@@ -374,6 +376,15 @@ class SmartHeating extends IPSModuleStrict
 {
     "elements": [
         {
+            "type": "CheckBox",
+            "name": "SimulationMode",
+            "caption": "Simulationsmodus (Testbetrieb)"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
             "type": "ExpansionPanel",
             "caption": "⚙ Allgemeine Einstellungen",
             "items": [
@@ -437,18 +448,7 @@ class SmartHeating extends IPSModuleStrict
 EOT;
     }
 
-    private function safeRequestAction(int $id, mixed $value): bool {
-        try {
-            $res = RequestAction($id, $value);
-            if ($res === false) {
-                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
-            }
-            return $res;
-        } catch (\Throwable $e) {
-            $this->SLogWarning("RequestAction Exception", $e->getMessage());
-            return false;
-        }
-    }
+
 
     private function safeJsonDecode(string $json, bool $assoc = true) {
         try {

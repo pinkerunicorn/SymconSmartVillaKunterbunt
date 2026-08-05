@@ -13,5 +13,11 @@
     "implemented": [],
     "prefix": "SHE",
     "author": "Florian Graßinger",
-    "url": "https://github.com/pinkerunicorn/"
+    "url": "https://github.com/pinkerunicorn/",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
 }

@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
 class SmartShading extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
     public function Create(): void
@@ -490,7 +492,7 @@ class SmartShading extends IPSModuleStrict
             $val = (float)$valStr;
         }
         
-        $result = RequestAction($targetID, $val);
+        $result = $this->safeRequestAction($targetID, $val);
         if (!$result) {
             $this->SLogError( "RequestAction für ID $targetID fehlgeschlagen!");
         }
@@ -501,6 +503,15 @@ class SmartShading extends IPSModuleStrict
         return <<<'EOT'
 {
     "elements": [
+        {
+            "type": "CheckBox",
+            "name": "SimulationMode",
+            "caption": "Simulationsmodus (Testbetrieb)"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
         {
             "type": "ExpansionPanel",
             "caption": "⚙ SmartHome Shading - Intelligente Sonnenstands- & Hitzebeschattung",

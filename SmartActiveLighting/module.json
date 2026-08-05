@@ -11,5 +11,11 @@
     "implemented": [],
     "prefix": "SAL",
     "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartActiveLighting",
-    "author": "Florian Gra\u00dfinger"
+    "author": "Florian Graßinger",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
 }

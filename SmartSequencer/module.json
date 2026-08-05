@@ -11,5 +11,11 @@
     "implemented": [],
     "prefix": "SHSQ",
     "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartSequencer",
-    "author": "Florian Graßinger"
+    "author": "Florian Graßinger",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
 }

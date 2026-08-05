@@ -11,5 +11,11 @@
     "implemented": [],
     "prefix": "SHH",
     "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartHeating",
-    "author": "Florian Graßinger"
+    "author": "Florian Graßinger",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
 }

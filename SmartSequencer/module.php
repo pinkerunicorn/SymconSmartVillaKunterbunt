@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 
 class SmartSequencer extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HardwareControl_Trait;
 
     private const ACTION_SCRIPT = 0;
     private const ACTION_DEVICE = 1;
@@ -176,7 +178,7 @@ class SmartSequencer extends IPSModuleStrict
                         $val = (float)$valStr;
                     }
                     
-                    if (!@RequestAction($targetID, $val)) {
+                    if (!$this->safeRequestAction($targetID, $val)) {
                         $this->SLogError( 'RequestAction fehlgeschlagen.', "Ziel-ID: $targetID | Wert: $valStr");
                     } else {
                         $this->SLogInfo( 'Aktion erfolgreich ausgeführt.', "Ziel-ID: $targetID | Wert: " . var_export($val, true));
@@ -231,6 +233,15 @@ class SmartSequencer extends IPSModuleStrict
         return <<<'EOT'
 {
     "elements": [
+        {
+            "type": "CheckBox",
+            "name": "SimulationMode",
+            "caption": "Simulationsmodus (Testbetrieb)"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
         {
             "type": "ExpansionPanel",
             "caption": "⚙ Makro-Baustein: Definiert eine Liste von Aktionen, die vom Controller oder manuell ausgelöst werden können.",

@@ -11,5 +11,11 @@
     "implemented": [],
     "prefix": "SPS",
     "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartPresenceSimulation",
-    "author": "Florian Gra\u00dfinger"
+    "author": "Florian Graßinger",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
 }

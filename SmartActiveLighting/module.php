@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
 class SmartActiveLighting extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HardwareControl_Trait;
     use CentralStateAware_Trait;
     public function Create(): void
     {
@@ -828,6 +830,15 @@ private function GetObjectLabel(int $id): string
             "items": []
         },
         {
+            "type": "CheckBox",
+            "name": "SimulationMode",
+            "caption": "Simulationsmodus (Testbetrieb)"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
             "type": "List",
             "name": "MotionRules",
             "caption": "Bewegungsmelder-Regeln",
@@ -1196,18 +1207,7 @@ EOT;
         return ['min' => $min, 'max' => $max];
     }
 
-    private function safeRequestAction(int $id, mixed $value): bool {
-        try {
-            $res = RequestAction($id, $value);
-            if ($res === false) {
-                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
-            }
-            return $res;
-        } catch (\Throwable $e) {
-            $this->SLogWarning("RequestAction Exception", $e->getMessage());
-            return false;
-        }
-    }
+
 
     private function safeJsonDecode(string $json, bool $assoc = true) {
         try {

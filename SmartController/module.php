@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 
 class SmartController extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use HardwareControl_Trait;
 
     // PresenceMode constants
     private const PRESENCE_HOME     = 0;
@@ -37,6 +39,13 @@ class SmartController extends IPSModuleStrict
             'ICON' => 'Information'
         ], 3);
         $this->EnableAction('PresenceStatus');
+
+        // Global Simulation Mode (Dry Run)
+        $this->RegisterVariableBoolean('GlobalSimulationMode', 'Simulationsmodus (Dry Run)', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Database'
+        ], 4);
+        $this->EnableAction('GlobalSimulationMode');
 
         // === Central State Variables (read-only, set by other modules via public API) ===
         $this->RegisterVariableBoolean('FireplaceActive', 'Kamin aktiv', [
@@ -245,15 +254,20 @@ class SmartController extends IPSModuleStrict
     {
         switch ($Ident) {
             case 'PresenceMode':
-                $this->SetPresenceMode((int)$Value);
+                $this->SetPresenceMode($Value);
                 break;
             case 'ActivityMode':
-                $this->SetActivityMode((int)$Value);
+                $this->SetActivityMode($Value);
                 break;
             case 'PresenceStatus':
-                // Google Home Toggle: true = Zuhause, false = Kurz weg
                 $this->SetPresenceMode($Value ? self::PRESENCE_HOME : self::PRESENCE_AWAY);
                 break;
+            case 'GlobalSimulationMode':
+                $this->SetValue($Ident, $Value);
+                $this->SLogInfo($Value ? "Globaler Simulationsmodus aktiviert!" : "Globaler Simulationsmodus deaktiviert!");
+                break;
+            default:
+                throw new Exception("Invalid Ident in RequestAction: $Ident");
         }
     }
 
@@ -797,19 +811,6 @@ class SmartController extends IPSModuleStrict
 EOT;
 
         return $json;
-    }
-
-    private function safeRequestAction(int $id, mixed $value): bool {
-        try {
-            $res = RequestAction($id, $value);
-            if ($res === false) {
-                $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
-            }
-            return $res;
-        } catch (\Throwable $e) {
-            $this->SLogWarning("RequestAction Exception", $e->getMessage());
-            return false;
-        }
     }
 
     private function safeJsonDecode(string $json, bool $assoc = true) {

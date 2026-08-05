@@ -1,6 +1,15 @@
 {
     "elements": [
         {
+            "type": "CheckBox",
+            "name": "SimulationMode",
+            "caption": "Simulationsmodus (Testbetrieb)"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
             "type": "SelectModule",
             "name": "RegistryID",
             "caption": "Device Registry",
