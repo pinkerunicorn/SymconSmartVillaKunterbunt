@@ -17,9 +17,8 @@ class SmartSecurityManager extends IPSModuleStrict
         
         $this->DA_RegisterAvailability(900);
 
-        // Security Properties (From SmartHomeSecurity)
-        $this->RegisterPropertyString('DoorVariables', '[]');
-        $this->RegisterPropertyString('WindowVariables', '[]');
+        // Security Properties
+        $this->RegisterPropertyInteger('RegistryID', 0);
 
         // Alarm Properties (From SmartAlarmManager)
         $this->RegisterPropertyString("MonitoredVariables", "[]");
@@ -96,20 +95,17 @@ class SmartSecurityManager extends IPSModuleStrict
             }
         }
         
-        // Door & Window References
-        $list_DoorVariables = $this->safeJsonDecode($this->ReadPropertyString('DoorVariables'), true);
-        if (is_array($list_DoorVariables)) {
-            foreach ($list_DoorVariables as $item) {
-                $vid = $item['SensorVariableID'] ?? ($item['VariableID'] ?? 0);
+        // Door & Window References from Registry
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
+            $this->RegisterReference($registryId);
+            $contactSensors = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesContactSensor') ?: '[]', true);
+            foreach ($contactSensors as $sensor) {
+                $vid = $sensor['Status_VarID'] ?? 0;
                 if ($vid > 1 && @IPS_ObjectExists($vid)) $this->RegisterReference($vid);
             }
-        }
-        $list_WindowVariables = $this->safeJsonDecode($this->ReadPropertyString('WindowVariables'), true);
-        if (is_array($list_WindowVariables)) {
-            foreach ($list_WindowVariables as $item) {
-                $vid = $item['VariableID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) $this->RegisterReference($vid);
-            }
+        } else {
+            $contactSensors = [];
         }
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
@@ -149,17 +145,9 @@ class SmartSecurityManager extends IPSModuleStrict
         IPS_SetHidden($varID, !(bool)$this->GetValue($absenceIdent));
         
         // Window & Door Messages
-        if (is_array($list_WindowVariables)) {
-            foreach ($list_WindowVariables as $win) {
-                $id = $win['VariableID'];
-                if ($id > 0 && IPS_VariableExists($id)) $this->RegisterMessage($id, VM_UPDATE);
-            }
-        }
-        if (is_array($list_DoorVariables)) {
-            foreach ($list_DoorVariables as $door) {
-                $id = $door['SensorVariableID'] ?? 0;
-                if ($id > 0 && IPS_VariableExists($id)) $this->RegisterMessage($id, VM_UPDATE);
-            }
+        foreach ($contactSensors as $sensor) {
+            $id = $sensor['Status_VarID'] ?? 0;
+            if ($id > 0 && IPS_VariableExists($id)) $this->RegisterMessage($id, VM_UPDATE);
         }
 
         foreach (IPS_GetChildrenIDs($this->InstanceID) as $childID) {
@@ -181,13 +169,15 @@ class SmartSecurityManager extends IPSModuleStrict
 
         // Check if sender is a door or window
         $isWindowOrDoor = false;
-        $windowVars = $this->safeJsonDecode($this->ReadPropertyString('WindowVariables'), true) ?: [];
-        foreach ($windowVars as $win) {
-            if (isset($win['VariableID']) && $win['VariableID'] == $SenderID) $isWindowOrDoor = true;
-        }
-        $doorVars = $this->safeJsonDecode($this->ReadPropertyString('DoorVariables'), true) ?: [];
-        foreach ($doorVars as $door) {
-            if (isset($door['SensorVariableID']) && $door['SensorVariableID'] == $SenderID) $isWindowOrDoor = true;
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
+            $contactSensors = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesContactSensor') ?: '[]', true);
+            foreach ($contactSensors as $sensor) {
+                if (isset($sensor['Status_VarID']) && $sensor['Status_VarID'] == $SenderID) {
+                    $isWindowOrDoor = true;
+                    break;
+                }
+            }
         }
         if ($isWindowOrDoor) {
             $this->CalculateOpenWindows();
@@ -282,34 +272,61 @@ class SmartSecurityManager extends IPSModuleStrict
         }
     }
 
-    private function CalculateOpenWindows(): void
+    public function ImportAlarmsFromRegistry(): void
     {
-        $windowVars = $this->safeJsonDecode($this->ReadPropertyString('WindowVariables'), true) ?: [];
-        $count = 0;
-        $openNames = [];
-        
-        foreach ($windowVars as $win) {
-            $id = $win['VariableID'];
-            if ($id > 0 && IPS_VariableExists($id)) {
-                $currentVal = GetValue($id);
-                $checkVal = $win['ClosedValue'];
-                if (!$this->IsTriggered($currentVal, $checkVal)) { // It is NOT closed
-                    $count++;
-                    $name = isset($win['Name']) && $win['Name'] != '' ? $win['Name'] : IPS_GetName($id);
-                    $openNames[] = $name;
-                }
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId <= 1 || !@IPS_ObjectExists($registryId)) {
+            echo "Fehler: Keine gültige Device Registry ausgewählt!\n";
+            return;
+        }
+
+        $registryAlarms = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesAlarmSensor') ?: '[]', true);
+        $existing = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true) ?: [];
+        $existingIds = array_column($existing, 'VariableID');
+
+        $addedCount = 0;
+        foreach ($registryAlarms as $alarm) {
+            $vid = $alarm['Status_VarID'] ?? 0;
+            if ($vid > 0 && !in_array($vid, $existingIds)) {
+                $existing[] = [
+                    'VariableID' => $vid,
+                    'Message' => !empty($alarm['name']) ? $alarm['name'] : IPS_GetName($vid),
+                    'TriggerValue' => 'true',
+                    'AlarmLevel' => 2,
+                    'AutoReset' => true
+                ];
+                $addedCount++;
             }
         }
 
-        $doorVars = $this->safeJsonDecode($this->ReadPropertyString('DoorVariables'), true) ?: [];
-        foreach ($doorVars as $door) {
-            $id = $door['SensorVariableID'] ?? 0;
+        if ($addedCount > 0) {
+            IPS_SetProperty($this->InstanceID, "MonitoredVariables", json_encode($existing));
+            IPS_ApplyChanges($this->InstanceID);
+            echo "$addedCount neue Alarmmelder aus der Registry importiert!\n";
+        } else {
+            echo "Keine neuen Alarmmelder zum Importieren gefunden.\n";
+        }
+    }
+
+    private function CalculateOpenWindows(): void
+    {
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        $contactSensors = [];
+        if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
+            $contactSensors = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesContactSensor') ?: '[]', true);
+        }
+
+        $count = 0;
+        $openNames = [];
+        
+        foreach ($contactSensors as $sensor) {
+            $id = $sensor['Status_VarID'] ?? 0;
             if ($id > 0 && IPS_VariableExists($id)) {
                 $currentVal = GetValue($id);
-                $checkVal = $door['ClosedValue'] ?? 'false';
-                if (!$this->IsTriggered($currentVal, $checkVal)) {
+                $checkVal = $sensor['ClosedValue'] ?? 'false';
+                if (!$this->IsTriggered($currentVal, $checkVal)) { // It is NOT closed
                     $count++;
-                    $name = isset($door['Name']) && $door['Name'] != '' ? $door['Name'] : IPS_GetName($id);
+                    $name = !empty($sensor['name']) ? $sensor['name'] : IPS_GetName($id);
                     $openNames[] = $name;
                 }
             }

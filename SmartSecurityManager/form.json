@@ -1,6 +1,16 @@
 {
     "elements": [
         {
+            "type": "SelectModule",
+            "name": "RegistryID",
+            "caption": "Device Registry",
+            "moduleID": "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
             "type": "ExpansionPanel",
             "caption": "📢 Notifier & Eskalation",
             "items": [
@@ -37,9 +47,19 @@
             "caption": "🚨 Generische Alarm-Sensoren",
             "items": [
                 {
-                    "type": "Button",
-                    "caption": "🔍 Auto-Scan: Fehlende Alarme/Warnungen suchen",
-                    "onClick": "SAM_DiscoverVariables($id, true);"
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Button",
+                            "caption": "🔍 Auto-Scan: Fehlende Alarme suchen",
+                            "onClick": "SAM_DiscoverVariables($id, true);"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "📥 Alarmmelder aus Registry importieren",
+                            "onClick": "SAM_ImportAlarmsFromRegistry($id);"
+                        }
+                    ]
                 },
                 {
                     "type": "List",
@@ -102,71 +122,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Diese Kontakte werden überwacht. Wenn beim Verlassen des Hauses ein Kontakt offen ist, löst das automatisch einen Stufe 2 Alarm aus."
-                },
-                {
-                    "type": "List",
-                    "name": "DoorVariables",
-                    "caption": "Türen",
-                    "rowCount": 5,
-                    "add": true,
-                    "delete": true,
-                    "changeOrder": true,
-                    "columns": [
-                        {
-                            "caption": "Name",
-                            "name": "Name",
-                            "width": "150px",
-                            "add": "",
-                            "edit": { "type": "ValidationTextBox" }
-                        },
-                        {
-                            "caption": "Tür-Kontakt (Sensor)",
-                            "name": "SensorVariableID",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": { "type": "SelectVariable" }
-                        },
-                        {
-                            "caption": "Wert f. Geschlossen",
-                            "name": "ClosedValue",
-                            "width": "150px",
-                            "add": "false",
-                            "edit": { "type": "ValidationTextBox" }
-                        }
-                    ]
-                },
-                {
-                    "type": "List",
-                    "name": "WindowVariables",
-                    "caption": "Fenster",
-                    "rowCount": 10,
-                    "add": true,
-                    "delete": true,
-                    "changeOrder": true,
-                    "columns": [
-                        {
-                            "caption": "Name",
-                            "name": "Name",
-                            "width": "150px",
-                            "add": "",
-                            "edit": { "type": "ValidationTextBox" }
-                        },
-                        {
-                            "caption": "Variable",
-                            "name": "VariableID",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": { "type": "SelectVariable" }
-                        },
-                        {
-                            "caption": "Wert f. Geschlossen",
-                            "name": "ClosedValue",
-                            "width": "150px",
-                            "add": "false",
-                            "edit": { "type": "ValidationTextBox" }
-                        }
-                    ]
+                    "caption": "Türen und Fenster werden nun automatisch und live aus der Device Registry (Liste: Fenster- / Türkontakte) überwacht. Sobald ein Kontakt bei Abwesenheit geöffnet wird, löst dies sofort einen Alarm aus. Eine manuelle Pflege in diesem Modul ist nicht mehr erforderlich."
                 }
             ]
         }

@@ -13,15 +13,11 @@
     "author": "Florian Gra\u00dfinger",
     "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartSecurityManager",
     "properties": {
+        "RegistryID": {
+            "type": "integer",
+            "default": 0
+        },
         "MonitoredVariables": {
-            "type": "string",
-            "default": "[]"
-        },
-        "DoorVariables": {
-            "type": "string",
-            "default": "[]"
-        },
-        "WindowVariables": {
             "type": "string",
             "default": "[]"
         },
