@@ -581,7 +581,11 @@ private function HandleTrigger(array $item): void
 
     private function safeRequestAction(int $id, mixed $value): bool {
         try {
-            $res = RequestAction($id, $value);
+            if (!IPS_VariableExists($id)) {
+                $this->SLogWarning("RequestAction failed", "Variable #$id does not exist.");
+                return false;
+            }
+            $res = @RequestAction($id, $value);
             if ($res === false) {
                 $this->SLogWarning("RequestAction returned false", "ID: $id, Value: " . var_export($value, true));
             }
