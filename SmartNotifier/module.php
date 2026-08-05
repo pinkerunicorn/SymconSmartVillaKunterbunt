@@ -7,9 +7,9 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 
 /**
  * SmartNotifier
- * Zentraler Nachrichten-Hub fÃ¼r das Smart Home.
+ * Zentraler Nachrichten-Hub für das Smart Home.
  *
- * @author Florian GraÃŸinger
+ * @author Florian Graßinger
  * @url https://github.com/pinkerunicorn/
  */
 class SmartNotifier extends IPSModuleStrict
@@ -175,7 +175,7 @@ EOT;
     }
 
     /**
-     * Senden einer Nachricht Ã¼ber den Notifier.
+     * Senden einer Nachricht über den Notifier.
      *
      * @param string $title
      * @param string $message
@@ -237,7 +237,7 @@ EOT;
             
             if ($isHome) {
                 if ($isSleeping || $isCinema) {
-                    // Stumm, wenn man schlÃ¤ft oder Film schaut, aber sofort Push
+                    // Stumm, wenn man schläft oder Film schaut, aber sofort Push
                 } else {
                     $this->TriggerTTS("$title: $message");
                     $this->TriggerMP3P('2'); // z.B. Track 2 = Hinweis
@@ -298,7 +298,7 @@ EOT;
         $count = count($queue);
         $this->SLogInfo( "Guten Morgen. Verarbeite $count gesammelte Nachrichten.");
 
-        $ttsMsg = "Guten Morgen. WÃ¤hrend du geschlafen hast, gab es $count Meldungen. ";
+        $ttsMsg = "Guten Morgen. Während du geschlafen hast, gab es $count Meldungen. ";
         foreach ($queue as $item) {
             $ttsMsg .= $item['title'] . ": " . $item['message'] . ". ";
         }
