@@ -214,6 +214,15 @@ EOT;
         $isCinema = $this->IsCinema();
 
         // --------------------------------------------------------
+        // Absoluter Schlaf-Modus (DND): Keine Ausgabe, alles in die Queue
+        // --------------------------------------------------------
+        if ($isSleeping) {
+            $this->QueueMessage($title, $message);
+            $this->SLogInfo("Schlafmodus aktiv: Nachricht in die Morgen-Warteschlange verschoben.");
+            return;
+        }
+
+        // --------------------------------------------------------
         // High Priority (2) -> Immer volle Eskalation
         // --------------------------------------------------------
         if ($priority >= 2) {
@@ -236,7 +245,7 @@ EOT;
             $this->TriggerVestaboard("$title: $message");
             
             if ($isHome) {
-                if ($isSleeping || $isCinema) {
+                if ($isCinema) {
                     // Stumm, wenn man schläft oder Film schaut, aber sofort Push
                 } else {
                     $this->TriggerTTS("$title: $message");
@@ -250,14 +259,6 @@ EOT;
         // Low Priority (0) -> Queueing nachts, sonst normales Feedback
         // --------------------------------------------------------
         if ($priority === 0) {
-            if ($isHome && $isSleeping) {
-                // Queue for morning!
-                $this->QueueMessage($title, $message);
-                // Stiller Push zur Info
-                $this->TriggerPush($title, $message, '', $actions);
-                return;
-            }
-            
             $this->TriggerPush($title, $message, '', $actions);
             if ($isHome && !$isCinema) {
                 $this->TriggerTTS($message); // Ohne Titel, nur die kurze Nachricht
