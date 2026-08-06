@@ -41,10 +41,11 @@ if (!trait_exists('HardwareControl_Trait')) {
             // 2. Prüfe lokalen Simulationsmodus im aktuellen Modul
             $localSimulation = false;
             try {
-                $localSimulation = $this->ReadPropertyBoolean('SimulationMode');
+                $localSimulation = (bool)@$this->ReadPropertyBoolean('SimulationMode');
             } catch (\Throwable $e) {
                 // Property existiert bei diesem Modul (noch) nicht
             }
+
 
             // 3. Auswertung
             if ($globalSimulation || $localSimulation) {
