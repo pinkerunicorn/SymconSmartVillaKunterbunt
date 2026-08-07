@@ -195,23 +195,23 @@ class SmartEntrance extends IPSModuleStrict
             $value = $Data[0];
             
             // Mailbox Flap
-            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxFlap') && $this->ValuesMatch($value, $this->ReadPropertyString('FlapTriggerValue'))) {
+            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxFlap') && $this->ValuesMatch($value, $this->ReadPropertyString('FlapTriggerValue'), $SenderID)) {
                 $this->TriggerMailbox(true);
             }
             // Mailbox Door
-            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxDoor') && $this->ValuesMatch($value, $this->ReadPropertyString('DoorTriggerValue'))) {
+            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxDoor') && $this->ValuesMatch($value, $this->ReadPropertyString('DoorTriggerValue'), $SenderID)) {
                 $this->TriggerMailbox(false);
             }
             // Doorbell 1
-            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell1') && $this->ValuesMatch($value, $this->ReadPropertyString('Doorbell1TriggerValue'))) {
+            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell1') && $this->ValuesMatch($value, $this->ReadPropertyString('Doorbell1TriggerValue'), $SenderID)) {
                 $this->TriggerDoorbell(1);
             }
             // Doorbell 2
-            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell2') && $this->ValuesMatch($value, $this->ReadPropertyString('Doorbell2TriggerValue'))) {
+            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell2') && $this->ValuesMatch($value, $this->ReadPropertyString('Doorbell2TriggerValue'), $SenderID)) {
                 $this->TriggerDoorbell(2);
             }
             // Absence Button
-            if ($SenderID === $this->ReadPropertyInteger('SourceAbsenceButton') && $this->ValuesMatch($value, $this->ReadPropertyString('AbsenceButtonTriggerValue'))) {
+            if ($SenderID === $this->ReadPropertyInteger('SourceAbsenceButton') && $this->ValuesMatch($value, $this->ReadPropertyString('AbsenceButtonTriggerValue'), $SenderID)) {
                 $this->TriggerAbsence();
             }
         }
@@ -743,7 +743,7 @@ class SmartEntrance extends IPSModuleStrict
 EOT;
     }
 
-    private function ValuesMatch(mixed $currentVal, string $targetValStr): bool
+    private function ValuesMatch(mixed $currentVal, string $targetValStr, int $variableID = 0): bool
     {
         $targetValStr = trim(strtolower($targetValStr));
         if ($targetValStr === 'true' || $targetValStr === '1') {
@@ -752,6 +752,25 @@ EOT;
         if ($targetValStr === 'false' || $targetValStr === '0') {
             return (bool)$currentVal === false || (string)$currentVal === '0';
         }
+        
+        // Versuche das Variablenprofil aufzulösen (z.B. wenn der User "OPEN" eingetragen hat, die Variable aber 1 ist)
+        if ($variableID > 0 && IPS_VariableExists($variableID)) {
+            $var = IPS_GetVariable($variableID);
+            $profileName = $var['VariableCustomProfile'] !== "" ? $var['VariableCustomProfile'] : $var['VariableProfile'];
+            if ($profileName !== "") {
+                $profile = IPS_GetVariableProfile($profileName);
+                if (isset($profile['Associations'])) {
+                    foreach ($profile['Associations'] as $assoc) {
+                        if (strtolower(trim($assoc['Name'])) === $targetValStr) {
+                            if ($currentVal == $assoc['Value']) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         return strtolower(trim((string)$currentVal)) === $targetValStr;
     }
 
