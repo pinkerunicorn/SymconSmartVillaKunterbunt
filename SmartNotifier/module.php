@@ -35,14 +35,16 @@ class SmartNotifier extends IPSModuleStrict
         $this->RegisterPropertyBoolean('EnableVestaboard', true);
         $this->RegisterPropertyBoolean('EnableSMTP', true);
 
-        // MP3P Gong Customizations (Track, Volume & LED Color for High / Low)
+        // MP3P Gong Customizations (Track, Volume, LED Color & Duration for High / Low)
         $this->RegisterPropertyString('MP3P_Track_High', '1');
         $this->RegisterPropertyInteger('MP3P_Volume_High', 80);
         $this->RegisterPropertyInteger('MP3P_LED_Color_High', 4); // 4 = Rot
+        $this->RegisterPropertyInteger('MP3P_LED_Duration_High', 5);
 
         $this->RegisterPropertyString('MP3P_Track_Low', '2');
         $this->RegisterPropertyInteger('MP3P_Volume_Low', 50);
         $this->RegisterPropertyInteger('MP3P_LED_Color_Low', 6); // 6 = Gelb / Orange
+        $this->RegisterPropertyInteger('MP3P_LED_Duration_Low', 5);
 
         // Buffers for Queuing
         $this->SetBuffer('MessageQueue', json_encode([]));
@@ -168,6 +170,13 @@ class SmartNotifier extends IPSModuleStrict
                                 { "caption": "Gelb / Orange", "value": 6 },
                                 { "caption": "Weiß", "value": 7 }
                             ]
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "MP3P_LED_Duration_High",
+                            "caption": "LED Dauer (s, 0=unendlich)",
+                            "minimum": 0,
+                            "suffix": "s"
                         }
                     ]
                 },
@@ -206,6 +215,13 @@ class SmartNotifier extends IPSModuleStrict
                                 { "caption": "Gelb / Orange", "value": 6 },
                                 { "caption": "Weiß", "value": 7 }
                             ]
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "MP3P_LED_Duration_Low",
+                            "caption": "LED Dauer (s, 0=unendlich)",
+                            "minimum": 0,
+                            "suffix": "s"
                         }
                     ]
                 }
@@ -326,7 +342,8 @@ EOT;
                 $track = $this->ReadPropertyString('MP3P_Track_High');
                 $vol = $this->ReadPropertyInteger('MP3P_Volume_High');
                 $color = $this->ReadPropertyInteger('MP3P_LED_Color_High');
-                $this->TriggerMP3P($track, $vol, $color);
+                $duration = $this->ReadPropertyInteger('MP3P_LED_Duration_High');
+                $this->TriggerMP3P($track, $vol, $color, $duration);
             }
             return;
         }
@@ -348,7 +365,8 @@ EOT;
                     $track = $this->ReadPropertyString('MP3P_Track_Low');
                     $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
                     $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
-                    $this->TriggerMP3P($track, $vol, $color);
+                    $duration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
+                    $this->TriggerMP3P($track, $vol, $color, $duration);
                 }
             }
             return;
@@ -360,13 +378,14 @@ EOT;
         if ($priority === 0) {
             $this->TriggerPush($title, $message, '', $actions);
             if ($isHome && !$isCinema) {
-                $this->TriggerTTS($message); // Ohne Titel, nur die kurze Nachricht
+                $this->TriggerTTS($message);
                 
                 $track = $this->ReadPropertyString('MP3P_Track_Low');
                 $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
                 $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
+                $duration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
                 if ($track !== '') {
-                    $this->TriggerMP3P($track, $vol, $color);
+                    $this->TriggerMP3P($track, $vol, $color, $duration);
                 }
             }
         }
@@ -460,27 +479,30 @@ EOT;
         }
     }
 
-    private function TriggerMP3P(string $soundTrack, int $volume = 80, int $color = 0): void
+    private function TriggerMP3P(string $soundTrack, int $volume = 80, int $color = 0, int $duration = 5): void
     {
         if (!$this->ReadPropertyBoolean('EnableMP3P')) return;
 
         $mp3Id = $this->ReadPropertyInteger('TargetMP3P');
         if ($mp3Id > 0 && @IPS_InstanceExists($mp3Id)) {
             try {
-                if (function_exists('MP3P_PlaySound')) {
-                    @MP3P_PlaySound($mp3Id, $soundTrack, $volume, 0);
-                } else {
-                    // Fallback HM-Aufruf
-                    $param = "L={$volume},DU=0,DV=0,RTU=0,RTV=0,R=0,SL={$soundTrack}";
-                    @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $param);
+                if ($soundTrack !== '' && $volume > 0) {
+                    if (function_exists('MP3P_PlaySound')) {
+                        @MP3P_PlaySound($mp3Id, $soundTrack, $volume, 0);
+                    } else {
+                        // Fallback HM-Aufruf
+                        $param = "L={$volume},DU=0,DV=0,RTU=0,RTV=0,R=0,SL={$soundTrack}";
+                        @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $param);
+                    }
                 }
 
                 if ($color > 0) {
                     if (function_exists('MP3P_SetLight')) {
-                        @MP3P_SetLight($mp3Id, $color, 100, 5); // 5 Sekunden Signal
+                        @MP3P_SetLight($mp3Id, $color, 100, $duration);
                     } else {
                         // Fallback LED HM-Aufruf
-                        $ledParam = "L=100,DV=5,DU=0,RTV=0,RTU=0,C={$color}";
+                        $rtu = ($duration === 0) ? 1 : 0;
+                        $ledParam = "L=100,DV={$duration},DU=0,RTV=0,RTU={$rtu},C={$color}";
                         @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $ledParam);
                     }
                 }
