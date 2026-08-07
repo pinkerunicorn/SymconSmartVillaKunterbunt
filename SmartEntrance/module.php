@@ -51,11 +51,19 @@ class SmartEntrance extends IPSModuleStrict
         // --- Properties: MP3P Gong & Signalisierung ---
         $this->RegisterPropertyInteger('TargetMP3P', 0);
 
-        $this->RegisterPropertyString('DoorbellMP3P_Track', '1');
-        $this->RegisterPropertyInteger('DoorbellMP3P_Volume', 80);
-        $this->RegisterPropertyInteger('DoorbellMP3P_LEDColor', 1); // 1 = Blau
-        $this->RegisterPropertyInteger('DoorbellMP3P_LEDDuration', 5);
+        // Klingel 1 (z.B. Haustür)
+        $this->RegisterPropertyString('Doorbell1MP3P_Track', '1');
+        $this->RegisterPropertyInteger('Doorbell1MP3P_Volume', 80);
+        $this->RegisterPropertyInteger('Doorbell1MP3P_LEDColor', 1); // 1 = Blau
+        $this->RegisterPropertyInteger('Doorbell1MP3P_LEDDuration', 5);
 
+        // Klingel 2 (z.B. Nebentür / Einlieger)
+        $this->RegisterPropertyString('Doorbell2MP3P_Track', '3');
+        $this->RegisterPropertyInteger('Doorbell2MP3P_Volume', 80);
+        $this->RegisterPropertyInteger('Doorbell2MP3P_LEDColor', 3); // 3 = Türkis
+        $this->RegisterPropertyInteger('Doorbell2MP3P_LEDDuration', 5);
+
+        // Briefkasten
         $this->RegisterPropertyString('MailboxMP3P_Track', '2');
         $this->RegisterPropertyInteger('MailboxMP3P_Volume', 50);
         $this->RegisterPropertyInteger('MailboxMP3P_LEDColor', 6); // 6 = Gelb / Orange
@@ -247,13 +255,13 @@ class SmartEntrance extends IPSModuleStrict
         $this->SLogInfo('Klingel', "Klingel ausgelöst: $bellName");
         $this->SendToNotifier('Klingel', "Es hat an der Türklingel ($bellName) geklingelt.", 1);
 
-        // MP3-Gong Signalisierung für Türklingel
-        $this->TriggerMP3P(
-            $this->ReadPropertyString('DoorbellMP3P_Track'),
-            $this->ReadPropertyInteger('DoorbellMP3P_Volume'),
-            $this->ReadPropertyInteger('DoorbellMP3P_LEDColor'),
-            $this->ReadPropertyInteger('DoorbellMP3P_LEDDuration')
-        );
+        // Individuelle MP3-Gong Signalisierung je nach Klingel (Klingel 1 oder Klingel 2)
+        $track    = $this->ReadPropertyString("Doorbell{$bellNumber}MP3P_Track");
+        $volume   = $this->ReadPropertyInteger("Doorbell{$bellNumber}MP3P_Volume");
+        $color    = $this->ReadPropertyInteger("Doorbell{$bellNumber}MP3P_LEDColor");
+        $duration = $this->ReadPropertyInteger("Doorbell{$bellNumber}MP3P_LEDDuration");
+
+        $this->TriggerMP3P($track, $volume, $color, $duration);
     }
 
     public function ResetDoorbell(int $bellNumber): void
@@ -519,7 +527,7 @@ class SmartEntrance extends IPSModuleStrict
         },
         {
             "type": "ExpansionPanel",
-            "caption": "🔊 MP3-Gong Signalisierung (Klingel & Briefkasten)",
+            "caption": "🔊 MP3-Gong Signalisierung (Klingeln & Briefkasten)",
             "items": [
                 {
                     "type": "SelectInstance",
@@ -529,16 +537,16 @@ class SmartEntrance extends IPSModuleStrict
                 {
                     "type": "Label",
                     "bold": true,
-                    "caption": "🔔 Türklingel Signalisierung:"
+                    "caption": "🔔 Klingel 1 Signalisierung (z.B. Haustür):"
                 },
                 {
                     "type": "RowLayout",
                     "items": [
-                        { "type": "ValidationTextBox", "name": "DoorbellMP3P_Track", "caption": "Track (z.B. 1)" },
-                        { "type": "NumberSpinner", "name": "DoorbellMP3P_Volume", "caption": "Lautstärke (%)", "minimum": 0, "maximum": 100, "suffix": "%" },
+                        { "type": "ValidationTextBox", "name": "Doorbell1MP3P_Track", "caption": "Track (z.B. 1)" },
+                        { "type": "NumberSpinner", "name": "Doorbell1MP3P_Volume", "caption": "Lautstärke (%)", "minimum": 0, "maximum": 100, "suffix": "%" },
                         {
                             "type": "Select",
-                            "name": "DoorbellMP3P_LEDColor",
+                            "name": "Doorbell1MP3P_LEDColor",
                             "caption": "LED Farbe",
                             "options": [
                                 { "caption": "Aus", "value": 0 },
@@ -551,7 +559,35 @@ class SmartEntrance extends IPSModuleStrict
                                 { "caption": "Weiß", "value": 7 }
                             ]
                         },
-                        { "type": "NumberSpinner", "name": "DoorbellMP3P_LEDDuration", "caption": "LED Dauer (s)", "minimum": 0, "suffix": "s" }
+                        { "type": "NumberSpinner", "name": "Doorbell1MP3P_LEDDuration", "caption": "LED Dauer (s, 0=unendlich)", "minimum": 0, "suffix": "s" }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "bold": true,
+                    "caption": "🔔 Klingel 2 Signalisierung (z.B. Nebentür / Einlieger):"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        { "type": "ValidationTextBox", "name": "Doorbell2MP3P_Track", "caption": "Track (z.B. 3)" },
+                        { "type": "NumberSpinner", "name": "Doorbell2MP3P_Volume", "caption": "Lautstärke (%)", "minimum": 0, "maximum": 100, "suffix": "%" },
+                        {
+                            "type": "Select",
+                            "name": "Doorbell2MP3P_LEDColor",
+                            "caption": "LED Farbe",
+                            "options": [
+                                { "caption": "Aus", "value": 0 },
+                                { "caption": "Blau", "value": 1 },
+                                { "caption": "Grün", "value": 2 },
+                                { "caption": "Türkis", "value": 3 },
+                                { "caption": "Rot", "value": 4 },
+                                { "caption": "Violett", "value": 5 },
+                                { "caption": "Gelb / Orange", "value": 6 },
+                                { "caption": "Weiß", "value": 7 }
+                            ]
+                        },
+                        { "type": "NumberSpinner", "name": "Doorbell2MP3P_LEDDuration", "caption": "LED Dauer (s, 0=unendlich)", "minimum": 0, "suffix": "s" }
                     ]
                 },
                 {
@@ -579,7 +615,7 @@ class SmartEntrance extends IPSModuleStrict
                                 { "caption": "Weiß", "value": 7 }
                             ]
                         },
-                        { "type": "NumberSpinner", "name": "MailboxMP3P_LEDDuration", "caption": "LED Dauer (s)", "minimum": 0, "suffix": "s" }
+                        { "type": "NumberSpinner", "name": "MailboxMP3P_LEDDuration", "caption": "LED Dauer (s, 0=unendlich)", "minimum": 0, "suffix": "s" }
                     ]
                 }
             ]
