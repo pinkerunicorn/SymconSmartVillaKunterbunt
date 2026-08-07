@@ -721,6 +721,29 @@ class SmartEntrance extends IPSModuleStrict
 EOT;
     }
 
+    private function ValuesMatch(mixed $currentVal, string $targetValStr): bool
+    {
+        $targetValStr = trim(strtolower($targetValStr));
+        if ($targetValStr === 'true' || $targetValStr === '1') {
+            return (bool)$currentVal === true || (string)$currentVal === '1';
+        }
+        if ($targetValStr === 'false' || $targetValStr === '0') {
+            return (bool)$currentVal === false || (string)$currentVal === '0';
+        }
+        return strtolower(trim((string)$currentVal)) === $targetValStr;
+    }
+
+    private function ParseTypedValue(string $valStr): mixed
+    {
+        $str = trim(strtolower($valStr));
+        if ($str === 'true') return true;
+        if ($str === 'false') return false;
+        if (is_numeric($str)) {
+            return str_contains($str, '.') ? (float)$str : (int)$str;
+        }
+        return $valStr;
+    }
+
     private function safeJsonDecode(string $json, bool $assoc = true) {
         try {
             if (trim($json) === '') return $assoc ? [] : null;
