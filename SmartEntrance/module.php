@@ -193,26 +193,42 @@ class SmartEntrance extends IPSModuleStrict
 
         if ($Message === VM_UPDATE) {
             $value = $Data[0];
+            $this->SLogInfo('MessageSink', "VM_UPDATE empfangen von ID: $SenderID mit Wert: [" . (string)$value . "]");
             
             // Mailbox Flap
-            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxFlap') && $this->ValuesMatch($value, $this->ReadPropertyString('FlapTriggerValue'), $SenderID)) {
-                $this->TriggerMailbox(true);
+            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxFlap')) {
+                $this->SLogInfo('MessageSink', "Prüfe Flap...");
+                if ($this->ValuesMatch($value, $this->ReadPropertyString('FlapTriggerValue'), $SenderID)) {
+                    $this->TriggerMailbox(true);
+                }
             }
             // Mailbox Door
-            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxDoor') && $this->ValuesMatch($value, $this->ReadPropertyString('DoorTriggerValue'), $SenderID)) {
-                $this->TriggerMailbox(false);
+            if ($SenderID === $this->ReadPropertyInteger('SourceMailboxDoor')) {
+                $this->SLogInfo('MessageSink', "Prüfe Door...");
+                if ($this->ValuesMatch($value, $this->ReadPropertyString('DoorTriggerValue'), $SenderID)) {
+                    $this->TriggerMailbox(false);
+                }
             }
             // Doorbell 1
-            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell1') && $this->ValuesMatch($value, $this->ReadPropertyString('Doorbell1TriggerValue'), $SenderID)) {
-                $this->TriggerDoorbell(1);
+            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell1')) {
+                $this->SLogInfo('MessageSink', "Prüfe Doorbell 1...");
+                if ($this->ValuesMatch($value, $this->ReadPropertyString('Doorbell1TriggerValue'), $SenderID)) {
+                    $this->TriggerDoorbell(1);
+                }
             }
             // Doorbell 2
-            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell2') && $this->ValuesMatch($value, $this->ReadPropertyString('Doorbell2TriggerValue'), $SenderID)) {
-                $this->TriggerDoorbell(2);
+            if ($SenderID === $this->ReadPropertyInteger('SourceDoorbell2')) {
+                $this->SLogInfo('MessageSink', "Prüfe Doorbell 2...");
+                if ($this->ValuesMatch($value, $this->ReadPropertyString('Doorbell2TriggerValue'), $SenderID)) {
+                    $this->TriggerDoorbell(2);
+                }
             }
             // Absence Button
-            if ($SenderID === $this->ReadPropertyInteger('SourceAbsenceButton') && $this->ValuesMatch($value, $this->ReadPropertyString('AbsenceButtonTriggerValue'), $SenderID)) {
-                $this->TriggerAbsence();
+            if ($SenderID === $this->ReadPropertyInteger('SourceAbsenceButton')) {
+                $this->SLogInfo('MessageSink', "Prüfe Absence Button...");
+                if ($this->ValuesMatch($value, $this->ReadPropertyString('AbsenceButtonTriggerValue'), $SenderID)) {
+                    $this->TriggerAbsence();
+                }
             }
         }
     }
@@ -745,12 +761,17 @@ EOT;
 
     private function ValuesMatch(mixed $currentVal, string $targetValStr, int $variableID = 0): bool
     {
+        $origTarget = $targetValStr;
         $targetValStr = trim(strtolower($targetValStr));
         if ($targetValStr === 'true' || $targetValStr === '1') {
-            return (bool)$currentVal === true || (string)$currentVal === '1';
+            $res = ((bool)$currentVal === true || (string)$currentVal === '1');
+            if ($res) $this->SLogInfo('ValuesMatch', "Match durch true/1: VariableID=$variableID");
+            return $res;
         }
         if ($targetValStr === 'false' || $targetValStr === '0') {
-            return (bool)$currentVal === false || (string)$currentVal === '0';
+            $res = ((bool)$currentVal === false || (string)$currentVal === '0');
+            if ($res) $this->SLogInfo('ValuesMatch', "Match durch false/0: VariableID=$variableID");
+            return $res;
         }
         
         // Versuche das Variablenprofil aufzulösen (z.B. wenn der User "OPEN" eingetragen hat, die Variable aber 1 ist)
@@ -763,6 +784,7 @@ EOT;
                     foreach ($profile['Associations'] as $assoc) {
                         if (strtolower(trim($assoc['Name'])) === $targetValStr) {
                             if ($currentVal == $assoc['Value']) {
+                                $this->SLogInfo('ValuesMatch', "Match durch Profil gefunden: VariableID=$variableID, Association=" . $assoc['Name']);
                                 return true;
                             }
                         }
@@ -771,7 +793,11 @@ EOT;
             }
         }
         
-        return strtolower(trim((string)$currentVal)) === $targetValStr;
+        $result = strtolower(trim((string)$currentVal)) === $targetValStr;
+        if (!$result) {
+            $this->SLogInfo('ValuesMatch', "Kein Match: VariableID=$variableID, Typ=" . gettype($currentVal) . ", currentVal=[" . (string)$currentVal . "], targetValStr=[$targetValStr]");
+        }
+        return $result;
     }
 
     private function ParseTypedValue(string $valStr): mixed
