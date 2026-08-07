@@ -35,14 +35,16 @@ class SmartNotifier extends IPSModuleStrict
         $this->RegisterPropertyBoolean('EnableVestaboard', true);
         $this->RegisterPropertyBoolean('EnableSMTP', true);
 
-        // MP3P Gong Customizations (Track, Volume, LED Color & Duration for High / Low)
+        // MP3P Gong Customizations (Track, Volume, Track Duration, LED Color & LED Duration for High / Low)
         $this->RegisterPropertyString('MP3P_Track_High', '1');
         $this->RegisterPropertyInteger('MP3P_Volume_High', 80);
+        $this->RegisterPropertyInteger('MP3P_Track_Duration_High', 0); // 0 = 1x abspielen
         $this->RegisterPropertyInteger('MP3P_LED_Color_High', 4); // 4 = Rot
         $this->RegisterPropertyInteger('MP3P_LED_Duration_High', 5);
 
         $this->RegisterPropertyString('MP3P_Track_Low', '2');
         $this->RegisterPropertyInteger('MP3P_Volume_Low', 50);
+        $this->RegisterPropertyInteger('MP3P_Track_Duration_Low', 0); // 0 = 1x abspielen
         $this->RegisterPropertyInteger('MP3P_LED_Color_Low', 6); // 6 = Gelb / Orange
         $this->RegisterPropertyInteger('MP3P_LED_Duration_Low', 5);
 
@@ -157,6 +159,13 @@ class SmartNotifier extends IPSModuleStrict
                             "suffix": "%"
                         },
                         {
+                            "type": "NumberSpinner",
+                            "name": "MP3P_Track_Duration_High",
+                            "caption": "Track Dauer (s, 0=1x abspielen)",
+                            "minimum": 0,
+                            "suffix": "s"
+                        },
+                        {
                             "type": "Select",
                             "name": "MP3P_LED_Color_High",
                             "caption": "LED Farbe",
@@ -200,6 +209,13 @@ class SmartNotifier extends IPSModuleStrict
                             "minimum": 0,
                             "maximum": 100,
                             "suffix": "%"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "MP3P_Track_Duration_Low",
+                            "caption": "Track Dauer (s, 0=1x abspielen)",
+                            "minimum": 0,
+                            "suffix": "s"
                         },
                         {
                             "type": "Select",
@@ -341,9 +357,10 @@ EOT;
                 
                 $track = $this->ReadPropertyString('MP3P_Track_High');
                 $vol = $this->ReadPropertyInteger('MP3P_Volume_High');
+                $trackDuration = $this->ReadPropertyInteger('MP3P_Track_Duration_High');
                 $color = $this->ReadPropertyInteger('MP3P_LED_Color_High');
-                $duration = $this->ReadPropertyInteger('MP3P_LED_Duration_High');
-                $this->TriggerMP3P($track, $vol, $color, $duration);
+                $ledDuration = $this->ReadPropertyInteger('MP3P_LED_Duration_High');
+                $this->TriggerMP3P($track, $vol, $trackDuration, $color, $ledDuration);
             }
             return;
         }
@@ -364,9 +381,10 @@ EOT;
                     
                     $track = $this->ReadPropertyString('MP3P_Track_Low');
                     $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
+                    $trackDuration = $this->ReadPropertyInteger('MP3P_Track_Duration_Low');
                     $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
-                    $duration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
-                    $this->TriggerMP3P($track, $vol, $color, $duration);
+                    $ledDuration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
+                    $this->TriggerMP3P($track, $vol, $trackDuration, $color, $ledDuration);
                 }
             }
             return;
@@ -382,10 +400,11 @@ EOT;
                 
                 $track = $this->ReadPropertyString('MP3P_Track_Low');
                 $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
+                $trackDuration = $this->ReadPropertyInteger('MP3P_Track_Duration_Low');
                 $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
-                $duration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
+                $ledDuration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
                 if ($track !== '') {
-                    $this->TriggerMP3P($track, $vol, $color, $duration);
+                    $this->TriggerMP3P($track, $vol, $trackDuration, $color, $ledDuration);
                 }
             }
         }
@@ -479,7 +498,7 @@ EOT;
         }
     }
 
-    private function TriggerMP3P(string $soundTrack, int $volume = 80, int $color = 0, int $duration = 5): void
+    private function TriggerMP3P(string $soundTrack, int $volume = 80, int $trackDuration = 0, int $color = 0, int $duration = 5): void
     {
         if (!$this->ReadPropertyBoolean('EnableMP3P')) return;
 
@@ -488,10 +507,10 @@ EOT;
             try {
                 if ($soundTrack !== '' && $volume > 0) {
                     if (function_exists('MP3P_PlaySound')) {
-                        @MP3P_PlaySound($mp3Id, $soundTrack, $volume, 0);
+                        @MP3P_PlaySound($mp3Id, $soundTrack, $volume, $trackDuration);
                     } else {
                         // Fallback HM-Aufruf
-                        $param = "L={$volume},DU=0,DV=0,RTU=0,RTV=0,R=0,SL={$soundTrack}";
+                        $param = "L={$volume},DU=0,DV={$trackDuration},RTU=0,RTV=0,R=0,SL={$soundTrack}";
                         @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $param);
                     }
                 }
