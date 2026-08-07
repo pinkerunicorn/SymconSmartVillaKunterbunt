@@ -35,6 +35,15 @@ class SmartNotifier extends IPSModuleStrict
         $this->RegisterPropertyBoolean('EnableVestaboard', true);
         $this->RegisterPropertyBoolean('EnableSMTP', true);
 
+        // MP3P Gong Customizations (Track, Volume & LED Color for High / Low)
+        $this->RegisterPropertyString('MP3P_Track_High', '1');
+        $this->RegisterPropertyInteger('MP3P_Volume_High', 80);
+        $this->RegisterPropertyInteger('MP3P_LED_Color_High', 4); // 4 = Rot
+
+        $this->RegisterPropertyString('MP3P_Track_Low', '2');
+        $this->RegisterPropertyInteger('MP3P_Volume_Low', 50);
+        $this->RegisterPropertyInteger('MP3P_LED_Color_Low', 6); // 6 = Gelb / Orange
+
         // Buffers for Queuing
         $this->SetBuffer('MessageQueue', json_encode([]));
     }
@@ -111,14 +120,96 @@ class SmartNotifier extends IPSModuleStrict
             "caption": "Sprachausgabe aktivieren"
         },
         {
-            "type": "SelectInstance",
-            "name": "TargetMP3P",
-            "caption": "HmIP MP3P Instanz"
-        },
-        {
-            "type": "CheckBox",
-            "name": "EnableMP3P",
-            "caption": "MP3-Gong aktivieren"
+            "type": "ExpansionPanel",
+            "caption": "🔔 HmIP MP3-Gong Einstellungen",
+            "items": [
+                {
+                    "type": "SelectInstance",
+                    "name": "TargetMP3P",
+                    "caption": "HmIP MP3P Instanz"
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "EnableMP3P",
+                    "caption": "MP3-Gong aktivieren"
+                },
+                {
+                    "type": "Label",
+                    "bold": true,
+                    "caption": "High Priority (Alarm):"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "MP3P_Track_High",
+                            "caption": "Track (z.B. 1)"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "MP3P_Volume_High",
+                            "caption": "Lautstärke (%)",
+                            "minimum": 0,
+                            "maximum": 100,
+                            "suffix": "%"
+                        },
+                        {
+                            "type": "Select",
+                            "name": "MP3P_LED_Color_High",
+                            "caption": "LED Farbe",
+                            "options": [
+                                { "caption": "Aus", "value": 0 },
+                                { "caption": "Blau", "value": 1 },
+                                { "caption": "Grün", "value": 2 },
+                                { "caption": "Türkis", "value": 3 },
+                                { "caption": "Rot", "value": 4 },
+                                { "caption": "Violett", "value": 5 },
+                                { "caption": "Gelb / Orange", "value": 6 },
+                                { "caption": "Weiß", "value": 7 }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "bold": true,
+                    "caption": "Low / Medium Priority (Hinweis):"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "ValidationTextBox",
+                            "name": "MP3P_Track_Low",
+                            "caption": "Track (z.B. 2)"
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "MP3P_Volume_Low",
+                            "caption": "Lautstärke (%)",
+                            "minimum": 0,
+                            "maximum": 100,
+                            "suffix": "%"
+                        },
+                        {
+                            "type": "Select",
+                            "name": "MP3P_LED_Color_Low",
+                            "caption": "LED Farbe",
+                            "options": [
+                                { "caption": "Aus", "value": 0 },
+                                { "caption": "Blau", "value": 1 },
+                                { "caption": "Grün", "value": 2 },
+                                { "caption": "Türkis", "value": 3 },
+                                { "caption": "Rot", "value": 4 },
+                                { "caption": "Violett", "value": 5 },
+                                { "caption": "Gelb / Orange", "value": 6 },
+                                { "caption": "Weiß", "value": 7 }
+                            ]
+                        }
+                    ]
+                }
+            ]
         },
         {
             "type": "SelectInstance",
@@ -185,7 +276,7 @@ EOT;
     {
         $payload = json_decode($PayloadJSON, true);
         if (!is_array($payload)) {
-            $this->SLogError( 'SmartNotifier: Invalid JSON payload');
+            $this->SLogError('SmartNotifier: Invalid JSON payload');
             return;
         }
         
@@ -207,7 +298,7 @@ EOT;
 
     private function ProcessEvent(string $title, string $message, int $priority, array $actions): void
     {
-        $this->SLogInfo( "Message received: [$title] $message (Prio: $priority)");
+        $this->SLogInfo("Message received: [$title] $message (Prio: $priority)");
 
         $isHome = $this->IsHome();
         $isSleeping = $this->IsSleeping();
@@ -231,7 +322,11 @@ EOT;
             $this->TriggerVestaboard("$title: $message");
             if ($isHome) {
                 $this->TriggerTTS("Achtung! $title: $message");
-                $this->TriggerMP3P('1'); // z.B. Track 1 = Alarm
+                
+                $track = $this->ReadPropertyString('MP3P_Track_High');
+                $vol = $this->ReadPropertyInteger('MP3P_Volume_High');
+                $color = $this->ReadPropertyInteger('MP3P_LED_Color_High');
+                $this->TriggerMP3P($track, $vol, $color);
             }
             return;
         }
@@ -249,7 +344,11 @@ EOT;
                     // Stumm, wenn man schläft oder Film schaut, aber sofort Push
                 } else {
                     $this->TriggerTTS("$title: $message");
-                    $this->TriggerMP3P('2'); // z.B. Track 2 = Hinweis
+                    
+                    $track = $this->ReadPropertyString('MP3P_Track_Low');
+                    $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
+                    $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
+                    $this->TriggerMP3P($track, $vol, $color);
                 }
             }
             return;
@@ -262,6 +361,13 @@ EOT;
             $this->TriggerPush($title, $message, '', $actions);
             if ($isHome && !$isCinema) {
                 $this->TriggerTTS($message); // Ohne Titel, nur die kurze Nachricht
+                
+                $track = $this->ReadPropertyString('MP3P_Track_Low');
+                $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
+                $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
+                if ($track !== '') {
+                    $this->TriggerMP3P($track, $vol, $color);
+                }
             }
         }
     }
@@ -281,7 +387,7 @@ EOT;
         ];
 
         $this->SetBuffer('MessageQueue', json_encode($queue));
-        $this->SLogInfo( "Nachricht in Morning-Queue gespeichert: $message");
+        $this->SLogInfo("Nachricht in Morning-Queue gespeichert: $message");
     }
 
     private function ProcessMorningQueue(): void
@@ -297,7 +403,7 @@ EOT;
         }
 
         $count = count($queue);
-        $this->SLogInfo( "Guten Morgen. Verarbeite $count gesammelte Nachrichten.");
+        $this->SLogInfo("Guten Morgen. Verarbeite $count gesammelte Nachrichten.");
 
         $ttsMsg = "Guten Morgen. Während du geschlafen hast, gab es $count Meldungen. ";
         foreach ($queue as $item) {
@@ -349,12 +455,12 @@ EOT;
                     @SNS_PlayText($sonosId, $message);
                 }
             } catch (Exception $e) {
-                $this->SLogError( "Fehler bei Sonos TTS: " . $e->getMessage());
+                $this->SLogError("Fehler bei Sonos TTS: " . $e->getMessage());
             }
         }
     }
 
-    private function TriggerMP3P(string $soundTrack): void
+    private function TriggerMP3P(string $soundTrack, int $volume = 80, int $color = 0): void
     {
         if (!$this->ReadPropertyBoolean('EnableMP3P')) return;
 
@@ -362,14 +468,24 @@ EOT;
         if ($mp3Id > 0 && @IPS_InstanceExists($mp3Id)) {
             try {
                 if (function_exists('MP3P_PlaySound')) {
-                    @MP3P_PlaySound($mp3Id, $soundTrack, 100, 0);
+                    @MP3P_PlaySound($mp3Id, $soundTrack, $volume, 0);
                 } else {
                     // Fallback HM-Aufruf
-                    $param = "L=100,DU=0,DV=0,RTU=0,RTV=0,R=0,SL={$soundTrack}";
+                    $param = "L={$volume},DU=0,DV=0,RTU=0,RTV=0,R=0,SL={$soundTrack}";
                     @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $param);
                 }
+
+                if ($color > 0) {
+                    if (function_exists('MP3P_SetLight')) {
+                        @MP3P_SetLight($mp3Id, $color, 100, 5); // 5 Sekunden Signal
+                    } else {
+                        // Fallback LED HM-Aufruf
+                        $ledParam = "L=100,DV=5,DU=0,RTV=0,RTU=0,C={$color}";
+                        @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $ledParam);
+                    }
+                }
             } catch (Exception $e) {
-                $this->SLogError( 'Fehler MP3P Fallback: ' . $e->getMessage());
+                $this->SLogError('Fehler MP3P: ' . $e->getMessage());
             }
         }
     }
@@ -384,7 +500,7 @@ EOT;
                 // Aufruf der PushAlert-Methode im VestaboardGenerator (resume = true)
                 @IPS_RunScriptText("VESTAG_PushAlert($vestaId, " . var_export(substr($message, 0, 132), true) . ", true);");
             } catch (Exception $e) {
-                $this->SLogError( 'Fehler beim Senden an Vestaboard: ' . $e->getMessage());
+                $this->SLogError('Fehler beim Senden an Vestaboard: ' . $e->getMessage());
             }
         }
     }
