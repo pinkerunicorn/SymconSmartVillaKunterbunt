@@ -48,6 +48,19 @@ class SmartEntrance extends IPSModuleStrict
         // --- Properties: Notifier ---
         $this->RegisterPropertyInteger('TargetNotifier', 0);
 
+        // --- Properties: MP3P Gong & Signalisierung ---
+        $this->RegisterPropertyInteger('TargetMP3P', 0);
+
+        $this->RegisterPropertyString('DoorbellMP3P_Track', '1');
+        $this->RegisterPropertyInteger('DoorbellMP3P_Volume', 80);
+        $this->RegisterPropertyInteger('DoorbellMP3P_LEDColor', 1); // 1 = Blau
+        $this->RegisterPropertyInteger('DoorbellMP3P_LEDDuration', 5);
+
+        $this->RegisterPropertyString('MailboxMP3P_Track', '2');
+        $this->RegisterPropertyInteger('MailboxMP3P_Volume', 50);
+        $this->RegisterPropertyInteger('MailboxMP3P_LEDColor', 6); // 6 = Gelb / Orange
+        $this->RegisterPropertyInteger('MailboxMP3P_LEDDuration', 5);
+
         // --- Properties: Smart Locks (Tedee) ---
         $this->RegisterPropertyString('LockVariables', '[]');
 
@@ -134,13 +147,13 @@ class SmartEntrance extends IPSModuleStrict
         $properties = [
             'SourceMailboxFlap', 'SourceMailboxDoor', 
             'SourceDoorbell1', 'SourceDoorbell2', 
-            'SourceAbsenceButton', 'TargetNotifier'
+            'SourceAbsenceButton', 'TargetNotifier', 'TargetMP3P'
         ];
         foreach ($properties as $prop) {
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 1 && @IPS_ObjectExists($id)) {
                 $this->RegisterReference($id);
-                if ($prop !== 'TargetNotifier') {
+                if ($prop !== 'TargetNotifier' && $prop !== 'TargetMP3P') {
                     $this->RegisterMessage($id, VM_UPDATE);
                 }
             }
@@ -157,7 +170,6 @@ class SmartEntrance extends IPSModuleStrict
                 }
             }
         }
-        
 
         $this->UpdateTimers();
         $this->DA_SetAvailable(true);
@@ -205,12 +217,20 @@ class SmartEntrance extends IPSModuleStrict
                 $this->SetValue('MailboxState', true);
                 $this->SLogInfo('Briefkasten', 'Neue Post eingeworfen.');
                 $this->SendToNotifier('Briefkasten', 'Es wurde Post eingeworfen.', 0);
+
+                // MP3-Gong Signalisierung für Briefkasten
+                $this->TriggerMP3P(
+                    $this->ReadPropertyString('MailboxMP3P_Track'),
+                    $this->ReadPropertyInteger('MailboxMP3P_Volume'),
+                    $this->ReadPropertyInteger('MailboxMP3P_LEDColor'),
+                    $this->ReadPropertyInteger('MailboxMP3P_LEDDuration')
+                );
             }
         } else {
             if ($this->GetValue('MailboxState') !== false) {
                 $this->SetValue('MailboxState', false);
                 $this->SLogInfo('Briefkasten', 'Wurde geleert.');
-                // Lautlos leeren (keine Notifier Meldung wie gewünscht)
+                // Lautlos leeren
             }
         }
     }
@@ -226,6 +246,14 @@ class SmartEntrance extends IPSModuleStrict
         
         $this->SLogInfo('Klingel', "Klingel ausgelöst: $bellName");
         $this->SendToNotifier('Klingel', "Es hat an der Türklingel ($bellName) geklingelt.", 1);
+
+        // MP3-Gong Signalisierung für Türklingel
+        $this->TriggerMP3P(
+            $this->ReadPropertyString('DoorbellMP3P_Track'),
+            $this->ReadPropertyInteger('DoorbellMP3P_Volume'),
+            $this->ReadPropertyInteger('DoorbellMP3P_LEDColor'),
+            $this->ReadPropertyInteger('DoorbellMP3P_LEDDuration')
+        );
     }
 
     public function ResetDoorbell(int $bellNumber): void
@@ -249,6 +277,34 @@ class SmartEntrance extends IPSModuleStrict
             }
         } else {
             $this->SLogError('SmartHomeControl', 'Instanz nicht gefunden! Hausmodus konnte nicht gesetzt werden.');
+        }
+    }
+
+    private function TriggerMP3P(string $soundTrack, int $volume, int $color, int $duration = 5): void
+    {
+        $mp3Id = $this->ReadPropertyInteger('TargetMP3P');
+        if ($mp3Id > 0 && @IPS_InstanceExists($mp3Id)) {
+            try {
+                if ($soundTrack !== '' && $volume > 0) {
+                    if (function_exists('MP3P_PlaySound')) {
+                        @MP3P_PlaySound($mp3Id, $soundTrack, $volume, 0);
+                    } else {
+                        $param = "L={$volume},DU=0,DV=0,RTU=0,RTV=0,R=0,SL={$soundTrack}";
+                        @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $param);
+                    }
+                }
+
+                if ($color > 0) {
+                    if (function_exists('MP3P_SetLight')) {
+                        @MP3P_SetLight($mp3Id, $color, 100, $duration);
+                    } else {
+                        $ledParam = "L=100,DV={$duration},DU=0,RTV=0,RTU=0,C={$color}";
+                        @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', $ledParam);
+                    }
+                }
+            } catch (Exception $e) {
+                $this->SLogError('SmartEntrance MP3P', 'Fehler beim Ansteuern: ' . $e->getMessage());
+            }
         }
     }
 
@@ -398,40 +454,20 @@ class SmartEntrance extends IPSModuleStrict
         if (!is_array($time)) return 0;
         
         $now = time();
-        $targetTime = mktime($time['hour'], $time['minute'], $time['second'], (int)date('m'), (int)date('d'), (int)date('Y'));
-        
-        if ($targetTime <= $now) {
-            $targetTime += 86400; // Nächster Tag
-        }
-        
-        return ($targetTime - $now) * 1000;
-    }
+        $target = mktime(
+            (int)($time['hour'] ?? 0),
+            (int)($time['minute'] ?? 0),
+            (int)($time['second'] ?? 0),
+            (int)date('n', $now),
+            (int)date('j', $now),
+            (int)date('Y', $now)
+        );
 
-    private function ValuesMatch($actual, $expected): bool
-    {
-        if ((string)$expected === '') return true;
-        if (is_bool($actual)) {
-            $targetBool = ($expected === 'true' || $expected === '1' || strtolower((string)$expected) === 'wahr');
-            return ($actual === $targetBool);
-        } elseif (is_int($actual)) {
-            return ($actual === (int)$expected);
-        } elseif (is_float($actual)) {
-            return ($actual === (float)$expected);
-        } elseif (is_string($actual)) {
-            return (strtolower(trim($actual)) === strtolower(trim((string)$expected)));
+        if ($target <= $now) {
+            $target += 86400;
         }
-        return ($actual == $expected);
-    }
 
-    private function ParseTypedValue(string $val)
-    {
-        if ($val === 'true' || $val === 'True') return true;
-        if ($val === 'false' || $val === 'False') return false;
-        if (is_numeric($val)) {
-            if (strpos((string)$val, '.') !== false) return (float)$val;
-            return (int)$val;
-        }
-        return $val;
+        return ($target - $now) * 1000;
     }
 
     public function GetConfigurationForm(): string
@@ -439,15 +475,6 @@ class SmartEntrance extends IPSModuleStrict
         return <<<'EOT'
 {
     "elements": [
-        {
-            "type": "CheckBox",
-            "name": "SimulationMode",
-            "caption": "Simulationsmodus (Testbetrieb)"
-        },
-        {
-            "type": "Label",
-            "caption": " "
-        },
         {
             "type": "ExpansionPanel",
             "caption": "📬 Briefkasten",
@@ -486,6 +513,73 @@ class SmartEntrance extends IPSModuleStrict
                         { "type": "SelectVariable", "name": "SourceDoorbell2", "caption": "Klingel 2 (Sensor)" },
                         { "type": "ValidationTextBox", "name": "Doorbell2TriggerValue", "caption": "Trigger-Wert" },
                         { "type": "ValidationTextBox", "name": "SourceDoorbell2Name", "caption": "Name (für Ansage)" }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🔊 MP3-Gong Signalisierung (Klingel & Briefkasten)",
+            "items": [
+                {
+                    "type": "SelectInstance",
+                    "name": "TargetMP3P",
+                    "caption": "HmIP MP3P Instanz"
+                },
+                {
+                    "type": "Label",
+                    "bold": true,
+                    "caption": "🔔 Türklingel Signalisierung:"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        { "type": "ValidationTextBox", "name": "DoorbellMP3P_Track", "caption": "Track (z.B. 1)" },
+                        { "type": "NumberSpinner", "name": "DoorbellMP3P_Volume", "caption": "Lautstärke (%)", "minimum": 0, "maximum": 100, "suffix": "%" },
+                        {
+                            "type": "Select",
+                            "name": "DoorbellMP3P_LEDColor",
+                            "caption": "LED Farbe",
+                            "options": [
+                                { "caption": "Aus", "value": 0 },
+                                { "caption": "Blau", "value": 1 },
+                                { "caption": "Grün", "value": 2 },
+                                { "caption": "Türkis", "value": 3 },
+                                { "caption": "Rot", "value": 4 },
+                                { "caption": "Violett", "value": 5 },
+                                { "caption": "Gelb / Orange", "value": 6 },
+                                { "caption": "Weiß", "value": 7 }
+                            ]
+                        },
+                        { "type": "NumberSpinner", "name": "DoorbellMP3P_LEDDuration", "caption": "LED Dauer (s)", "minimum": 0, "suffix": "s" }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "bold": true,
+                    "caption": "📬 Briefkasten Signalisierung:"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        { "type": "ValidationTextBox", "name": "MailboxMP3P_Track", "caption": "Track (z.B. 2)" },
+                        { "type": "NumberSpinner", "name": "MailboxMP3P_Volume", "caption": "Lautstärke (%)", "minimum": 0, "maximum": 100, "suffix": "%" },
+                        {
+                            "type": "Select",
+                            "name": "MailboxMP3P_LEDColor",
+                            "caption": "LED Farbe",
+                            "options": [
+                                { "caption": "Aus", "value": 0 },
+                                { "caption": "Blau", "value": 1 },
+                                { "caption": "Grün", "value": 2 },
+                                { "caption": "Türkis", "value": 3 },
+                                { "caption": "Rot", "value": 4 },
+                                { "caption": "Violett", "value": 5 },
+                                { "caption": "Gelb / Orange", "value": 6 },
+                                { "caption": "Weiß", "value": 7 }
+                            ]
+                        },
+                        { "type": "NumberSpinner", "name": "MailboxMP3P_LEDDuration", "caption": "LED Dauer (s)", "minimum": 0, "suffix": "s" }
                     ]
                 }
             ]
@@ -591,8 +685,6 @@ class SmartEntrance extends IPSModuleStrict
 EOT;
     }
 
-
-
     private function safeJsonDecode(string $json, bool $assoc = true) {
         try {
             if (trim($json) === '') return $assoc ? [] : null;
@@ -602,5 +694,4 @@ EOT;
             return $assoc ? [] : null;
         }
     }
-
 }
