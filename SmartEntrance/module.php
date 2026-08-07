@@ -189,6 +189,8 @@ class SmartEntrance extends IPSModuleStrict
 
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
+        $this->SLogInfo('MessageSink_RAW', "Sender=$SenderID, Message=$Message");
+        
         if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
 
         if ($Message === VM_UPDATE) {
