@@ -76,12 +76,14 @@ if (!trait_exists('DeviceAvailability_Trait')) {
             ], $position);
 
             // Property für Alarm-Priorität (0=Low, 1=Medium, 2=High, -1=kein Alarm)
-            // RegisterPropertyInteger ist idempotent in Symcon – kein Existenz-Check nötig
             $this->RegisterPropertyInteger('AvailabilityAlarmPriority', 1);
 
             // Set initial state to true (Online) on creation so newly created variables don't falsely trigger offline alarms
-            if ($this->GetValue('DeviceAvailable') === false && time() - IPS_GetVariable($this->GetIDForIdent('DeviceAvailable'))['VariableUpdated'] > 31536000) {
-                $this->SetValue('DeviceAvailable', true);
+            $varId = @IPS_GetObjectIDByIdent('DeviceAvailable', $this->InstanceID);
+            if ($varId !== false && IPS_VariableExists($varId)) {
+                if (GetValue($varId) === false && time() - IPS_GetVariable($varId)['VariableUpdated'] > 31536000) {
+                    SetValue($varId, true);
+                }
             }
         }
 
@@ -106,14 +108,23 @@ if (!trait_exists('DeviceAvailability_Trait')) {
          */
         private function DA_SetAvailable(bool $available, string $reason = ''): void
         {
-            $wasAvailable = (bool)@$this->GetValue('DeviceAvailable');
+            $varId = @IPS_GetObjectIDByIdent('DeviceAvailable', $this->InstanceID);
+            if ($varId === false || !IPS_VariableExists($varId)) {
+                $this->DA_RegisterAvailability();
+                $varId = @IPS_GetObjectIDByIdent('DeviceAvailable', $this->InstanceID);
+                if ($varId === false || !IPS_VariableExists($varId)) {
+                    return;
+                }
+            }
+
+            $wasAvailable = (bool)GetValue($varId);
 
             // Nur reagieren wenn sich der Status ändert
             if ($wasAvailable === $available) {
                 return;
             }
 
-            $this->SetValue('DeviceAvailable', $available);
+            SetValue($varId, $available);
 
             $instanceName = IPS_GetName($this->InstanceID);
 
@@ -149,7 +160,11 @@ if (!trait_exists('DeviceAvailability_Trait')) {
          */
         private function DA_IsAvailable(): bool
         {
-            return (bool)@$this->GetValue('DeviceAvailable');
+            $varId = @IPS_GetObjectIDByIdent('DeviceAvailable', $this->InstanceID);
+            if ($varId === false || !IPS_VariableExists($varId)) {
+                return true;
+            }
+            return (bool)GetValue($varId);
         }
 
         // -------------------------------------------------------------------
