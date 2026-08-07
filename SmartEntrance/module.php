@@ -242,7 +242,20 @@ class SmartEntrance extends IPSModuleStrict
             if ($this->GetValue('MailboxState') !== false) {
                 $this->SetValue('MailboxState', false);
                 $this->SLogInfo('Briefkasten', 'Wurde geleert.');
-                // Lautlos leeren
+                
+                // MP3-Gong LED wieder ausschalten
+                $mp3Id = $this->ReadPropertyInteger('TargetMP3P');
+                if ($mp3Id > 0 && @IPS_InstanceExists($mp3Id)) {
+                    try {
+                        if (function_exists('MP3P_SetLight')) {
+                            @MP3P_SetLight($mp3Id, 0, 0, 0); // Aus
+                        } else {
+                            @HM_WriteValueString($mp3Id, 'COMBINED_PARAMETER', 'L=0,DV=0,DU=0,RTV=0,RTU=1,C=0');
+                        }
+                    } catch (Exception $e) {
+                        $this->SLogError('Briefkasten', 'Fehler beim Ausschalten der MP3P LED: ' . $e->getMessage());
+                    }
+                }
             }
         }
     }
