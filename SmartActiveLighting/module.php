@@ -682,7 +682,7 @@ private function GetObjectLabel(int $id): string
     {
         // Stop all twilight timers first to clear deleted or inactive rules
         for ($i = 0; $i < 50; $i++) {
-            $this->SetTimerInterval("TwilightTimer_$i", 0);
+            @$this->SetTimerInterval("TwilightTimer_$i", 0);
         }
 
         $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true);
