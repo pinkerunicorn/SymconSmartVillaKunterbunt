@@ -486,34 +486,43 @@ private function GetObjectLabel(int $id): string
                 
                 // Synchronize all targets mapped to this button
                 if (count($targetsToToggle) > 0) {
-                    $anyOn = false;
-                    foreach ($targetsToToggle as $tid) {
-                        $var = IPS_GetVariable($tid);
-                        $cv = GetValue($tid);
-                        if (($var['VariableType'] == 0 && $cv) || ($var['VariableType'] != 0 && $cv > 0)) {
-                            $anyOn = true;
-                            break;
-                        }
-                    }
+                    $debounceCache = $this->safeJsonDecode($this->GetBuffer('ButtonDebounceCache'), true) ?: [];
+                    $lastTrigger = $debounceCache[$SenderID] ?? 0;
+                    $now = microtime(true);
                     
-                    // If any is ON -> turn ALL OFF. If all are OFF -> turn ALL ON.
-                    $newState = !$anyOn;
-                    foreach ($targetsToToggle as $tid) {
-                        $var = IPS_GetVariable($tid);
-                        if ($var['VariableType'] == 0) {
-                            $res = $this->safeRequestAction($tid, $newState);
-                            $this->LogSwitch($tid, $newState, $res, 'Taster');
-                        } else {
-                            $actVal = $newState ? 100 : 0;
-                            $res = $this->safeRequestAction($tid, $actVal);
-                            $this->LogSwitch($tid, $actVal, $res, 'Taster');
+                    if (($now - $lastTrigger) >= 1.0) {
+                        $debounceCache[$SenderID] = $now;
+                        $this->SetBuffer('ButtonDebounceCache', json_encode($debounceCache));
+                        
+                        $anyOn = false;
+                        foreach ($targetsToToggle as $tid) {
+                            $var = IPS_GetVariable($tid);
+                            $cv = GetValue($tid);
+                            if (($var['VariableType'] == 0 && $cv) || ($var['VariableType'] != 0 && $cv > 0)) {
+                                $anyOn = true;
+                                break;
+                            }
                         }
-                    }
-                    
-                    // Update group variables
-                    foreach (array_keys($associatedGroups) as $ident) {
-                        if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID) !== false) {
-                            $this->SetValue($ident, $newState);
+                        
+                        // If any is ON -> turn ALL OFF. If all are OFF -> turn ALL ON.
+                        $newState = !$anyOn;
+                        foreach ($targetsToToggle as $tid) {
+                            $var = IPS_GetVariable($tid);
+                            if ($var['VariableType'] == 0) {
+                                $res = $this->safeRequestAction($tid, $newState);
+                                $this->LogSwitch($tid, $newState, $res, 'Taster');
+                            } else {
+                                $actVal = $newState ? 100 : 0;
+                                $res = $this->safeRequestAction($tid, $actVal);
+                                $this->LogSwitch($tid, $actVal, $res, 'Taster');
+                            }
+                        }
+                        
+                        // Update group variables
+                        foreach (array_keys($associatedGroups) as $ident) {
+                            if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID) !== false) {
+                                $this->SetValue($ident, $newState);
+                            }
                         }
                     }
                 }
