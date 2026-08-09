@@ -32,7 +32,11 @@ class SmartActiveLighting extends IPSModuleStrict
         // Timer for daily recalculation of sunset/sunrise
         $this->RegisterTimer('DailyTwilightRecalc', 0, 'SAL_CalculateTwilightTimers($_IPS[\'TARGET\']);');
 
-        
+        for ($i = 0; $i < 50; $i++) {
+            $this->RegisterTimer("MotionOffTimer_$i", 0, 'SAL_ProcessMotionOff($_IPS[\'TARGET\'], ' . $i . ');');
+            $this->RegisterTimer("DoorOffTimer_$i", 0, 'SAL_ProcessDoorOff($_IPS[\'TARGET\'], ' . $i . ');');
+            $this->RegisterTimer("TwilightTimer_$i", 0, 'SAL_ProcessTwilightTrigger($_IPS[\'TARGET\'], ' . $i . ');');
+        }
     }
 
     public function ApplyChanges(): void
@@ -135,21 +139,12 @@ class SmartActiveLighting extends IPSModuleStrict
         
         $motionRules = $this->safeJsonDecode($this->ReadPropertyString('MotionRules'), true) ?: [];
         $this->SetBuffer('MotionRulesCache', json_encode($motionRules));
-        for ($i = 0; $i < count($motionRules); $i++) {
-            $this->RegisterTimer("MotionOffTimer_$i", 0, 'SAL_ProcessMotionOff($_IPS[\'TARGET\'], ' . $i . ');');
-        }
 
         $doorRules = $this->safeJsonDecode($this->ReadPropertyString('DoorRules'), true) ?: [];
         $this->SetBuffer('DoorRulesCache', json_encode($doorRules));
-        for ($i = 0; $i < count($doorRules); $i++) {
-            $this->RegisterTimer("DoorOffTimer_$i", 0, 'SAL_ProcessDoorOff($_IPS[\'TARGET\'], ' . $i . ');');
-        }
 
         $twilightRules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true) ?: [];
         $this->SetBuffer('TwilightRulesCache', json_encode($twilightRules));
-        for ($i = 0; $i < count($twilightRules); $i++) {
-            $this->RegisterTimer("TwilightTimer_$i", 0, 'SAL_ProcessTwilightTrigger($_IPS[\'TARGET\'], ' . $i . ');');
-        }
         
         $this->SetBuffer('SceneRulesCache', $this->ReadPropertyString('SceneRules'));
         $this->SetBuffer('ButtonRulesCache', $this->ReadPropertyString('ButtonRules'));
