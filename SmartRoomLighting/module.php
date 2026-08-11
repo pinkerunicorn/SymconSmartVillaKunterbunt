@@ -1004,6 +1004,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $dynamicOptions = [];
+        $addedVarIds = [];
         $lightTypes = ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'];
         foreach ($lightTypes as $type) {
             $devices = @SDR_GetDevicesByType($regId, $type);
@@ -1014,13 +1015,21 @@ class SmartRoomLighting extends IPSModuleStrict
                 $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
                 // Primary variable: Brightness for dimmers, OnOff for switches
                 $varId = 0;
+                
+                if (!empty($dev['ColorRGB_VarID']) && (int)$dev['ColorRGB_VarID'] > 0) {
+                    $name .= ' (Farbe)';
+                } elseif (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
+                    $name .= ' (Dimmer)';
+                }
+                
                 if (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
                     $varId = (int)$dev['Brightness_VarID'];
-                    $name .= ' (Dimmer)';
                 } elseif (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
                     $varId = (int)$dev['OnOff_VarID'];
                 }
-                if ($varId > 0) {
+                
+                if ($varId > 0 && !in_array($varId, $addedVarIds)) {
+                    $addedVarIds[] = $varId;
                     $dynamicOptions[] = ['label' => $name, 'value' => $varId];
                 }
             }
