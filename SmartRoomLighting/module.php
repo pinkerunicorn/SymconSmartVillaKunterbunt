@@ -98,6 +98,23 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->SetBuffer('DoorRulesCache', $this->ReadPropertyString('DoorRules'));
         $this->SetBuffer('TwilightRulesCache', $this->ReadPropertyString('TwilightRules'));
         $this->SetBuffer('SyncRulesCache', $this->ReadPropertyString('SyncRules'));
+        
+        // --- Load Switch Defaults from Registry ---
+        $switchDefaults = [];
+        $regId = (int)@$this->ReadPropertyInteger('RegistryID'); // Property is called RegistryID
+        if ($regId > 0 && @IPS_InstanceExists($regId)) {
+            $devices = @SDR_GetDevicesByType($regId, 'DevicesSwitch');
+            if (is_array($devices)) {
+                foreach ($devices as $dev) {
+                    $varId = (int)($dev['OnOff_VarID'] ?? 0);
+                    $closedVal = trim((string)($dev['ClosedValue'] ?? ''));
+                    if ($varId > 0 && $closedVal !== '') {
+                        $switchDefaults[$varId] = $closedVal;
+                    }
+                }
+            }
+        }
+        $this->SetBuffer('SwitchDefaultsCache', json_encode($switchDefaults));
 
         // Reset manual override
         $this->SetBuffer('ManualOverride', 'false');
@@ -182,9 +199,14 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // --- Switch Triggers ---
         $switchTriggers = $this->safeJsonDecode($this->GetBuffer('SwitchTriggersCache'), true) ?: [];
+        $switchDefaults = $this->safeJsonDecode($this->GetBuffer('SwitchDefaultsCache'), true) ?: [];
         foreach ($switchTriggers as $trigger) {
             if (($trigger['SwitchID'] ?? 0) == $SenderID) {
-                $triggerValStr = strtolower(trim((string)($trigger['TriggerValue'] ?? 'true')));
+                $rawTriggerVal = trim((string)($trigger['TriggerValue'] ?? ''));
+                if ($rawTriggerVal === '') {
+                    $rawTriggerVal = $switchDefaults[$SenderID] ?? 'true';
+                }
+                $triggerValStr = strtolower($rawTriggerVal);
                 $currentValStr = strtolower(trim((string)$val));
                 $matched = ($triggerValStr === 'true') ? $isTrigger : ($triggerValStr === $currentValStr);
 
@@ -1283,7 +1305,7 @@ class SmartRoomLighting extends IPSModuleStrict
                             'columns' => [
                                 ['caption' => 'Schalter/Taster', 'name' => 'SwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                                 ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
-                                ['caption' => 'Ausloese-Wert', 'name' => 'TriggerValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Ausloese-Wert (leer = Registry)', 'name' => 'TriggerValue', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['caption' => 'Toggle', 'name' => 'Toggle', 'width' => '60px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
                                 ['caption' => 'Setzt Override', 'name' => 'SetsOverride', 'width' => '100px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
                             ],
