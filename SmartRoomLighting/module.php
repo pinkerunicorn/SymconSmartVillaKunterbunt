@@ -99,22 +99,65 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->SetBuffer('TwilightRulesCache', $this->ReadPropertyString('TwilightRules'));
         $this->SetBuffer('SyncRulesCache', $this->ReadPropertyString('SyncRules'));
         
-        // --- Load Switch Defaults from Registry ---
+        // -------------------------------------------------------------
+        // Cache Registry Devices
+        // -------------------------------------------------------------
         $switchDefaults = [];
-        $regId = (int)@$this->ReadPropertyInteger('RegistryID'); // Property is called RegistryID
+        $deviceMap = [];
+        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
+        
         if ($regId > 0 && @IPS_InstanceExists($regId)) {
+            // Wall Switches
             $devices = @SDR_GetDevicesByType($regId, 'DevicesWallSwitch');
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
+                    $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
                     $varId = (int)($dev['OnOff_VarID'] ?? 0);
+                    if ($varId > 0) $deviceMap[$key] = $varId;
+                    
                     $closedVal = trim((string)($dev['ClosedValue'] ?? ''));
                     if ($varId > 0 && $closedVal !== '') {
                         $switchDefaults[$varId] = $closedVal;
                     }
                 }
             }
+            
+            // Motion Sensors
+            $devices = @SDR_GetDevicesByType($regId, 'DevicesMotionSensor');
+            if (is_array($devices)) {
+                foreach ($devices as $dev) {
+                    $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+                    $varId = (int)($dev['Status_VarID'] ?? 0);
+                    if ($varId > 0) $deviceMap[$key] = $varId;
+                }
+            }
+
+            // Contact Sensors
+            $devices = @SDR_GetDevicesByType($regId, 'DevicesContactSensor');
+            if (is_array($devices)) {
+                foreach ($devices as $dev) {
+                    $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+                    $varId = (int)($dev['Status_VarID'] ?? 0);
+                    if ($varId > 0) $deviceMap[$key] = $varId;
+                }
+            }
+            
+            // Lights
+            $lightTypes = ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'];
+            foreach ($lightTypes as $type) {
+                $devices = @SDR_GetDevicesByType($regId, $type);
+                if (is_array($devices)) {
+                    foreach ($devices as $dev) {
+                        $baseKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+                        if (!empty($dev['ColorRGB_VarID'])) $deviceMap[$baseKey . '::Color'] = (int)$dev['ColorRGB_VarID'];
+                        if (!empty($dev['Brightness_VarID'])) $deviceMap[$baseKey . '::Dimmer'] = (int)$dev['Brightness_VarID'];
+                        if (!empty($dev['OnOff_VarID'])) $deviceMap[$baseKey . '::Switch'] = (int)$dev['OnOff_VarID'];
+                    }
+                }
+            }
         }
         $this->SetBuffer('SwitchDefaultsCache', json_encode($switchDefaults));
+        $this->SetBuffer('DeviceMapCache', json_encode($deviceMap));
 
         // Reset manual override
         $this->SetBuffer('ManualOverride', 'false');
