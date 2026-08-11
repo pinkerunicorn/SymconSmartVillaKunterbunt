@@ -36,6 +36,14 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->RegisterPropertyString('SyncRules', '[]');
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
         $this->RegisterPropertyInteger('SunriseVariableID', 0);
+        $this->RegisterPropertyString('MasterOnScene', '');
+
+        // === State ===
+        $this->RegisterVariableBoolean('MasterSwitch', 'Raum Ein/Aus', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Light'
+        ], 1);
+        $this->EnableAction('MasterSwitch');
 
         // === Timers ===
         $this->RegisterTimer('DailyTwilightRecalc', 0, 'SRL_CalculateTwilightTimers($_IPS[\'TARGET\']);');
@@ -191,6 +199,8 @@ class SmartRoomLighting extends IPSModuleStrict
             return;
         }
 
+        $this->SetValue('MasterSwitch', true);
+
         $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
         $sceneDevices = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
         $found = false;
@@ -247,6 +257,8 @@ class SmartRoomLighting extends IPSModuleStrict
         if ($sceneName === '') {
             return;
         }
+
+        $this->SetValue('MasterSwitch', false);
 
         $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
         $sceneDevices = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
@@ -420,7 +432,25 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     // =====================================================================
-    // === Door Rules ===
+    // === Helpers ===
+    // =====================================================================
+
+    private function getAllSceneNames(): array
+    {
+        $names = [];
+        $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
+        foreach ($scenes as $s) {
+            if (!empty($s['SceneName'])) $names[] = $s['SceneName'];
+        }
+        $devs = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
+        foreach ($devs as $d) {
+            if (!empty($d['SceneName'])) $names[] = $d['SceneName'];
+        }
+        return array_unique($names);
+    }
+
+    // =====================================================================
+    // === Helpers ===
     // =====================================================================
 
     private function processDoorTrigger(array $rule, int $ruleIndex, bool $isOpen): void
@@ -665,7 +695,24 @@ class SmartRoomLighting extends IPSModuleStrict
 
     public function RequestAction(string $Ident, mixed $Value): void
     {
-        // Reserved for future interactive variables
+        switch ($Ident) {
+            case 'MasterSwitch':
+                if ($Value) {
+                    $scene = $this->ReadPropertyString('MasterOnScene');
+                    if ($scene !== '') {
+                        $this->activateScene($scene, 'MasterSwitch');
+                    } else {
+                        $this->SLogWarning('MasterSwitch', 'Keine Standard-Szene in der Instanzkonfiguration definiert!');
+                    }
+                } else {
+                    $allScenes = $this->getAllSceneNames();
+                    foreach ($allScenes as $scene) {
+                        $this->deactivateScene($scene, 'MasterSwitch');
+                    }
+                }
+                $this->SetValue($Ident, $Value);
+                break;
+        }
     }
 
     // =====================================================================
@@ -1024,6 +1071,18 @@ class SmartRoomLighting extends IPSModuleStrict
         // Build complete form
         $form = [
             'elements' => [
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Allgemeine Einstellungen',
+                    'expanded' => true,
+                    'items' => [
+                        [
+                            'type' => 'ValidationTextBox',
+                            'name' => 'MasterOnScene',
+                            'caption' => 'Standard-Szene (beim Einschalten ueber Master-Schalter)'
+                        ]
+                    ]
+                ],
                 // --- Registry Selection ---
                 [
                     'type' => 'ExpansionPanel',
