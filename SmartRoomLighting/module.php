@@ -25,10 +25,10 @@ class SmartRoomLighting extends IPSModuleStrict
         // === Properties ===
         // Device Registry integration (optional)
         $this->RegisterPropertyInteger('RegistryID', 0);
-        // Direct mode: simple sensor -> lamp mapping
-        $this->RegisterPropertyString('MotionLights', '[]');
         // Scene mode: map a name to a SmartSequencer instance
         $this->RegisterPropertyString('Scenes', '[]');
+        // Direct scene lamps: map a scene name to a set of lamps
+        $this->RegisterPropertyString('SceneDevices', '[]');
         $this->RegisterPropertyString('MotionTriggers', '[]');
         $this->RegisterPropertyString('SwitchTriggers', '[]');
         $this->RegisterPropertyString('DoorRules', '[]');
@@ -62,7 +62,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerPropertyReference('RegistryID');
         $this->registerPropertyReference('SunsetVariableID');
         $this->registerPropertyReference('SunriseVariableID');
-        $this->registerListReferences('MotionLights', ['SensorID', 'TargetID', 'LuxSensorID']);
+        $this->registerListReferences('SceneDevices', ['TargetID']);
         $this->registerListReferences('MotionTriggers', ['SensorID', 'LuxSensorID']);
         $this->registerListReferences('SwitchTriggers', ['SwitchID']);
         $this->registerListReferences('DoorRules', ['DoorVariableID', 'LuxSensorID']);
@@ -83,8 +83,8 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         // --- Cache property data in buffers ---
-        $this->SetBuffer('MotionLightsCache', $this->ReadPropertyString('MotionLights'));
         $this->SetBuffer('ScenesCache', $this->ReadPropertyString('Scenes'));
+        $this->SetBuffer('SceneDevicesCache', $this->ReadPropertyString('SceneDevices'));
         $this->SetBuffer('MotionTriggersCache', $this->ReadPropertyString('MotionTriggers'));
         $this->SetBuffer('SwitchTriggersCache', $this->ReadPropertyString('SwitchTriggers'));
         $this->SetBuffer('DoorRulesCache', $this->ReadPropertyString('DoorRules'));
@@ -102,7 +102,6 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         // --- Register sensors ---
-        $this->registerSensorMessages('MotionLights', 'SensorID');
         $this->registerSensorMessages('MotionTriggers', 'SensorID');
         $this->registerSensorMessages('SwitchTriggers', 'SwitchID');
         $this->registerSensorMessages('DoorRules', 'DoorVariableID');
@@ -133,16 +132,6 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $val = $Data[0];
         $isTrigger = $this->evaluateTriggerValue($val);
-
-        // --- Direct Motion Lights (Simple Mode) ---
-        $motionLights = $this->safeJsonDecode($this->GetBuffer('MotionLightsCache'), true) ?: [];
-        foreach ($motionLights as $index => $rule) {
-            if (($rule['SensorID'] ?? 0) == $SenderID) {
-                if ($isTrigger) {
-                    $this->processMotionLight($rule, $index);
-                }
-            }
-        }
 
         // --- Scene-based Motion Triggers ---
         $motionTriggers = $this->safeJsonDecode($this->GetBuffer('MotionTriggersCache'), true) ?: [];
@@ -198,24 +187,44 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
+        $sceneDevices = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
         $found = false;
 
+        // 1. Check for Sequencer mapped to this scene
         foreach ($scenes as $scene) {
             if (($scene['SceneName'] ?? '') === $sceneName) {
-                $found = true;
                 $seqId = $scene['SequencerID'] ?? 0;
 
-                if ($seqId <= 0 || !@IPS_InstanceExists($seqId)) {
-                    $this->SLogWarning('Sequencer nicht gefunden', "Szene: $sceneName | ID: $seqId");
-                    return;
+                if ($seqId > 0 && @IPS_InstanceExists($seqId)) {
+                    $found = true;
+                    $logContext = $context !== '' ? "$context / $sceneName" : $sceneName;
+                    $this->SLogInfo("Szene aktiviert ($logContext)", "Sequencer: " . IPS_GetName($seqId) . " (#$seqId)");
+
+                    // Execute the entry sequence of the SmartSequencer instance
+                    SHSQ_RunSequence($seqId);
                 }
-
-                $logContext = $context !== '' ? "$context / $sceneName" : $sceneName;
-                $this->SLogInfo("Szene aktiviert ($logContext)", "Sequencer: " . IPS_GetName($seqId) . " (#$seqId)");
-
-                // Execute the entry sequence of the SmartSequencer instance
-                SHSQ_RunSequence($seqId);
                 break;
+            }
+        }
+
+        // 2. Check for Direct Devices mapped to this scene
+        foreach ($sceneDevices as $devRule) {
+            if (($devRule['SceneName'] ?? '') === $sceneName) {
+                $found = true;
+                $targetId = (int)($devRule['TargetID'] ?? 0);
+                $manualId = (int)($devRule['ManualTargetID'] ?? 0);
+                if ($targetId <= 0 && $manualId > 0) {
+                    $targetId = $manualId;
+                }
+                if ($targetId > 0 && IPS_VariableExists($targetId)) {
+                    $valStr = (string)($devRule['ActionValue'] ?? '');
+                    if ($valStr !== '') {
+                        $var = IPS_GetVariable($targetId);
+                        $typedValue = $this->castToVariableType($var['VariableType'], $valStr);
+                        $res = $this->safeRequestAction($targetId, $typedValue);
+                        $this->logSwitch($targetId, $typedValue, $res, $context !== '' ? "$context / $sceneName" : $sceneName);
+                    }
+                }
             }
         }
 
@@ -235,16 +244,20 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
+        $sceneDevices = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
+        $found = false;
 
+        // 1. Check for Sequencer mapped to this scene
         foreach ($scenes as $scene) {
             if (($scene['SceneName'] ?? '') === $sceneName) {
+                $found = true;
                 // Check if there's a dedicated off-sequencer
                 $offSeqId = $scene['OffSequencerID'] ?? 0;
                 if ($offSeqId > 0 && @IPS_InstanceExists($offSeqId)) {
                     $logContext = $context !== '' ? "$context / $sceneName (AUS)" : "$sceneName (AUS)";
                     $this->SLogInfo("Szene deaktiviert ($logContext)", "Off-Sequencer: " . IPS_GetName($offSeqId) . " (#$offSeqId)");
                     SHSQ_RunSequence($offSeqId);
-                    return;
+                    break;
                 }
 
                 // Fallback: run the deactivation sequence of the main sequencer
@@ -253,75 +266,35 @@ class SmartRoomLighting extends IPSModuleStrict
                     $logContext = $context !== '' ? "$context / $sceneName (Austritt)" : "$sceneName (Austritt)";
                     $this->SLogInfo("Szene deaktiviert ($logContext)", "Sequencer: " . IPS_GetName($seqId) . " (#$seqId)");
                     SHSQ_RunDeactivationSequence($seqId);
-                    return;
+                    break;
                 }
-
-                $this->SLogWarning('Kein Sequencer fuer Deaktivierung', "Szene: $sceneName");
-                return;
-            }
-        }
-    }
-
-    // =====================================================================
-    // === Direct Motion Lights (Simple Mode) ===
-    // =====================================================================
-
-    private function processMotionLight(array $rule, int $index): void
-    {
-        // Prefer registry dropdown, fallback to manual SelectVariable
-        $targetId = $rule['TargetID'] ?? 0;
-        $manualId = $rule['ManualTargetID'] ?? 0;
-        if ($targetId <= 0 && $manualId > 0) {
-            $targetId = $manualId;
-        }
-        if ($targetId <= 0 || !IPS_VariableExists($targetId)) {
-            return;
-        }
-
-        // Check Manual Override
-        $respectOverride = $rule['RespectOverride'] ?? true;
-        if ($respectOverride && $this->isManualOverride()) {
-            return;
-        }
-
-        // Check Lux
-        $luxSensorId = $rule['LuxSensorID'] ?? 0;
-        $maxLux = $rule['MaxLux'] ?? 50;
-        if ($luxSensorId > 0 && IPS_VariableExists($luxSensorId)) {
-            if (GetValue($luxSensorId) >= $maxLux) {
-                return;
             }
         }
 
-        // Determine on-value based on variable type and night mode
-        $var = IPS_GetVariable($targetId);
-        $nightMode = $rule['NightMode'] ?? false;
-        $nightValue = $rule['NightValue'] ?? '';
-        $isNight = $this->isInTimeRange(
-            $rule['NightFrom'] ?? '23:00',
-            $rule['NightTo'] ?? '06:00'
-        );
-
-        if ($nightMode && $isNight && $nightValue !== '') {
-            // Custom night value (e.g. 10 for dimmed, or a WLED preset)
-            $onValue = $this->castToVariableType($var['VariableType'], $nightValue);
-        } else {
-            // Auto-detect: boolean=true, dimmer=100
-            $onValue = ($var['VariableType'] == 0) ? true : 100;
+        // 2. Check for Direct Devices mapped to this scene
+        foreach ($sceneDevices as $devRule) {
+            if (($devRule['SceneName'] ?? '') === $sceneName) {
+                $found = true;
+                $targetId = (int)($devRule['TargetID'] ?? 0);
+                $manualId = (int)($devRule['ManualTargetID'] ?? 0);
+                if ($targetId <= 0 && $manualId > 0) {
+                    $targetId = $manualId;
+                }
+                if ($targetId > 0 && IPS_VariableExists($targetId)) {
+                    $valStr = (string)($devRule['DeactivateValue'] ?? '');
+                    if ($valStr !== '') {
+                        $var = IPS_GetVariable($targetId);
+                        $typedValue = $this->castToVariableType($var['VariableType'], $valStr);
+                        $res = $this->safeRequestAction($targetId, $typedValue);
+                        $this->logSwitch($targetId, $typedValue, $res, $context !== '' ? "$context / $sceneName (AUS)" : "$sceneName (AUS)");
+                    }
+                }
+            }
         }
-
-        // Switch on
-        $res = $this->safeRequestAction($targetId, $onValue);
-        $this->logSwitch($targetId, $onValue, $res, 'Bewegung');
-
-        // Set/reset off-delay timer (uses same pool, offset by MAX_TIMERS/2 to avoid collision)
-        $timerIndex = $index;
-        $timerName = "MotionOffTimer_$timerIndex";
-        $duration = $rule['DurationSec'] ?? 120;
-        $this->SetTimerInterval($timerName, $duration * 1000);
-
-        // Track with special prefix so ProcessMotionOff knows it's a direct light
-        $this->trackActiveTimer($timerName, "__direct:$targetId");
+        
+        if (!$found) {
+            $this->SLogWarning('Szene nicht gefunden (weder Sequencer noch Geraete)', "Szene: $sceneName");
+        }
     }
 
     // =====================================================================
@@ -385,20 +358,10 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $activeTimers = $this->safeJsonDecode($this->GetBuffer('ActiveTimers'), true) ?: [];
-        $tracked = $activeTimers[$timerName] ?? '';
+        $sceneName = $activeTimers[$timerName] ?? '';
 
-        if (str_starts_with($tracked, '__direct:')) {
-            // Direct mode: turn off the target variable directly
-            $targetId = (int)substr($tracked, 9);
-            if ($targetId > 0 && IPS_VariableExists($targetId)) {
-                $var = IPS_GetVariable($targetId);
-                $offValue = ($var['VariableType'] == 0) ? false : 0;
-                $res = $this->safeRequestAction($targetId, $offValue);
-                $this->logSwitch($targetId, $offValue, $res, 'Bewegung-Nachlauf');
-            }
-        } elseif ($tracked !== '') {
-            // Scene mode: deactivate the scene
-            $this->deactivateScene($tracked, 'Bewegung-Nachlauf');
+        if ($sceneName !== '') {
+            $this->deactivateScene($sceneName, 'Bewegung-Nachlauf');
         }
 
         $this->untrackActiveTimer($timerName);
@@ -786,8 +749,16 @@ class SmartRoomLighting extends IPSModuleStrict
 
     private function castToVariableType(int $variableType, mixed $value): mixed
     {
+        if (is_string($value)) {
+            $valLower = strtolower(trim($value));
+            if ($variableType === 1 || $variableType === 2) { // Integer or Float
+                if ($valLower === 'true' || $valLower === 'on') return ($variableType === 1) ? 100 : 100.0;
+                if ($valLower === 'false' || $valLower === 'off') return ($variableType === 1) ? 0 : 0.0;
+            }
+        }
+        
         return match ($variableType) {
-            0 => is_string($value) ? strtolower($value) === 'true' || $value === '1' : (bool)$value,
+            0 => is_string($value) ? in_array(strtolower(trim($value)), ['true', '1', 'on', 'geoeffnet']) : (bool)$value,
             1 => (int)round((float)$value),
             2 => (float)$value,
             3 => (string)$value,
@@ -991,54 +962,29 @@ class SmartRoomLighting extends IPSModuleStrict
         $motionOptions = $hasRegistry ? $this->getRegistryMotionSensorOptions() : [];
         $contactOptions = $hasRegistry ? $this->getRegistryContactSensorOptions() : [];
 
-        // --- MotionLights columns (dynamic based on registry) ---
-        $motionLightsColumns = [];
+        // --- SceneDevices columns (dynamic based on registry) ---
+        $sceneDevicesColumns = [
+            ['caption' => 'Szenen-Name', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+        ];
 
-        // Sensor column: dropdown from registry or SelectVariable
-        if ($hasRegistry && count($motionOptions) > 1) {
-            $motionLightsColumns[] = [
-                'caption' => 'Bewegungsmelder', 'name' => 'SensorID', 'width' => '200px',
-                'add' => 0, 'edit' => ['type' => 'Select', 'options' => $motionOptions]
-            ];
-        } else {
-            $motionLightsColumns[] = [
-                'caption' => 'Bewegungsmelder', 'name' => 'SensorID', 'width' => '200px',
-                'add' => 0, 'edit' => ['type' => 'SelectVariable']
-            ];
-        }
-
-        // Target column: dropdown from registry or SelectVariable
         if ($hasRegistry && count($lightOptions) > 1) {
-            $motionLightsColumns[] = [
-                'caption' => 'Lampe / Dimmer', 'name' => 'TargetID', 'width' => '250px',
+            $sceneDevicesColumns[] = [
+                'caption' => 'Lampe / Dimmer (Registry)', 'name' => 'TargetID', 'width' => '250px',
                 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $lightOptions]
             ];
+            $sceneDevicesColumns[] = [
+                'caption' => 'Oder: Variable (manuell)', 'name' => 'ManualTargetID', 'width' => '180px',
+                'add' => 0, 'edit' => ['type' => 'SelectVariable']
+            ];
         } else {
-            $motionLightsColumns[] = [
-                'caption' => 'Lampe / Dimmer', 'name' => 'TargetID', 'width' => '250px',
+            $sceneDevicesColumns[] = [
+                'caption' => 'Lampe / Dimmer (Variable)', 'name' => 'TargetID', 'width' => '250px',
                 'add' => 0, 'edit' => ['type' => 'SelectVariable']
             ];
         }
 
-        // If using registry dropdown, add manual fallback
-        if ($hasRegistry && count($lightOptions) > 1) {
-            $motionLightsColumns[] = [
-                'caption' => 'Oder: Variable (manuell)', 'name' => 'ManualTargetID', 'width' => '200px',
-                'add' => 0, 'edit' => ['type' => 'SelectVariable']
-            ];
-        }
-
-        // Standard columns
-        $motionLightsColumns = array_merge($motionLightsColumns, [
-            ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-            ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '80px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
-            ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
-            ['caption' => 'Nacht-Modus', 'name' => 'NightMode', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-            ['caption' => 'Nacht-Wert', 'name' => 'NightValue', 'width' => '80px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-            ['caption' => 'Nacht von', 'name' => 'NightFrom', 'width' => '70px', 'add' => '23:00', 'edit' => ['type' => 'ValidationTextBox']],
-            ['caption' => 'Nacht bis', 'name' => 'NightTo', 'width' => '70px', 'add' => '06:00', 'edit' => ['type' => 'ValidationTextBox']],
-            ['caption' => 'Override', 'name' => 'RespectOverride', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
-        ]);
+        $sceneDevicesColumns[] = ['caption' => 'Wert (AN)', 'name' => 'ActionValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']];
+        $sceneDevicesColumns[] = ['caption' => 'Wert (AUS)', 'name' => 'DeactivateValue', 'width' => '100px', 'add' => 'false', 'edit' => ['type' => 'ValidationTextBox']];
 
         // Build complete form
         $form = [
@@ -1061,41 +1007,25 @@ class SmartRoomLighting extends IPSModuleStrict
                         ],
                     ],
                 ],
-                // --- Direct Motion Lights (Simple Mode) ---
+                // --- Scenes ---
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Direkt-Lichter (Einfach-Modus)',
+                    'caption' => 'Szenen-Definitionen',
                     'expanded' => true,
                     'items' => [
                         [
                             'type' => 'Label',
-                            'caption' => 'Einfache Zuordnung: Bewegungsmelder schaltet direkt eine Lampe/Dimmer. Kein Sequencer noetig.',
+                            'caption' => 'Eine Szene kann einen SmartSequencer (fuer komplexe Aktionen/WLED) ausloesen UND/ODER Lampen direkt schalten.',
                         ],
-                        [
-                            'type' => 'List',
-                            'name' => 'MotionLights',
-                            'caption' => 'Bewegungsmelder-Lichter',
-                            'rowCount' => 8,
-                            'add' => true,
-                            'delete' => true,
-                            'columns' => $motionLightsColumns,
-                        ],
-                    ],
-                ],
-                // --- Scenes ---
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Szenen-Definitionen (SmartSequencer)',
-                    'items' => [
                         [
                             'type' => 'Label',
-                            'caption' => 'Fuer komplexe Lichtszenarien: Jede Szene verweist auf eine SmartSequencer-Instanz.',
+                            'caption' => '1. Sequencer-Zuordnung (optional)',
                         ],
                         [
                             'type' => 'List',
                             'name' => 'Scenes',
-                            'caption' => 'Szenen',
-                            'rowCount' => 8,
+                            'caption' => 'Szenen -> SmartSequencer',
+                            'rowCount' => 5,
                             'add' => true,
                             'delete' => true,
                             'columns' => [
@@ -1103,6 +1033,19 @@ class SmartRoomLighting extends IPSModuleStrict
                                 ['caption' => 'Sequencer (Eintritt)', 'name' => 'SequencerID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
                                 ['caption' => 'Off-Sequencer (optional)', 'name' => 'OffSequencerID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
                             ],
+                        ],
+                        [
+                            'type' => 'Label',
+                            'caption' => '2. Direkt-Geraete (optional)',
+                        ],
+                        [
+                            'type' => 'List',
+                            'name' => 'SceneDevices',
+                            'caption' => 'Szenen -> Lampen / Dimmer',
+                            'rowCount' => 8,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => $sceneDevicesColumns,
                         ],
                     ],
                 ],
@@ -1118,12 +1061,12 @@ class SmartRoomLighting extends IPSModuleStrict
                         [
                             'type' => 'List',
                             'name' => 'MotionTriggers',
-                            'caption' => 'Szenen-Trigger',
+                            'caption' => 'Bewegungsmelder-Trigger',
                             'rowCount' => 5,
                             'add' => true,
                             'delete' => true,
                             'columns' => [
-                                ['caption' => 'Sensor (BWM)', 'name' => 'SensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Sensor (BWM)', 'name' => 'SensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $motionOptions]],
                                 ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                                 ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '70px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
                                 ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
