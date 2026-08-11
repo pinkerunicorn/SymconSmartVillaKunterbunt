@@ -72,7 +72,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerPropertyReference('SunriseVariableID');
         $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
         $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID', 'LuxSensorID']);
-        $this->registerListReferences('SwitchTriggers', ['SwitchID']);
+        $this->registerListReferences('SwitchTriggers', ['SwitchID', 'ManualSwitchID']);
         $this->registerListReferences('DoorRules', ['DoorVariableID', 'LuxSensorID']);
         $this->registerListReferences('TwilightRules', ['TargetLightID']);
         $this->registerListReferences('SyncRules', ['MasterVariableID', 'TargetLightID']);
@@ -128,7 +128,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // --- Register sensors ---
         $this->registerSensorMessages('MotionTriggers', 'SensorID', 'ManualSensorID');
-        $this->registerSensorMessages('SwitchTriggers', 'SwitchID');
+        $this->registerSensorMessages('SwitchTriggers', 'SwitchID', 'ManualSwitchID');
         $this->registerSensorMessages('DoorRules', 'DoorVariableID');
         $this->registerSensorMessages('SyncRules', 'MasterVariableID');
 
@@ -201,7 +201,12 @@ class SmartRoomLighting extends IPSModuleStrict
         $switchTriggers = $this->safeJsonDecode($this->GetBuffer('SwitchTriggersCache'), true) ?: [];
         $switchDefaults = $this->safeJsonDecode($this->GetBuffer('SwitchDefaultsCache'), true) ?: [];
         foreach ($switchTriggers as $trigger) {
-            if (($trigger['SwitchID'] ?? 0) == $SenderID) {
+            $switchId = (int)($trigger['SwitchID'] ?? 0);
+            $manualId = (int)($trigger['ManualSwitchID'] ?? 0);
+            if ($switchId <= 0 && $manualId > 0) {
+                $switchId = $manualId;
+            }
+            if ($switchId == $SenderID) {
                 $rawTriggerVal = trim((string)($trigger['TriggerValue'] ?? ''));
                 if ($rawTriggerVal === '') {
                     $rawTriggerVal = $switchDefaults[$SenderID] ?? 'true';
@@ -476,7 +481,12 @@ class SmartRoomLighting extends IPSModuleStrict
         $setsOverride = $trigger['SetsOverride'] ?? true;
 
         // Debounce: 1 second
-        $switchId = $trigger['SwitchID'] ?? 0;
+        $switchId = (int)($trigger['SwitchID'] ?? 0);
+        $manualId = (int)($trigger['ManualSwitchID'] ?? 0);
+        if ($switchId <= 0 && $manualId > 0) {
+            $switchId = $manualId;
+        }
+        
         $debounceCache = $this->safeJsonDecode($this->GetBuffer('SwitchDebounceCache'), true) ?: [];
         $lastTrigger = $debounceCache[$switchId] ?? 0;
         $now = microtime(true);
@@ -530,8 +540,37 @@ class SmartRoomLighting extends IPSModuleStrict
         return array_unique($names);
     }
 
+    private function getRegistrySwitchOptions(int $regId): array
+    {
+        if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
+            return [];
+        }
+
+        $dynamicOptions = [];
+        $addedVarIds = [];
+        $devices = @SDR_GetDevicesByType($regId, 'DevicesSwitch');
+        if (!is_array($devices)) {
+            return [];
+        }
+        foreach ($devices as $dev) {
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $varId = (int)($dev['OnOff_VarID'] ?? 0);
+            
+            if ($varId > 0 && !in_array($varId, $addedVarIds)) {
+                $addedVarIds[] = $varId;
+                $dynamicOptions[] = ['label' => $name . ' (Schalter)', 'value' => $varId];
+            }
+        }
+        
+        usort($dynamicOptions, function ($a, $b) {
+            return strcasecmp($a['label'], $b['label']);
+        });
+
+        return $dynamicOptions;
+    }
+
     // =====================================================================
-    // === Helpers ===
+    // Traits overrides
     // =====================================================================
 
     private function processDoorTrigger(array $rule, int $ruleIndex, bool $isOpen): void
@@ -1017,10 +1056,9 @@ class SmartRoomLighting extends IPSModuleStrict
      * Query the DeviceRegistry (SDR) for light devices.
      * Returns Select-compatible options array.
      */
-    private function getRegistryLightOptions(): array
+    private function getRegistryLightOptions(int $regId): array
     {
         $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
-        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
             return $options;
         }
@@ -1072,10 +1110,9 @@ class SmartRoomLighting extends IPSModuleStrict
     /**
      * Query the DeviceRegistry (SDR) for motion sensors.
      */
-    private function getRegistryMotionSensorOptions(): array
+    private function getRegistryMotionSensorOptions(int $regId): array
     {
         $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
-        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
             return $options;
         }
@@ -1101,10 +1138,9 @@ class SmartRoomLighting extends IPSModuleStrict
     /**
      * Query the DeviceRegistry (SDR) for contact sensors.
      */
-    private function getRegistryContactSensorOptions(): array
+    private function getRegistryContactSensorOptions(int $regId): array
     {
         $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
-        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
             return $options;
         }
@@ -1146,9 +1182,10 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         // Build device options from registry
-        $lightOptions = $hasRegistry ? $this->getRegistryLightOptions() : [];
-        $motionOptions = $hasRegistry ? $this->getRegistryMotionSensorOptions() : [];
-        $contactOptions = $hasRegistry ? $this->getRegistryContactSensorOptions() : [];
+        $lightOptions = $hasRegistry ? $this->getRegistryLightOptions($regId) : [];
+        $switchOptions = $hasRegistry ? $this->getRegistrySwitchOptions($regId) : [];
+        $motionOptions = $hasRegistry ? $this->getRegistryMotionSensorOptions($regId) : [];
+        $contactOptions = $hasRegistry ? $this->getRegistryContactSensorOptions($regId) : [];
 
         // --- SceneDevices columns (dynamic based on registry) ---
         $sceneDevicesColumns = [
@@ -1303,7 +1340,8 @@ class SmartRoomLighting extends IPSModuleStrict
                             'add' => true,
                             'delete' => true,
                             'columns' => [
-                                ['caption' => 'Schalter/Taster', 'name' => 'SwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Schalter/Taster (Registry)', 'name' => 'SwitchID', 'width' => '250px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $switchOptions]],
+                                ['caption' => 'Oder: Variable (manuell)', 'name' => 'ManualSwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                                 ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
                                 ['caption' => 'Ausloese-Wert (leer = Registry)', 'name' => 'TriggerValue', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['caption' => 'Toggle', 'name' => 'Toggle', 'width' => '60px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
