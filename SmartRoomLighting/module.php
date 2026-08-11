@@ -559,7 +559,7 @@ class SmartRoomLighting extends IPSModuleStrict
             
             if ($varId > 0 && !in_array($varId, $addedVarIds)) {
                 $addedVarIds[] = $varId;
-                $dynamicOptions[] = ['label' => $name . ' (Schalter)', 'value' => $varId];
+                $dynamicOptions[] = ['label' => $name . ' (Taster)', 'value' => $varId];
             }
         }
         
