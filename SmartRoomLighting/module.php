@@ -122,6 +122,32 @@ class SmartRoomLighting extends IPSModuleStrict
         $now = time();
         $nextMidnight = strtotime('tomorrow 00:05');
         $this->SetTimerInterval('DailyTwilightRecalc', ($nextMidnight - $now) * 1000);
+
+        // --- Dynamic Scene Switches ---
+        $allScenes = $this->getAllSceneNames();
+        $sceneIdents = [];
+        foreach ($allScenes as $sceneName) {
+            $ident = 'Scene_' . md5($sceneName);
+            $sceneIdents[$ident] = $sceneName;
+            
+            $this->RegisterVariableBoolean($ident, 'Szene: ' . $sceneName, [
+                'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+                'ICON' => 'Script'
+            ], 10);
+            $this->EnableAction($ident);
+        }
+        $this->SetBuffer('SceneIdents', json_encode($sceneIdents));
+
+        // Cleanup obsolete scene variables
+        foreach (IPS_GetChildrenIDs($this->InstanceID) as $childId) {
+            $obj = IPS_GetObject($childId);
+            if ($obj['ObjectType'] == 2) { // Variable
+                $ident = $obj['ObjectIdent'];
+                if (str_starts_with($ident, 'Scene_') && !isset($sceneIdents[$ident])) {
+                    $this->UnregisterVariable($ident);
+                }
+            }
+        }
     }
 
     // =====================================================================
@@ -201,6 +227,15 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $this->SetValue('MasterSwitch', true);
 
+        $sceneIdents = $this->safeJsonDecode($this->GetBuffer('SceneIdents'), true) ?: [];
+        foreach ($sceneIdents as $ident => $sName) {
+            if ($sName === $sceneName) {
+                $this->SetValue($ident, true);
+            } else {
+                $this->SetValue($ident, false);
+            }
+        }
+
         $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
         $sceneDevices = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
         $found = false;
@@ -258,7 +293,22 @@ class SmartRoomLighting extends IPSModuleStrict
             return;
         }
 
-        $this->SetValue('MasterSwitch', false);
+        $sceneIdents = $this->safeJsonDecode($this->GetBuffer('SceneIdents'), true) ?: [];
+        foreach ($sceneIdents as $ident => $sName) {
+            if ($sName === $sceneName) {
+                $this->SetValue($ident, false);
+            }
+        }
+
+        $anyActive = false;
+        foreach ($sceneIdents as $ident => $sName) {
+            $varId = @$this->GetIDForIdent($ident);
+            if ($varId > 0 && @GetValue($varId)) {
+                $anyActive = true;
+                break;
+            }
+        }
+        $this->SetValue('MasterSwitch', $anyActive);
 
         $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
         $sceneDevices = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
@@ -695,6 +745,19 @@ class SmartRoomLighting extends IPSModuleStrict
 
     public function RequestAction(string $Ident, mixed $Value): void
     {
+        if (str_starts_with($Ident, 'Scene_')) {
+            $sceneIdents = $this->safeJsonDecode($this->GetBuffer('SceneIdents'), true) ?: [];
+            $sceneName = $sceneIdents[$Ident] ?? '';
+            if ($sceneName !== '') {
+                if ($Value) {
+                    $this->activateScene($sceneName, 'WebFront');
+                } else {
+                    $this->deactivateScene($sceneName, 'WebFront');
+                }
+            }
+            return;
+        }
+
         switch ($Ident) {
             case 'MasterSwitch':
                 if ($Value) {
@@ -1019,6 +1082,15 @@ class SmartRoomLighting extends IPSModuleStrict
         $regId = $this->ReadPropertyInteger('RegistryID');
         $hasRegistry = ($regId > 0 && @IPS_InstanceExists($regId));
 
+        $definedScenes = $this->safeJsonDecode($this->ReadPropertyString('Scenes'), true) ?: [];
+        $sceneOptions = [['label' => '(Bitte waehlen)', 'value' => '']];
+        foreach ($definedScenes as $scene) {
+            $name = $scene['SceneName'] ?? '';
+            if ($name !== '') {
+                $sceneOptions[] = ['label' => $name, 'value' => $name];
+            }
+        }
+
         // Build device options from registry
         $lightOptions = $hasRegistry ? $this->getRegistryLightOptions() : [];
         $motionOptions = $hasRegistry ? $this->getRegistryMotionSensorOptions() : [];
@@ -1026,7 +1098,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // --- SceneDevices columns (dynamic based on registry) ---
         $sceneDevicesColumns = [
-            ['caption' => 'Szenen-Name', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Szenen-Name', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
         ];
 
         if ($hasRegistry && count($lightOptions) > 1) {
@@ -1061,10 +1133,10 @@ class SmartRoomLighting extends IPSModuleStrict
             ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
             ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '70px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
             ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
-            ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
             ['caption' => 'Nacht von', 'name' => 'NightFrom', 'width' => '70px', 'add' => '23:00', 'edit' => ['type' => 'ValidationTextBox']],
             ['caption' => 'Nacht bis', 'name' => 'NightTo', 'width' => '70px', 'add' => '06:00', 'edit' => ['type' => 'ValidationTextBox']],
-            ['caption' => 'Tag-Szene', 'name' => 'DaySceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Tag-Szene', 'name' => 'DaySceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
             ['caption' => 'Override', 'name' => 'RespectOverride', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
         ]);
 
@@ -1077,9 +1149,10 @@ class SmartRoomLighting extends IPSModuleStrict
                     'expanded' => true,
                     'items' => [
                         [
-                            'type' => 'ValidationTextBox',
+                            'type' => 'Select',
                             'name' => 'MasterOnScene',
-                            'caption' => 'Standard-Szene (beim Einschalten ueber Master-Schalter)'
+                            'caption' => 'Standard-Szene (beim Einschalten ueber Master-Schalter)',
+                            'options' => $sceneOptions
                         ]
                     ]
                 ],
@@ -1181,7 +1254,7 @@ class SmartRoomLighting extends IPSModuleStrict
                             'delete' => true,
                             'columns' => [
                                 ['caption' => 'Schalter/Taster', 'name' => 'SwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
                                 ['caption' => 'Ausloese-Wert', 'name' => 'TriggerValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['caption' => 'Toggle', 'name' => 'Toggle', 'width' => '60px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
                                 ['caption' => 'Setzt Override', 'name' => 'SetsOverride', 'width' => '100px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
@@ -1206,7 +1279,7 @@ class SmartRoomLighting extends IPSModuleStrict
                                 ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                                 ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '80px', 'add' => 1000, 'edit' => ['type' => 'NumberSpinner']],
                                 ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 10, 'edit' => ['type' => 'NumberSpinner']],
-                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
                                 ['caption' => 'Wasp-in-a-Box', 'name' => 'OccupancyLock', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                             ],
                         ],
@@ -1232,7 +1305,7 @@ class SmartRoomLighting extends IPSModuleStrict
                                     ['label' => 'Uhrzeit', 'value' => 3],
                                 ]]],
                                 ['caption' => 'Offset (Min) / Zeit (HH:MM)', 'name' => 'TimeValue', 'width' => '150px', 'add' => '-30', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
                                 ['caption' => 'Ziel-Licht (Legacy)', 'name' => 'TargetLightID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
                                 ['caption' => 'Aktion (Legacy)', 'name' => 'ActionValue', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'Select', 'options' => [
                                     ['label' => 'Einschalten', 'value' => 1],
