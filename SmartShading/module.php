@@ -147,10 +147,26 @@ class SmartShading extends IPSModuleStrict
                             ['Value' => 0, 'Caption' => 'Automatik', 'IconActive' => true, 'IconValue' => 'Robot', 'Color' => 0x00CC00],
                             ['Value' => 1, 'Caption' => 'Manuell: Auf', 'IconActive' => true, 'IconValue' => 'ArrowUp', 'Color' => 0x3366FF],
                             ['Value' => 2, 'Caption' => 'Manuell: Zu', 'IconActive' => true, 'IconValue' => 'ArrowDown', 'Color' => 0x3366FF],
-                            ['Value' => 3, 'Caption' => 'Manuell: Schatten', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => 0x3366FF]
+                            ['Value' => 3, 'Caption' => 'Manuell: Schatten', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => 0x3366FF],
+                            ['Value' => 4, 'Caption' => 'Manuell: Position', 'IconActive' => true, 'IconValue' => 'Menu', 'Color' => 0x3366FF]
                         ])
                     ], 50);
                     $this->EnableAction($ident);
+
+                    $posIdent = 'Pos_' . $vid;
+                    $activeModeIdents[] = $posIdent;
+                    $targetVar = IPS_GetVariable($vid);
+                    $profileName = $targetVar['VariableCustomProfile'];
+                    if ($profileName == '') {
+                        $profileName = $targetVar['VariableProfile'];
+                    }
+                    if ($targetVar['VariableType'] == 1) { // Integer
+                        $this->RegisterVariableInteger($posIdent, 'Pos: ' . IPS_GetName($vid), $profileName, 55);
+                        $this->EnableAction($posIdent);
+                    } elseif ($targetVar['VariableType'] == 2) { // Float
+                        $this->RegisterVariableFloat($posIdent, 'Pos: ' . IPS_GetName($vid), $profileName, 55);
+                        $this->EnableAction($posIdent);
+                    }
                 }
                 $vid = $item['ContactID'] ?? 0;
                 if ($vid > 1 && @IPS_ObjectExists($vid)) {
@@ -162,7 +178,7 @@ class SmartShading extends IPSModuleStrict
         $children = IPS_GetChildrenIDs($this->InstanceID);
         foreach ($children as $childID) {
             $obj = IPS_GetObject($childID);
-            if (strpos($obj['ObjectIdent'], 'Mode_') === 0) {
+            if (strpos($obj['ObjectIdent'], 'Mode_') === 0 || strpos($obj['ObjectIdent'], 'Pos_') === 0) {
                 if (!in_array($obj['ObjectIdent'], $activeModeIdents)) {
                     $this->UnregisterVariable($obj['ObjectIdent']);
                 }
@@ -228,10 +244,18 @@ class SmartShading extends IPSModuleStrict
             
             foreach ($blinds as $blind) {
                 $contactID = $blind['ContactID'] ?? 0;
+                $varID = $blind['VariableID'] ?? 0;
                 
                 if ($SenderID == $contactID) {
                     // Fensterkontakt hat sich geändert -> Sofort evaluieren
                     $this->EvaluateConditions();
+                }
+                
+                if ($SenderID == $varID) {
+                    $posIdent = 'Pos_' . $varID;
+                    if (@IPS_GetObjectIDByIdent($posIdent, $this->InstanceID) !== false) {
+                        $this->SetValue($posIdent, $Data[0]);
+                    }
                 }
             }
             
@@ -267,7 +291,9 @@ class SmartShading extends IPSModuleStrict
                     if ($Value == 2) $targetValueStr = $matchedBlind['ValueClose'] ?? "1";
                     if ($Value == 3) $targetValueStr = $matchedBlind['ValueShade'] ?? "0.1";
                     
-                    $this->ExecuteAction($varId, $targetValueStr);
+                    if ($Value != 4) { // Bei Modus 4 (Position) wird die Position separat über Pos_ gesetzt
+                        $this->ExecuteAction($varId, $targetValueStr);
+                    }
                     
                     $states = json_decode($this->ReadAttributeString('CurrentState'), true);
                     $states[$varId] = 'MANUAL';
@@ -276,6 +302,19 @@ class SmartShading extends IPSModuleStrict
             } else {
                 $this->EvaluateConditions();
             }
+        } elseif (strpos($Ident, 'Pos_') === 0) {
+            $this->SetValue($Ident, $Value);
+            $varId = (int)substr($Ident, 4);
+            $this->ExecuteAction($varId, (string)$Value);
+            
+            $modeIdent = 'Mode_' . $varId;
+            if (@IPS_GetObjectIDByIdent($modeIdent, $this->InstanceID) !== false) {
+                $this->SetValue($modeIdent, 4); // Setze Modus auf 'Manuell: Position'
+            }
+            
+            $states = json_decode($this->ReadAttributeString('CurrentState'), true);
+            $states[$varId] = 'MANUAL';
+            $this->WriteAttributeString('CurrentState', json_encode($states));
         }
     }
     
