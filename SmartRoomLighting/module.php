@@ -542,15 +542,16 @@ class SmartRoomLighting extends IPSModuleStrict
 
     private function getRegistrySwitchOptions(int $regId): array
     {
+        $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
         if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
-            return [];
+            return $options;
         }
 
         $dynamicOptions = [];
         $addedVarIds = [];
         $devices = @SDR_GetDevicesByType($regId, 'DevicesWallSwitch');
         if (!is_array($devices)) {
-            return [];
+            return $options;
         }
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
@@ -566,7 +567,7 @@ class SmartRoomLighting extends IPSModuleStrict
             return strcasecmp($a['label'], $b['label']);
         });
 
-        return $dynamicOptions;
+        return array_merge($options, $dynamicOptions);
     }
 
     // =====================================================================
