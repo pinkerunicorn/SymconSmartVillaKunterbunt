@@ -62,8 +62,8 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerPropertyReference('RegistryID');
         $this->registerPropertyReference('SunsetVariableID');
         $this->registerPropertyReference('SunriseVariableID');
-        $this->registerListReferences('SceneDevices', ['TargetID']);
-        $this->registerListReferences('MotionTriggers', ['SensorID', 'LuxSensorID']);
+        $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
+        $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID', 'LuxSensorID']);
         $this->registerListReferences('SwitchTriggers', ['SwitchID']);
         $this->registerListReferences('DoorRules', ['DoorVariableID', 'LuxSensorID']);
         $this->registerListReferences('TwilightRules', ['TargetLightID']);
@@ -102,7 +102,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         // --- Register sensors ---
-        $this->registerSensorMessages('MotionTriggers', 'SensorID');
+        $this->registerSensorMessages('MotionTriggers', 'SensorID', 'ManualSensorID');
         $this->registerSensorMessages('SwitchTriggers', 'SwitchID');
         $this->registerSensorMessages('DoorRules', 'DoorVariableID');
         $this->registerSensorMessages('SyncRules', 'MasterVariableID');
@@ -136,7 +136,12 @@ class SmartRoomLighting extends IPSModuleStrict
         // --- Scene-based Motion Triggers ---
         $motionTriggers = $this->safeJsonDecode($this->GetBuffer('MotionTriggersCache'), true) ?: [];
         foreach ($motionTriggers as $index => $trigger) {
-            if (($trigger['SensorID'] ?? 0) == $SenderID && $isTrigger) {
+            $sensorId = (int)($trigger['SensorID'] ?? 0);
+            $manualId = (int)($trigger['ManualSensorID'] ?? 0);
+            if ($sensorId <= 0 && $manualId > 0) {
+                $sensorId = $manualId;
+            }
+            if ($sensorId == $SenderID && $isTrigger) {
                 $this->processMotionTrigger($trigger, $index);
             }
         }
@@ -829,12 +834,22 @@ class SmartRoomLighting extends IPSModuleStrict
         }
     }
 
-    private function registerSensorMessages(string $bufferName, string $fieldName): void
+    // =====================================================================
+    // === Registration Helpers ===
+    // =====================================================================
+
+    private function registerSensorMessages(string $property, string $key, string $manualKey = ''): void
     {
-        $items = $this->safeJsonDecode($this->ReadPropertyString($bufferName), true) ?: [];
-        foreach ($items as $item) {
-            $id = $item[$fieldName] ?? 0;
-            if ($id > 0) {
+        $rules = $this->safeJsonDecode($this->ReadPropertyString($property), true) ?: [];
+        foreach ($rules as $rule) {
+            $id = (int)($rule[$key] ?? 0);
+            if ($manualKey !== '' && $id <= 0) {
+                $manId = (int)($rule[$manualKey] ?? 0);
+                if ($manId > 0) {
+                    $id = $manId;
+                }
+            }
+            if ($id > 0 && IPS_VariableExists($id)) {
                 $this->RegisterMessage($id, VM_UPDATE);
             }
         }
@@ -986,6 +1001,26 @@ class SmartRoomLighting extends IPSModuleStrict
         $sceneDevicesColumns[] = ['caption' => 'Wert (AN)', 'name' => 'ActionValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']];
         $sceneDevicesColumns[] = ['caption' => 'Wert (AUS)', 'name' => 'DeactivateValue', 'width' => '100px', 'add' => 'false', 'edit' => ['type' => 'ValidationTextBox']];
 
+        // --- MotionTriggers columns (dynamic based on registry) ---
+        $motionTriggersColumns = [];
+        if ($hasRegistry && count($motionOptions) > 1) {
+            $motionTriggersColumns[] = ['caption' => 'Sensor (Registry)', 'name' => 'SensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $motionOptions]];
+            $motionTriggersColumns[] = ['caption' => 'Oder manuell', 'name' => 'ManualSensorID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+        } else {
+            $motionTriggersColumns[] = ['caption' => 'Sensor (BWM)', 'name' => 'SensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+        }
+
+        $motionTriggersColumns = array_merge($motionTriggersColumns, [
+            ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+            ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '70px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
+            ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
+            ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Nacht von', 'name' => 'NightFrom', 'width' => '70px', 'add' => '23:00', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Nacht bis', 'name' => 'NightTo', 'width' => '70px', 'add' => '06:00', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Tag-Szene', 'name' => 'DaySceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Override', 'name' => 'RespectOverride', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+        ]);
+
         // Build complete form
         $form = [
             'elements' => [
@@ -1065,17 +1100,7 @@ class SmartRoomLighting extends IPSModuleStrict
                             'rowCount' => 5,
                             'add' => true,
                             'delete' => true,
-                            'columns' => [
-                                ['caption' => 'Sensor (BWM)', 'name' => 'SensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $motionOptions]],
-                                ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                                ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '70px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
-                                ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
-                                ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Nacht von', 'name' => 'NightFrom', 'width' => '70px', 'add' => '23:00', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Nacht bis', 'name' => 'NightTo', 'width' => '70px', 'add' => '06:00', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Tag-Szene', 'name' => 'DaySceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Override', 'name' => 'RespectOverride', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
-                            ],
+                            'columns' => $motionTriggersColumns,
                         ],
                     ],
                 ],
