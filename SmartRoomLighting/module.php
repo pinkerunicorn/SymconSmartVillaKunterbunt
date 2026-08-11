@@ -15,11 +15,15 @@ class SmartRoomLighting extends IPSModuleStrict
     // Maximum number of concurrent timers
     private const MAX_TIMERS = 20;
 
+    // SmartSequencer module GUID
+    private const SEQUENCER_GUID = '{9F8E7D6C-5B4A-3C2D-1E0F-A1B2C3D4E5F6}';
+
     public function Create(): void
     {
         parent::Create();
 
         // === Properties ===
+        // Scenes: map a name to a SmartSequencer instance
         $this->RegisterPropertyString('Scenes', '[]');
         $this->RegisterPropertyString('MotionTriggers', '[]');
         $this->RegisterPropertyString('SwitchTriggers', '[]');
@@ -59,15 +63,16 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerListReferences('TwilightRules', ['TargetLightID']);
         $this->registerListReferences('SyncRules', ['MasterVariableID', 'TargetLightID']);
 
-        // Register all target IDs from Scenes
+        // Register Sequencer instance references from Scenes
         $scenes = $this->safeJsonDecode($this->ReadPropertyString('Scenes'), true) ?: [];
         foreach ($scenes as $scene) {
-            $actions = $scene['Actions'] ?? [];
-            foreach ($actions as $action) {
-                $vid = $action['TargetID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
+            $seqId = $scene['SequencerID'] ?? 0;
+            if ($seqId > 1 && @IPS_ObjectExists($seqId)) {
+                $this->RegisterReference($seqId);
+            }
+            $offSeqId = $scene['OffSequencerID'] ?? 0;
+            if ($offSeqId > 1 && @IPS_ObjectExists($offSeqId)) {
+                $this->RegisterReference($offSeqId);
             }
         }
 
@@ -94,8 +99,6 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerSensorMessages('SwitchTriggers', 'SwitchID');
         $this->registerSensorMessages('DoorRules', 'DoorVariableID');
         $this->registerSensorMessages('SyncRules', 'MasterVariableID');
-
-        // Register Twilight target lights for reference tracking only (no messages needed)
 
         // --- Twilight Timers ---
         $this->CalculateTwilightTimers();
@@ -163,12 +166,12 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     // =====================================================================
-    // === Scene Engine ===
+    // === Scene Engine (delegates to SmartSequencer) ===
     // =====================================================================
 
     /**
      * Activate a scene by name.
-     * Iterates all actions in the scene and executes them.
+     * Looks up the SmartSequencer instance and runs its entry sequence.
      */
     private function activateScene(string $sceneName, string $context = ''): void
     {
@@ -182,32 +185,62 @@ class SmartRoomLighting extends IPSModuleStrict
         foreach ($scenes as $scene) {
             if (($scene['SceneName'] ?? '') === $sceneName) {
                 $found = true;
-                $actions = $scene['Actions'] ?? [];
-                foreach ($actions as $action) {
-                    $targetId = $action['TargetID'] ?? 0;
-                    if ($targetId <= 0 || !@IPS_VariableExists($targetId)) {
-                        continue;
-                    }
+                $seqId = $scene['SequencerID'] ?? 0;
 
-                    $value = $action['Value'] ?? null;
-                    if ($value === null) {
-                        continue;
-                    }
-
-                    // Type-cast to match Symcon variable type
-                    $var = IPS_GetVariable($targetId);
-                    $typedValue = $this->castToVariableType($var['VariableType'], $value);
-
-                    $res = $this->safeRequestAction($targetId, $typedValue);
-                    $logContext = $context !== '' ? "$context / $sceneName" : $sceneName;
-                    $this->logSwitch($targetId, $typedValue, $res, $logContext);
+                if ($seqId <= 0 || !@IPS_InstanceExists($seqId)) {
+                    $this->SLogWarning('Sequencer nicht gefunden', "Szene: $sceneName | ID: $seqId");
+                    return;
                 }
+
+                $logContext = $context !== '' ? "$context / $sceneName" : $sceneName;
+                $this->SLogInfo("Szene aktiviert ($logContext)", "Sequencer: " . IPS_GetName($seqId) . " (#$seqId)");
+
+                // Execute the entry sequence of the SmartSequencer instance
+                SHSQ_RunSequence($seqId);
                 break;
             }
         }
 
-        if (!$found && $sceneName !== '') {
+        if (!$found) {
             $this->SLogWarning('Szene nicht gefunden', "Name: $sceneName");
+        }
+    }
+
+    /**
+     * Deactivate a scene by name.
+     * Runs the deactivation sequence of the linked SmartSequencer instance.
+     */
+    private function deactivateScene(string $sceneName, string $context = ''): void
+    {
+        if ($sceneName === '') {
+            return;
+        }
+
+        $scenes = $this->safeJsonDecode($this->GetBuffer('ScenesCache'), true) ?: [];
+
+        foreach ($scenes as $scene) {
+            if (($scene['SceneName'] ?? '') === $sceneName) {
+                // Check if there's a dedicated off-sequencer
+                $offSeqId = $scene['OffSequencerID'] ?? 0;
+                if ($offSeqId > 0 && @IPS_InstanceExists($offSeqId)) {
+                    $logContext = $context !== '' ? "$context / $sceneName (AUS)" : "$sceneName (AUS)";
+                    $this->SLogInfo("Szene deaktiviert ($logContext)", "Off-Sequencer: " . IPS_GetName($offSeqId) . " (#$offSeqId)");
+                    SHSQ_RunSequence($offSeqId);
+                    return;
+                }
+
+                // Fallback: run the deactivation sequence of the main sequencer
+                $seqId = $scene['SequencerID'] ?? 0;
+                if ($seqId > 0 && @IPS_InstanceExists($seqId)) {
+                    $logContext = $context !== '' ? "$context / $sceneName (Austritt)" : "$sceneName (Austritt)";
+                    $this->SLogInfo("Szene deaktiviert ($logContext)", "Sequencer: " . IPS_GetName($seqId) . " (#$seqId)");
+                    SHSQ_RunDeactivationSequence($seqId);
+                    return;
+                }
+
+                $this->SLogWarning('Kein Sequencer fuer Deaktivierung', "Szene: $sceneName");
+                return;
+            }
         }
     }
 
@@ -256,8 +289,8 @@ class SmartRoomLighting extends IPSModuleStrict
         $timerName = "MotionOffTimer_$index";
         $this->SetTimerInterval($timerName, $duration * 1000);
 
-        // Track active timer for house-mode cleanup
-        $this->trackActiveTimer($timerName, $trigger['OffSceneName'] ?? '');
+        // Track which scene to deactivate when timer expires
+        $this->trackActiveTimer($timerName, $sceneName);
     }
 
     public function ProcessMotionOff(int $ruleIndex): void
@@ -271,12 +304,12 @@ class SmartRoomLighting extends IPSModuleStrict
             return;
         }
 
-        $motionTriggers = $this->safeJsonDecode($this->GetBuffer('MotionTriggersCache'), true) ?: [];
-        if (isset($motionTriggers[$ruleIndex])) {
-            $offScene = $motionTriggers[$ruleIndex]['OffSceneName'] ?? '';
-            if ($offScene !== '') {
-                $this->activateScene($offScene, 'Bewegung-Nachlauf');
-            }
+        // Get the scene name that was activated
+        $activeTimers = $this->safeJsonDecode($this->GetBuffer('ActiveTimers'), true) ?: [];
+        $sceneName = $activeTimers[$timerName] ?? '';
+
+        if ($sceneName !== '') {
+            $this->deactivateScene($sceneName, 'Bewegung-Nachlauf');
         }
 
         $this->untrackActiveTimer($timerName);
@@ -289,7 +322,6 @@ class SmartRoomLighting extends IPSModuleStrict
     private function processSwitchTrigger(array $trigger): void
     {
         $sceneName = $trigger['SceneName'] ?? '';
-        $offSceneName = $trigger['OffSceneName'] ?? '';
         $toggle = $trigger['Toggle'] ?? true;
         $setsOverride = $trigger['SetsOverride'] ?? true;
 
@@ -305,11 +337,10 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->SetBuffer('SwitchDebounceCache', json_encode($debounceCache));
 
         if ($toggle) {
-            // Toggle: if override is currently active → turn off + release override
+            // Toggle: if override is currently active → deactivate scene + release override
             if ($this->isManualOverride()) {
-                // Turn off
-                if ($offSceneName !== '') {
-                    $this->activateScene($offSceneName, 'Schalter AUS');
+                if ($sceneName !== '') {
+                    $this->deactivateScene($sceneName, 'Schalter AUS');
                 }
                 $this->setManualOverride(false);
                 $this->cancelAllMotionTimers();
@@ -338,7 +369,6 @@ class SmartRoomLighting extends IPSModuleStrict
     private function processDoorTrigger(array $rule, int $ruleIndex, bool $isOpen): void
     {
         $sceneName = $rule['SceneName'] ?? '';
-        $offSceneName = $rule['OffSceneName'] ?? '';
         $timerName = "DoorOffTimer_$ruleIndex";
         $occupancyLock = $rule['OccupancyLock'] ?? false;
 
@@ -347,16 +377,14 @@ class SmartRoomLighting extends IPSModuleStrict
             $this->SetTimerInterval($timerName, 0);
 
             if ($occupancyLock && ($this->GetBuffer('OccupancyLocked') === 'true')) {
-                // Room was occupied, door opens → release and turn off
+                // Room was occupied, door opens → release and start off-timer
                 $this->SetBuffer('OccupancyLocked', 'false');
-                if ($offSceneName !== '') {
-                    $duration = $rule['DurationSec'] ?? 10;
-                    if ($duration > 0) {
-                        $this->SetTimerInterval($timerName, $duration * 1000);
-                        $this->trackActiveTimer($timerName, $offSceneName);
-                    } else {
-                        $this->activateScene($offSceneName, 'Tuer geoeffnet');
-                    }
+                $duration = $rule['DurationSec'] ?? 10;
+                if ($duration > 0) {
+                    $this->SetTimerInterval($timerName, $duration * 1000);
+                    $this->trackActiveTimer($timerName, $sceneName);
+                } else {
+                    $this->deactivateScene($sceneName, 'Tuer geoeffnet');
                 }
                 return;
             }
@@ -372,7 +400,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
             if ($sceneName !== '') {
                 $this->activateScene($sceneName, 'Tuer/Fenster');
-                $this->trackActiveTimer($timerName, $offSceneName);
+                $this->trackActiveTimer($timerName, $sceneName);
             }
         } else {
             // Door closed
@@ -398,18 +426,18 @@ class SmartRoomLighting extends IPSModuleStrict
         $timerName = "DoorOffTimer_$ruleIndex";
         $this->SetTimerInterval($timerName, 0);
 
-        $doorRules = $this->safeJsonDecode($this->GetBuffer('DoorRulesCache'), true) ?: [];
-        if (isset($doorRules[$ruleIndex])) {
-            $offScene = $doorRules[$ruleIndex]['OffSceneName'] ?? '';
-            if ($offScene !== '') {
-                $this->activateScene($offScene, 'Tuer/Fenster-Nachlauf');
-            }
+        $activeTimers = $this->safeJsonDecode($this->GetBuffer('ActiveTimers'), true) ?: [];
+        $sceneName = $activeTimers[$timerName] ?? '';
+
+        if ($sceneName !== '') {
+            $this->deactivateScene($sceneName, 'Tuer/Fenster-Nachlauf');
         }
+
         $this->untrackActiveTimer($timerName);
     }
 
     // =====================================================================
-    // === Twilight Rules (from old module, unchanged logic) ===
+    // === Twilight Rules ===
     // =====================================================================
 
     public function CalculateTwilightTimers(): void
@@ -468,7 +496,7 @@ class SmartRoomLighting extends IPSModuleStrict
             $targetId = $rules[$ruleIndex]['TargetLightID'] ?? 0;
 
             if ($sceneName !== '') {
-                // New: scene-based twilight
+                // Scene-based twilight
                 $this->activateScene($sceneName, 'Daemmerung');
             } elseif ($targetId > 0 && IPS_VariableExists($targetId)) {
                 // Legacy: direct target
@@ -490,7 +518,7 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     // =====================================================================
-    // === Sync Rules (from old module, unchanged) ===
+    // === Sync Rules ===
     // =====================================================================
 
     private function processSyncRule(array $rule, mixed $val): void
@@ -549,28 +577,25 @@ class SmartRoomLighting extends IPSModuleStrict
 
     private function handleActivityChange(int $mode): void
     {
-        // Sleeping (2): could trigger night scene, but for now just log
         if ($mode === 2) {
             $this->SLogInfo('ActivityMode', 'Schlafen-Modus aktiviert');
         }
     }
 
     /**
-     * Cancel all timers, reset override, activate all tracked off-scenes.
+     * Cancel all timers, reset override, deactivate all tracked scenes.
      */
     private function emergencyShutdown(string $reason): void
     {
-        // Cancel all motion timers and execute their off-scenes
         $activeTimers = $this->safeJsonDecode($this->GetBuffer('ActiveTimers'), true) ?: [];
-        foreach ($activeTimers as $timerName => $offSceneName) {
+        foreach ($activeTimers as $timerName => $sceneName) {
             $this->SetTimerInterval($timerName, 0);
-            if ($offSceneName !== '') {
-                $this->activateScene($offSceneName, 'Haus-Modus');
+            if ($sceneName !== '') {
+                $this->deactivateScene($sceneName, 'Haus-Modus');
             }
         }
         $this->SetBuffer('ActiveTimers', '[]');
 
-        // Reset override
         $this->setManualOverride(false);
         $this->SetBuffer('OccupancyLocked', 'false');
 
@@ -578,7 +603,7 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     // =====================================================================
-    // === RequestAction (for future WebFront variables) ===
+    // === RequestAction ===
     // =====================================================================
 
     public function RequestAction(string $Ident, mixed $Value): void
@@ -604,10 +629,10 @@ class SmartRoomLighting extends IPSModuleStrict
     // === Timer Tracking ===
     // =====================================================================
 
-    private function trackActiveTimer(string $timerName, string $offSceneName): void
+    private function trackActiveTimer(string $timerName, string $sceneName): void
     {
         $timers = $this->safeJsonDecode($this->GetBuffer('ActiveTimers'), true) ?: [];
-        $timers[$timerName] = $offSceneName;
+        $timers[$timerName] = $sceneName;
         $this->SetBuffer('ActiveTimers', json_encode($timers));
     }
 
@@ -623,7 +648,6 @@ class SmartRoomLighting extends IPSModuleStrict
         for ($i = 0; $i < self::MAX_TIMERS; $i++) {
             $this->SetTimerInterval("MotionOffTimer_$i", 0);
         }
-        // Don't execute off-scenes when canceling due to override
         $timers = $this->safeJsonDecode($this->GetBuffer('ActiveTimers'), true) ?: [];
         foreach (array_keys($timers) as $key) {
             if (str_starts_with($key, 'MotionOffTimer_')) {
@@ -665,7 +689,6 @@ class SmartRoomLighting extends IPSModuleStrict
         $toMinutes = (int)$toParts[0] * 60 + (int)$toParts[1];
 
         if ($fromMinutes <= $toMinutes) {
-            // Same day range (e.g., 08:00 - 20:00)
             return $nowMinutes >= $fromMinutes && $nowMinutes < $toMinutes;
         }
         // Overnight range (e.g., 23:00 - 06:00)
@@ -776,34 +799,23 @@ class SmartRoomLighting extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        // Build scene name options for dropdowns
-        $scenes = $this->safeJsonDecode($this->ReadPropertyString('Scenes'), true) ?: [];
-        $sceneOptions = [['label' => '(keine)', 'value' => '']];
-        foreach ($scenes as $scene) {
-            $name = $scene['SceneName'] ?? '';
-            if ($name !== '') {
-                $sceneOptions[] = ['label' => $name, 'value' => $name];
-            }
-        }
-        $sceneOptionsJson = json_encode($sceneOptions);
-
-        return <<<EOT
+        return <<<'EOT'
 {
     "elements": [
         {
             "type": "ExpansionPanel",
-            "caption": "Szenen-Definitionen",
+            "caption": "Szenen-Definitionen (SmartSequencer)",
             "expanded": true,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Definiere hier Lichtszenen. Jede Szene ist eine Sammlung von Aktor-Zustaenden, die gemeinsam aktiviert werden."
+                    "caption": "Jede Szene verweist auf eine SmartSequencer-Instanz. Die Sequencer-Instanz definiert die Aktionen (Geraete schalten, Skripte ausfuehren, etc.)."
                 },
                 {
                     "type": "List",
                     "name": "Scenes",
                     "caption": "Szenen",
-                    "rowCount": 5,
+                    "rowCount": 8,
                     "add": true,
                     "delete": true,
                     "columns": [
@@ -817,24 +829,24 @@ class SmartRoomLighting extends IPSModuleStrict
                             }
                         },
                         {
-                            "caption": "Aktionen (JSON)",
-                            "name": "Actions",
+                            "caption": "Sequencer (Eintritt)",
+                            "name": "SequencerID",
                             "width": "auto",
-                            "add": "[]",
+                            "add": 0,
                             "edit": {
-                                "type": "ValidationTextBox"
-                            },
-                            "visible": false
+                                "type": "SelectInstance"
+                            }
+                        },
+                        {
+                            "caption": "Off-Sequencer (optional, sonst Austritts-Ablauf)",
+                            "name": "OffSequencerID",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectInstance"
+                            }
                         }
                     ]
-                },
-                {
-                    "type": "Label",
-                    "caption": "Aktionen pro Szene als JSON definieren. Format: [{\"TargetID\": 12345, \"Value\": true}, {\"TargetID\": 12346, \"Value\": 3}]"
-                },
-                {
-                    "type": "Label",
-                    "caption": "Tipp: Fuer WLED-Presets den Preset-Wert als Integer angeben (z.B. 3 fuer Preset 3). Fuer Boolean-Schalter true/false verwenden."
                 }
             ]
         },
@@ -893,7 +905,7 @@ class SmartRoomLighting extends IPSModuleStrict
                         {
                             "caption": "Nacht-Szene",
                             "name": "NightSceneName",
-                            "width": "150px",
+                            "width": "130px",
                             "add": "",
                             "edit": {
                                 "type": "ValidationTextBox"
@@ -920,16 +932,7 @@ class SmartRoomLighting extends IPSModuleStrict
                         {
                             "caption": "Tag-Szene",
                             "name": "DaySceneName",
-                            "width": "150px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Aus-Szene",
-                            "name": "OffSceneName",
-                            "width": "150px",
+                            "width": "130px",
                             "add": "",
                             "edit": {
                                 "type": "ValidationTextBox"
@@ -976,15 +979,6 @@ class SmartRoomLighting extends IPSModuleStrict
                         {
                             "caption": "Szene",
                             "name": "SceneName",
-                            "width": "150px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Aus-Szene",
-                            "name": "OffSceneName",
                             "width": "150px",
                             "add": "",
                             "edit": {
@@ -1071,17 +1065,8 @@ class SmartRoomLighting extends IPSModuleStrict
                             }
                         },
                         {
-                            "caption": "Auf-Szene",
+                            "caption": "Szene",
                             "name": "SceneName",
-                            "width": "150px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Aus-Szene",
-                            "name": "OffSceneName",
                             "width": "150px",
                             "add": "",
                             "edit": {
