@@ -138,6 +138,7 @@ class SmartHeating extends IPSModuleStrict
         }
 
         $this->UpdateAverageTemperature();
+        $this->updateHeatingMode();
 
         $this->SetStatus(102);
         $this->DA_SetAvailable(true);
@@ -185,6 +186,7 @@ class SmartHeating extends IPSModuleStrict
                 return;
             }
             
+            $wasAbsenkbetrieb = $this->GetValue('IsAbsenkbetrieb');
             $this->SetValue('IsAbsenkbetrieb', true);
             
             $globalTargetTemp = $this->ReadPropertyFloat('TargetTemperature');
@@ -193,7 +195,12 @@ class SmartHeating extends IPSModuleStrict
                 $globalTargetTemp = max(12.0, $globalTargetTemp - 2.0); 
             }
             
-            $previousStates = [];
+            $previousStatesStr = $this->ReadAttributeString('PreviousStates');
+            $previousStates = $this->safeJsonDecode($previousStatesStr, true);
+            if (!is_array($previousStates)) {
+                $previousStates = [];
+            }
+            
             foreach ($heatingInsts as $heating) {
                 $instId = $heating['InstanceID'];
                 if ($instId <= 0 || !IPS_InstanceExists($instId)) continue;
@@ -220,13 +227,15 @@ class SmartHeating extends IPSModuleStrict
                     }
                 }
 
-                $state = [
-                    'tempId'=> $targetTempId,
-                    'prevTemp'=> ($targetTempId > 0 && IPS_VariableExists($targetTempId)) ? GetValue($targetTempId) : null,
-                    'modeId'=> $controlModeId,
-                    'prevMode'=> ($controlModeId > 0 && IPS_VariableExists($controlModeId)) ? GetValue($controlModeId) : null
-                ];
-                $previousStates[$instId] = $state;
+                if (!$wasAbsenkbetrieb || !isset($previousStates[$instId])) {
+                    $state = [
+                        'tempId'=> $targetTempId,
+                        'prevTemp'=> ($targetTempId > 0 && IPS_VariableExists($targetTempId)) ? GetValue($targetTempId) : null,
+                        'modeId'=> $controlModeId,
+                        'prevMode'=> ($controlModeId > 0 && IPS_VariableExists($controlModeId)) ? GetValue($controlModeId) : null
+                    ];
+                    $previousStates[$instId] = $state;
+                }
 
                 if ($controlModeId > 0 && IPS_VariableExists($controlModeId)) {
                     $currentMode = GetValue($controlModeId);
@@ -266,6 +275,7 @@ class SmartHeating extends IPSModuleStrict
             }
         } else {
             // Modus 0 (Anwesenheit), 3 (Party), 4 (Heimkino), 6 (Putzen) -> Heizung normal!
+            $wasAbsenkbetrieb = $this->GetValue('IsAbsenkbetrieb');
             $this->SetValue('IsAbsenkbetrieb', false);
             $isHeatingSeason = GetValue($this->GetIDForIdent('HeatingSeason'));
             if (!$isHeatingSeason) {
@@ -274,31 +284,33 @@ class SmartHeating extends IPSModuleStrict
                 return;
             }
 
-            $previousStatesStr = $this->ReadAttributeString('PreviousStates');
-            $previousStates = $this->safeJsonDecode($previousStatesStr, true);
-            if (is_array($previousStates)) {
-                foreach ($previousStates as $instId => $state) {
-                    $modeId = isset($state['modeId']) ? $state['modeId'] : 0;
-                    $prevMode = isset($state['prevMode']) ? $state['prevMode'] : null;
-                    $tempId = isset($state['tempId']) ? $state['tempId'] : 0;
-                    $prevTemp = isset($state['prevTemp']) ? $state['prevTemp'] : null;
+            if ($wasAbsenkbetrieb) {
+                $previousStatesStr = $this->ReadAttributeString('PreviousStates');
+                $previousStates = $this->safeJsonDecode($previousStatesStr, true);
+                if (is_array($previousStates)) {
+                    foreach ($previousStates as $instId => $state) {
+                        $modeId = isset($state['modeId']) ? $state['modeId'] : 0;
+                        $prevMode = isset($state['prevMode']) ? $state['prevMode'] : null;
+                        $tempId = isset($state['tempId']) ? $state['tempId'] : 0;
+                        $prevTemp = isset($state['prevTemp']) ? $state['prevTemp'] : null;
 
-                    if ($modeId > 0 && $prevMode !== null && IPS_VariableExists($modeId)) {
-                        if (!$this->safeRequestAction($modeId, $prevMode)) {
-                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($prevMode, true));
-                        } else {
-                            $this->SLogInfo( 'Aktor-Modus wiederhergestellt.', "ID: $modeId | Wert: " . var_export($prevMode, true));
-                        }
-                    } elseif ($tempId > 0 && $prevTemp !== null && IPS_VariableExists($tempId)) {
-                        if (!$this->safeRequestAction($tempId, $prevTemp)) {
-                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $tempId | Wert: " . var_export($prevTemp, true));
-                        } else {
-                            $this->SLogInfo( 'Ziel-Temperatur wiederhergestellt.', "ID: $tempId | Wert: " . var_export($prevTemp, true));
+                        if ($modeId > 0 && $prevMode !== null && IPS_VariableExists($modeId)) {
+                            if (!$this->safeRequestAction($modeId, $prevMode)) {
+                                $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($prevMode, true));
+                            } else {
+                                $this->SLogInfo( 'Aktor-Modus wiederhergestellt.', "ID: $modeId | Wert: " . var_export($prevMode, true));
+                            }
+                        } elseif ($tempId > 0 && $prevTemp !== null && IPS_VariableExists($tempId)) {
+                            if (!$this->safeRequestAction($tempId, $prevTemp)) {
+                                $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $tempId | Wert: " . var_export($prevTemp, true));
+                            } else {
+                                $this->SLogInfo( 'Ziel-Temperatur wiederhergestellt.', "ID: $tempId | Wert: " . var_export($prevTemp, true));
+                            }
                         }
                     }
                 }
+                $this->WriteAttributeString('PreviousStates', '{}');
             }
-            $this->WriteAttributeString('PreviousStates', '{}');
             $this->SetValue('HeatingStatus', '🟢 Normalbetrieb (Profil gesteuert)');
             $this->SLogInfo( 'Normaltemperatur / Auto-Modus wiederhergestellt.', "Räume: $roomCount");
         }
