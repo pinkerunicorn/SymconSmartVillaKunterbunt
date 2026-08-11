@@ -187,7 +187,7 @@ class SmartRoomLighting extends IPSModuleStrict
         // --- Scene-based Motion Triggers ---
         $motionTriggers = $this->safeJsonDecode($this->GetBuffer('MotionTriggersCache'), true) ?: [];
         foreach ($motionTriggers as $index => $trigger) {
-            $sensorId = (int)($trigger['SensorID'] ?? 0);
+            $sensorId = $this->resolveDeviceId($trigger['SensorID'] ?? 0);
             $manualId = (int)($trigger['ManualSensorID'] ?? 0);
             if ($sensorId <= 0 && $manualId > 0) {
                 $sensorId = $manualId;
@@ -201,7 +201,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $switchTriggers = $this->safeJsonDecode($this->GetBuffer('SwitchTriggersCache'), true) ?: [];
         $switchDefaults = $this->safeJsonDecode($this->GetBuffer('SwitchDefaultsCache'), true) ?: [];
         foreach ($switchTriggers as $trigger) {
-            $switchId = (int)($trigger['SwitchID'] ?? 0);
+            $switchId = $this->resolveDeviceId($trigger['SwitchID'] ?? 0);
             $manualId = (int)($trigger['ManualSwitchID'] ?? 0);
             if ($switchId <= 0 && $manualId > 0) {
                 $switchId = $manualId;
@@ -297,7 +297,7 @@ class SmartRoomLighting extends IPSModuleStrict
         foreach ($sceneDevices as $devRule) {
             if (($devRule['SceneName'] ?? '') === $sceneName) {
                 $found = true;
-                $targetId = (int)($devRule['TargetID'] ?? 0);
+                $targetId = $this->resolveDeviceId($devRule['TargetID'] ?? 0);
                 $manualId = (int)($devRule['ManualTargetID'] ?? 0);
                 if ($targetId <= 0 && $manualId > 0) {
                     $targetId = $manualId;
@@ -378,7 +378,7 @@ class SmartRoomLighting extends IPSModuleStrict
         foreach ($sceneDevices as $devRule) {
             if (($devRule['SceneName'] ?? '') === $sceneName) {
                 $found = true;
-                $targetId = (int)($devRule['TargetID'] ?? 0);
+                $targetId = $this->resolveDeviceId($devRule['TargetID'] ?? 0);
                 $manualId = (int)($devRule['ManualTargetID'] ?? 0);
                 if ($targetId <= 0 && $manualId > 0) {
                     $targetId = $manualId;
@@ -414,7 +414,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         // 2. Check Lux threshold
-        $luxSensorId = $trigger['LuxSensorID'] ?? 0;
+        $luxSensorId = $this->resolveDeviceId($trigger['LuxSensorID'] ?? 0);
         $maxLux = $trigger['MaxLux'] ?? 50;
         if ($luxSensorId > 0 && IPS_VariableExists($luxSensorId)) {
             $currentLux = GetValue($luxSensorId);
@@ -481,7 +481,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $setsOverride = $trigger['SetsOverride'] ?? true;
 
         // Debounce: 1 second
-        $switchId = (int)($trigger['SwitchID'] ?? 0);
+        $switchId = $this->resolveDeviceId($trigger['SwitchID'] ?? 0);
         $manualId = (int)($trigger['ManualSwitchID'] ?? 0);
         if ($switchId <= 0 && $manualId > 0) {
             $switchId = $manualId;
@@ -598,7 +598,7 @@ class SmartRoomLighting extends IPSModuleStrict
             }
 
             // Normal door open: check lux, then activate scene
-            $luxSensorId = $rule['LuxSensorID'] ?? 0;
+            $luxSensorId = $this->resolveDeviceId($rule['LuxSensorID'] ?? 0);
             $maxLux = $rule['MaxLux'] ?? 1000;
             if ($luxSensorId > 0 && IPS_VariableExists($luxSensorId)) {
                 if (GetValue($luxSensorId) >= $maxLux) {
@@ -701,7 +701,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true) ?: [];
         if (isset($rules[$ruleIndex]) && ($rules[$ruleIndex]['Active'] ?? true)) {
             $sceneName = $rules[$ruleIndex]['SceneName'] ?? '';
-            $targetId = $rules[$ruleIndex]['TargetLightID'] ?? 0;
+            $targetId = $this->resolveDeviceId($rules[$ruleIndex]['TargetLightID'] ?? 0);
 
             if ($sceneName !== '') {
                 // Scene-based twilight
@@ -731,7 +731,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
     private function processSyncRule(array $rule, mixed $val): void
     {
-        $targetId = $rule['TargetLightID'] ?? 0;
+        $targetId = $this->resolveDeviceId($rule['TargetLightID'] ?? 0);
         $sourceId = $rule['MasterVariableID'] ?? 0;
         if ($targetId <= 0 || !IPS_VariableExists($targetId)) {
             return;
@@ -1007,7 +1007,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $list = $this->safeJsonDecode($this->ReadPropertyString($propertyName), true) ?: [];
         foreach ($list as $item) {
             foreach ($fields as $field) {
-                $vid = $item[$field] ?? 0;
+                $vid = $this->resolveDeviceId($item[$field] ?? 0);
                 if ($vid > 1 && @IPS_ObjectExists($vid)) {
                     $this->RegisterReference($vid);
                 }
@@ -1023,7 +1023,7 @@ class SmartRoomLighting extends IPSModuleStrict
     {
         $rules = $this->safeJsonDecode($this->ReadPropertyString($property), true) ?: [];
         foreach ($rules as $rule) {
-            $id = (int)($rule[$key] ?? 0);
+            $id = $this->resolveDeviceId($rule[$key] ?? 0);
             if ($manualKey !== '' && $id <= 0) {
                 $manId = (int)($rule[$manualKey] ?? 0);
                 if ($manId > 0) {
@@ -1034,6 +1034,16 @@ class SmartRoomLighting extends IPSModuleStrict
                 $this->RegisterMessage($id, VM_UPDATE);
             }
         }
+    }
+
+    
+    private function resolveDeviceId(string|int $idStr): int
+    {
+        if (is_numeric($idStr)) {
+            return (int)$idStr;
+        }
+        $map = $this->safeJsonDecode($this->GetBuffer('DeviceMapCache'), true) ?: [];
+        return (int)($map[$idStr] ?? 0);
     }
 
     private function safeJsonDecode(string $json, bool $assoc = true): mixed
