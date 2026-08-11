@@ -225,14 +225,23 @@ class SmartRoomLighting extends IPSModuleStrict
             return;
         }
 
-        $this->SetValue('MasterSwitch', true);
-
         $sceneIdents = $this->safeJsonDecode($this->GetBuffer('SceneIdents'), true) ?: [];
+        
+        // 1. Find other active scenes and deactivate them FIRST (so their lights turn off)
+        foreach ($sceneIdents as $ident => $sName) {
+            if ($sName !== $sceneName) {
+                $varId = @$this->GetIDForIdent($ident);
+                if ($varId > 0 && @GetValue($varId)) {
+                    $this->deactivateScene($sName, $context !== '' ? $context . ' (Auto-Off)' : 'Auto-Off');
+                }
+            }
+        }
+
+        // 2. Set the state for this scene to true
+        $this->SetValue('MasterSwitch', true);
         foreach ($sceneIdents as $ident => $sName) {
             if ($sName === $sceneName) {
                 $this->SetValue($ident, true);
-            } else {
-                $this->SetValue($ident, false);
             }
         }
 
