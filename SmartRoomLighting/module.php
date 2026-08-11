@@ -1003,6 +1003,7 @@ class SmartRoomLighting extends IPSModuleStrict
             return $options;
         }
 
+        $dynamicOptions = [];
         $lightTypes = ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'];
         foreach ($lightTypes as $type) {
             $devices = @SDR_GetDevicesByType($regId, $type);
@@ -1020,12 +1021,13 @@ class SmartRoomLighting extends IPSModuleStrict
                     $varId = (int)$dev['OnOff_VarID'];
                 }
                 if ($varId > 0) {
-                    $options[] = ['label' => $name, 'value' => $varId];
+                    $dynamicOptions[] = ['label' => $name, 'value' => $varId];
                 }
             }
         }
 
-        return $options;
+        usort($dynamicOptions, fn($a, $b) => strcasecmp($a['label'], $b['label']));
+        return array_merge($options, $dynamicOptions);
     }
 
     /**
@@ -1039,6 +1041,7 @@ class SmartRoomLighting extends IPSModuleStrict
             return $options;
         }
 
+        $dynamicOptions = [];
         $devices = @SDR_GetDevicesByType($regId, 'DevicesMotionSensor');
         if (!is_array($devices)) {
             return $options;
@@ -1048,11 +1051,12 @@ class SmartRoomLighting extends IPSModuleStrict
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
             $varId = (int)($dev['Status_VarID'] ?? 0);
             if ($varId > 0) {
-                $options[] = ['label' => $name, 'value' => $varId];
+                $dynamicOptions[] = ['label' => $name, 'value' => $varId];
             }
         }
 
-        return $options;
+        usort($dynamicOptions, fn($a, $b) => strcasecmp($a['label'], $b['label']));
+        return array_merge($options, $dynamicOptions);
     }
 
     /**
@@ -1066,6 +1070,7 @@ class SmartRoomLighting extends IPSModuleStrict
             return $options;
         }
 
+        $dynamicOptions = [];
         $devices = @SDR_GetDevicesByType($regId, 'DevicesContactSensor');
         if (!is_array($devices)) {
             return $options;
@@ -1075,11 +1080,12 @@ class SmartRoomLighting extends IPSModuleStrict
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
             $varId = (int)($dev['Status_VarID'] ?? 0);
             if ($varId > 0) {
-                $options[] = ['label' => $name, 'value' => $varId];
+                $dynamicOptions[] = ['label' => $name, 'value' => $varId];
             }
         }
 
-        return $options;
+        usort($dynamicOptions, fn($a, $b) => strcasecmp($a['label'], $b['label']));
+        return array_merge($options, $dynamicOptions);
     }
 
     // =====================================================================
