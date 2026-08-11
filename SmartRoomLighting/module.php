@@ -556,10 +556,10 @@ class SmartRoomLighting extends IPSModuleStrict
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
             $varId = (int)($dev['OnOff_VarID'] ?? 0);
-            
-            if ($varId > 0 && !in_array($varId, $addedVarIds)) {
-                $addedVarIds[] = $varId;
-                $dynamicOptions[] = ['label' => $name . ' (Taster)', 'value' => $varId];
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+            if ($varId > 0 && !in_array($deviceKey, $addedVarIds)) {
+                $addedVarIds[] = $deviceKey;
+                $dynamicOptions[] = ['label' => $name . ' (Taster)', 'value' => $deviceKey];
             }
         }
         
@@ -1088,27 +1088,30 @@ class SmartRoomLighting extends IPSModuleStrict
                 // Add Color option
                 if (!empty($dev['ColorRGB_VarID']) && (int)$dev['ColorRGB_VarID'] > 0) {
                     $varId = (int)$dev['ColorRGB_VarID'];
-                    if (!in_array($varId, $addedVarIds)) {
-                        $addedVarIds[] = $varId;
-                        $dynamicOptions[] = ['label' => $baseName . ' (Farbe)', 'value' => $varId];
+                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Color';
+                    if (!in_array($deviceKey, $addedVarIds)) {
+                        $addedVarIds[] = $deviceKey;
+                        $dynamicOptions[] = ['label' => $baseName . ' (Farbe)', 'value' => $deviceKey];
                     }
                 }
                 
                 // Add Dimmer option
                 if (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
                     $varId = (int)$dev['Brightness_VarID'];
-                    if (!in_array($varId, $addedVarIds)) {
-                        $addedVarIds[] = $varId;
-                        $dynamicOptions[] = ['label' => $baseName . ' (Dimmer)', 'value' => $varId];
+                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Dimmer';
+                    if (!in_array($deviceKey, $addedVarIds)) {
+                        $addedVarIds[] = $deviceKey;
+                        $dynamicOptions[] = ['label' => $baseName . ' (Dimmer)', 'value' => $deviceKey];
                     }
                 }
                 
                 // Add Switch option
                 if (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
                     $varId = (int)$dev['OnOff_VarID'];
-                    if (!in_array($varId, $addedVarIds)) {
-                        $addedVarIds[] = $varId;
-                        $dynamicOptions[] = ['label' => $baseName . ' (Schalter)', 'value' => $varId];
+                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Switch';
+                    if (!in_array($deviceKey, $addedVarIds)) {
+                        $addedVarIds[] = $deviceKey;
+                        $dynamicOptions[] = ['label' => $baseName . ' (Schalter)', 'value' => $deviceKey];
                     }
                 }
             }
@@ -1137,8 +1140,9 @@ class SmartRoomLighting extends IPSModuleStrict
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
             $varId = (int)($dev['Status_VarID'] ?? 0);
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
             if ($varId > 0) {
-                $dynamicOptions[] = ['label' => $name, 'value' => $varId];
+                $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
             }
         }
 
@@ -1165,8 +1169,9 @@ class SmartRoomLighting extends IPSModuleStrict
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
             $varId = (int)($dev['Status_VarID'] ?? 0);
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
             if ($varId > 0) {
-                $dynamicOptions[] = ['label' => $name, 'value' => $varId];
+                $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
             }
         }
 
