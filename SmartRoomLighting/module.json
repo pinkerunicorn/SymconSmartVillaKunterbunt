@@ -1,0 +1,21 @@
+{
+    "id": "{7F3B8A1C-E4D2-49F6-B5A0-1C9E8D7F6A3B}",
+    "name": "SmartRoomLighting",
+    "type": 3,
+    "vendor": "Florian Gra\u00dfinger",
+    "aliases": [
+        "SmartRoomLighting"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "SRL",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartRoomLighting",
+    "author": "Florian Graßinger",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        }
+    }
+}
