@@ -23,7 +23,11 @@ class SmartRoomLighting extends IPSModuleStrict
         parent::Create();
 
         // === Properties ===
-        // Scenes: map a name to a SmartSequencer instance
+        // Device Registry integration (optional)
+        $this->RegisterPropertyInteger('RegistryID', 0);
+        // Direct mode: simple sensor -> lamp mapping
+        $this->RegisterPropertyString('MotionLights', '[]');
+        // Scene mode: map a name to a SmartSequencer instance
         $this->RegisterPropertyString('Scenes', '[]');
         $this->RegisterPropertyString('MotionTriggers', '[]');
         $this->RegisterPropertyString('SwitchTriggers', '[]');
@@ -55,8 +59,10 @@ class SmartRoomLighting extends IPSModuleStrict
             $this->UnregisterReference($refID);
         }
 
+        $this->registerPropertyReference('RegistryID');
         $this->registerPropertyReference('SunsetVariableID');
         $this->registerPropertyReference('SunriseVariableID');
+        $this->registerListReferences('MotionLights', ['SensorID', 'TargetID', 'LuxSensorID']);
         $this->registerListReferences('MotionTriggers', ['SensorID', 'LuxSensorID']);
         $this->registerListReferences('SwitchTriggers', ['SwitchID']);
         $this->registerListReferences('DoorRules', ['DoorVariableID', 'LuxSensorID']);
@@ -77,6 +83,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         // --- Cache property data in buffers ---
+        $this->SetBuffer('MotionLightsCache', $this->ReadPropertyString('MotionLights'));
         $this->SetBuffer('ScenesCache', $this->ReadPropertyString('Scenes'));
         $this->SetBuffer('MotionTriggersCache', $this->ReadPropertyString('MotionTriggers'));
         $this->SetBuffer('SwitchTriggersCache', $this->ReadPropertyString('SwitchTriggers'));
@@ -95,6 +102,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         // --- Register sensors ---
+        $this->registerSensorMessages('MotionLights', 'SensorID');
         $this->registerSensorMessages('MotionTriggers', 'SensorID');
         $this->registerSensorMessages('SwitchTriggers', 'SwitchID');
         $this->registerSensorMessages('DoorRules', 'DoorVariableID');
@@ -126,7 +134,17 @@ class SmartRoomLighting extends IPSModuleStrict
         $val = $Data[0];
         $isTrigger = $this->evaluateTriggerValue($val);
 
-        // --- Motion Triggers ---
+        // --- Direct Motion Lights (Simple Mode) ---
+        $motionLights = $this->safeJsonDecode($this->GetBuffer('MotionLightsCache'), true) ?: [];
+        foreach ($motionLights as $index => $rule) {
+            if (($rule['SensorID'] ?? 0) == $SenderID) {
+                if ($isTrigger) {
+                    $this->processMotionLight($rule, $index);
+                }
+            }
+        }
+
+        // --- Scene-based Motion Triggers ---
         $motionTriggers = $this->safeJsonDecode($this->GetBuffer('MotionTriggersCache'), true) ?: [];
         foreach ($motionTriggers as $index => $trigger) {
             if (($trigger['SensorID'] ?? 0) == $SenderID && $isTrigger) {
@@ -245,7 +263,69 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     // =====================================================================
-    // === Motion Trigger Logic ===
+    // === Direct Motion Lights (Simple Mode) ===
+    // =====================================================================
+
+    private function processMotionLight(array $rule, int $index): void
+    {
+        // Prefer registry dropdown, fallback to manual SelectVariable
+        $targetId = $rule['TargetID'] ?? 0;
+        $manualId = $rule['ManualTargetID'] ?? 0;
+        if ($targetId <= 0 && $manualId > 0) {
+            $targetId = $manualId;
+        }
+        if ($targetId <= 0 || !IPS_VariableExists($targetId)) {
+            return;
+        }
+
+        // Check Manual Override
+        $respectOverride = $rule['RespectOverride'] ?? true;
+        if ($respectOverride && $this->isManualOverride()) {
+            return;
+        }
+
+        // Check Lux
+        $luxSensorId = $rule['LuxSensorID'] ?? 0;
+        $maxLux = $rule['MaxLux'] ?? 50;
+        if ($luxSensorId > 0 && IPS_VariableExists($luxSensorId)) {
+            if (GetValue($luxSensorId) >= $maxLux) {
+                return;
+            }
+        }
+
+        // Determine on-value based on variable type and night mode
+        $var = IPS_GetVariable($targetId);
+        $nightMode = $rule['NightMode'] ?? false;
+        $nightValue = $rule['NightValue'] ?? '';
+        $isNight = $this->isInTimeRange(
+            $rule['NightFrom'] ?? '23:00',
+            $rule['NightTo'] ?? '06:00'
+        );
+
+        if ($nightMode && $isNight && $nightValue !== '') {
+            // Custom night value (e.g. 10 for dimmed, or a WLED preset)
+            $onValue = $this->castToVariableType($var['VariableType'], $nightValue);
+        } else {
+            // Auto-detect: boolean=true, dimmer=100
+            $onValue = ($var['VariableType'] == 0) ? true : 100;
+        }
+
+        // Switch on
+        $res = $this->safeRequestAction($targetId, $onValue);
+        $this->logSwitch($targetId, $onValue, $res, 'Bewegung');
+
+        // Set/reset off-delay timer (uses same pool, offset by MAX_TIMERS/2 to avoid collision)
+        $timerIndex = $index;
+        $timerName = "MotionOffTimer_$timerIndex";
+        $duration = $rule['DurationSec'] ?? 120;
+        $this->SetTimerInterval($timerName, $duration * 1000);
+
+        // Track with special prefix so ProcessMotionOff knows it's a direct light
+        $this->trackActiveTimer($timerName, "__direct:$targetId");
+    }
+
+    // =====================================================================
+    // === Scene-based Motion Trigger Logic ===
     // =====================================================================
 
     private function processMotionTrigger(array $trigger, int $index): void
@@ -304,12 +384,21 @@ class SmartRoomLighting extends IPSModuleStrict
             return;
         }
 
-        // Get the scene name that was activated
         $activeTimers = $this->safeJsonDecode($this->GetBuffer('ActiveTimers'), true) ?: [];
-        $sceneName = $activeTimers[$timerName] ?? '';
+        $tracked = $activeTimers[$timerName] ?? '';
 
-        if ($sceneName !== '') {
-            $this->deactivateScene($sceneName, 'Bewegung-Nachlauf');
+        if (str_starts_with($tracked, '__direct:')) {
+            // Direct mode: turn off the target variable directly
+            $targetId = (int)substr($tracked, 9);
+            if ($targetId > 0 && IPS_VariableExists($targetId)) {
+                $var = IPS_GetVariable($targetId);
+                $offValue = ($var['VariableType'] == 0) ? false : 0;
+                $res = $this->safeRequestAction($targetId, $offValue);
+                $this->logSwitch($targetId, $offValue, $res, 'Bewegung-Nachlauf');
+            }
+        } elseif ($tracked !== '') {
+            // Scene mode: deactivate the scene
+            $this->deactivateScene($tracked, 'Bewegung-Nachlauf');
         }
 
         $this->untrackActiveTimer($timerName);
@@ -794,434 +883,375 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     // =====================================================================
+    // === DeviceRegistry Integration ===
+    // =====================================================================
+
+    /**
+     * Query the DeviceRegistry (SDR) for light devices.
+     * Returns Select-compatible options array.
+     */
+    private function getRegistryLightOptions(): array
+    {
+        $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
+            return $options;
+        }
+
+        $lightTypes = ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'];
+        foreach ($lightTypes as $type) {
+            $devices = @SDR_GetDevicesByType($regId, $type);
+            if (!is_array($devices)) {
+                continue;
+            }
+            foreach ($devices as $dev) {
+                $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+                // Primary variable: Brightness for dimmers, OnOff for switches
+                $varId = 0;
+                if (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
+                    $varId = (int)$dev['Brightness_VarID'];
+                    $name .= ' (Dimmer)';
+                } elseif (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
+                    $varId = (int)$dev['OnOff_VarID'];
+                }
+                if ($varId > 0) {
+                    $options[] = ['label' => $name, 'value' => $varId];
+                }
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Query the DeviceRegistry (SDR) for motion sensors.
+     */
+    private function getRegistryMotionSensorOptions(): array
+    {
+        $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
+            return $options;
+        }
+
+        $devices = @SDR_GetDevicesByType($regId, 'DevicesMotionSensor');
+        if (!is_array($devices)) {
+            return $options;
+        }
+
+        foreach ($devices as $dev) {
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $varId = (int)($dev['Status_VarID'] ?? 0);
+            if ($varId > 0) {
+                $options[] = ['label' => $name, 'value' => $varId];
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Query the DeviceRegistry (SDR) for contact sensors.
+     */
+    private function getRegistryContactSensorOptions(): array
+    {
+        $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
+            return $options;
+        }
+
+        $devices = @SDR_GetDevicesByType($regId, 'DevicesContactSensor');
+        if (!is_array($devices)) {
+            return $options;
+        }
+
+        foreach ($devices as $dev) {
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $varId = (int)($dev['Status_VarID'] ?? 0);
+            if ($varId > 0) {
+                $options[] = ['label' => $name, 'value' => $varId];
+            }
+        }
+
+        return $options;
+    }
+
+    // =====================================================================
     // === Dynamic Configuration Form ===
     // =====================================================================
 
     public function GetConfigurationForm(): string
     {
-        return <<<'EOT'
-{
-    "elements": [
-        {
-            "type": "ExpansionPanel",
-            "caption": "Szenen-Definitionen (SmartSequencer)",
-            "expanded": true,
-            "items": [
-                {
-                    "type": "Label",
-                    "caption": "Jede Szene verweist auf eine SmartSequencer-Instanz. Die Sequencer-Instanz definiert die Aktionen (Geraete schalten, Skripte ausfuehren, etc.)."
-                },
-                {
-                    "type": "List",
-                    "name": "Scenes",
-                    "caption": "Szenen",
-                    "rowCount": 8,
-                    "add": true,
-                    "delete": true,
-                    "columns": [
-                        {
-                            "caption": "Szenen-Name",
-                            "name": "SceneName",
-                            "width": "200px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Sequencer (Eintritt)",
-                            "name": "SequencerID",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectInstance"
-                            }
-                        },
-                        {
-                            "caption": "Off-Sequencer (optional, sonst Austritts-Ablauf)",
-                            "name": "OffSequencerID",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectInstance"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "Bewegungsmelder-Trigger",
-            "items": [
-                {
-                    "type": "Label",
-                    "caption": "Bewegungsmelder koennen je nach Tageszeit unterschiedliche Szenen ausloesen. Der Lux-Sensor kann pro Trigger individuell gesetzt werden."
-                },
-                {
-                    "type": "List",
-                    "name": "MotionTriggers",
-                    "caption": "Bewegungsmelder",
-                    "rowCount": 5,
-                    "add": true,
-                    "delete": true,
-                    "columns": [
-                        {
-                            "caption": "Sensor (BWM)",
-                            "name": "SensorID",
-                            "width": "200px",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        },
-                        {
-                            "caption": "Lux-Sensor",
-                            "name": "LuxSensorID",
-                            "width": "200px",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        },
-                        {
-                            "caption": "Max Lux",
-                            "name": "MaxLux",
-                            "width": "80px",
-                            "add": 50,
-                            "edit": {
-                                "type": "NumberSpinner"
-                            }
-                        },
-                        {
-                            "caption": "Nachlauf (Sek)",
-                            "name": "DurationSec",
-                            "width": "90px",
-                            "add": 120,
-                            "edit": {
-                                "type": "NumberSpinner"
-                            }
-                        },
-                        {
-                            "caption": "Nacht-Szene",
-                            "name": "NightSceneName",
-                            "width": "130px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Nacht von",
-                            "name": "NightFrom",
-                            "width": "80px",
-                            "add": "23:00",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Nacht bis",
-                            "name": "NightTo",
-                            "width": "80px",
-                            "add": "06:00",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Tag-Szene",
-                            "name": "DaySceneName",
-                            "width": "130px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Override beachten",
-                            "name": "RespectOverride",
-                            "width": "100px",
-                            "add": true,
-                            "edit": {
-                                "type": "CheckBox"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "Schalter / Taster",
-            "items": [
-                {
-                    "type": "Label",
-                    "caption": "Wandschalter und Taster loesen Szenen aus und koennen den manuellen Override setzen (blockiert Bewegungsmelder)."
-                },
-                {
-                    "type": "List",
-                    "name": "SwitchTriggers",
-                    "caption": "Schalter-Konfiguration",
-                    "rowCount": 5,
-                    "add": true,
-                    "delete": true,
-                    "columns": [
-                        {
-                            "caption": "Schalter/Taster",
-                            "name": "SwitchID",
-                            "width": "200px",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        },
-                        {
-                            "caption": "Szene",
-                            "name": "SceneName",
-                            "width": "150px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Ausloese-Wert",
-                            "name": "TriggerValue",
-                            "width": "100px",
-                            "add": "true",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Toggle",
-                            "name": "Toggle",
-                            "width": "60px",
-                            "add": true,
-                            "edit": {
-                                "type": "CheckBox"
-                            }
-                        },
-                        {
-                            "caption": "Setzt Override",
-                            "name": "SetsOverride",
-                            "width": "100px",
-                            "add": true,
-                            "edit": {
-                                "type": "CheckBox"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "Tuer-/Fenster-Regeln",
-            "items": [
-                {
-                    "type": "List",
-                    "name": "DoorRules",
-                    "caption": "Tuer-/Fenster-Kontakte",
-                    "rowCount": 5,
-                    "add": true,
-                    "delete": true,
-                    "columns": [
-                        {
-                            "caption": "Sensor",
-                            "name": "DoorVariableID",
-                            "width": "200px",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        },
-                        {
-                            "caption": "Lux-Sensor",
-                            "name": "LuxSensorID",
-                            "width": "200px",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        },
-                        {
-                            "caption": "Max Lux",
-                            "name": "MaxLux",
-                            "width": "80px",
-                            "add": 1000,
-                            "edit": {
-                                "type": "NumberSpinner"
-                            }
-                        },
-                        {
-                            "caption": "Nachlauf (Sek)",
-                            "name": "DurationSec",
-                            "width": "90px",
-                            "add": 10,
-                            "edit": {
-                                "type": "NumberSpinner"
-                            }
-                        },
-                        {
-                            "caption": "Szene",
-                            "name": "SceneName",
-                            "width": "150px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Wasp-in-a-Box",
-                            "name": "OccupancyLock",
-                            "width": "100px",
-                            "add": false,
-                            "edit": {
-                                "type": "CheckBox"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "Daemmerungs- / Zeitsteuerung",
-            "items": [
-                {
-                    "type": "List",
-                    "name": "TwilightRules",
-                    "caption": "Daemmerungs-Regeln",
-                    "rowCount": 5,
-                    "add": true,
-                    "delete": true,
-                    "columns": [
-                        {
-                            "caption": "Aktiv",
-                            "name": "Active",
-                            "width": "60px",
-                            "add": true,
-                            "edit": {
-                                "type": "CheckBox"
-                            }
-                        },
-                        {
-                            "caption": "Trigger-Typ",
-                            "name": "TriggerType",
-                            "width": "150px",
-                            "add": 1,
-                            "edit": {
-                                "type": "Select",
-                                "options": [
-                                    { "label": "Sonnenuntergang", "value": 1 },
-                                    { "label": "Sonnenaufgang", "value": 2 },
-                                    { "label": "Uhrzeit", "value": 3 }
-                                ]
-                            }
-                        },
-                        {
-                            "caption": "Offset (Min) / Zeit (HH:MM)",
-                            "name": "TimeValue",
-                            "width": "150px",
-                            "add": "-30",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Szene",
-                            "name": "SceneName",
-                            "width": "150px",
-                            "add": "",
-                            "edit": {
-                                "type": "ValidationTextBox"
-                            }
-                        },
-                        {
-                            "caption": "Ziel-Licht (Legacy)",
-                            "name": "TargetLightID",
-                            "width": "200px",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        },
-                        {
-                            "caption": "Aktion (Legacy)",
-                            "name": "ActionValue",
-                            "width": "100px",
-                            "add": 1,
-                            "edit": {
-                                "type": "Select",
-                                "options": [
-                                    { "label": "Einschalten", "value": 1 },
-                                    { "label": "Ausschalten", "value": 0 }
-                                ]
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "Synchronisation (Master-Slave)",
-            "items": [
-                {
-                    "type": "List",
-                    "name": "SyncRules",
-                    "caption": "Licht-Synchronisation",
-                    "rowCount": 5,
-                    "add": true,
-                    "delete": true,
-                    "columns": [
-                        {
-                            "caption": "Master-Licht / Dimmer",
-                            "name": "MasterVariableID",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        },
-                        {
-                            "caption": "Ziel-Licht (Slave)",
-                            "name": "TargetLightID",
-                            "width": "auto",
-                            "add": 0,
-                            "edit": {
-                                "type": "SelectVariable"
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "Abhaengigkeiten",
-            "items": [
-                {
-                    "type": "SelectVariable",
-                    "name": "SunsetVariableID",
-                    "caption": "Variable fuer Sonnenuntergang (Unix Timestamp)"
-                },
-                {
-                    "type": "SelectVariable",
-                    "name": "SunriseVariableID",
-                    "caption": "Variable fuer Sonnenaufgang (Unix Timestamp)"
-                }
-            ]
-        },
-        {
-            "type": "CheckBox",
-            "name": "SimulationMode",
-            "caption": "Simulationsmodus (Testbetrieb)"
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        $hasRegistry = ($regId > 0 && @IPS_InstanceExists($regId));
+
+        // Build device options from registry
+        $lightOptions = $hasRegistry ? $this->getRegistryLightOptions() : [];
+        $motionOptions = $hasRegistry ? $this->getRegistryMotionSensorOptions() : [];
+        $contactOptions = $hasRegistry ? $this->getRegistryContactSensorOptions() : [];
+
+        // --- MotionLights columns (dynamic based on registry) ---
+        $motionLightsColumns = [];
+
+        // Sensor column: dropdown from registry or SelectVariable
+        if ($hasRegistry && count($motionOptions) > 1) {
+            $motionLightsColumns[] = [
+                'caption' => 'Bewegungsmelder', 'name' => 'SensorID', 'width' => '200px',
+                'add' => 0, 'edit' => ['type' => 'Select', 'options' => $motionOptions]
+            ];
+        } else {
+            $motionLightsColumns[] = [
+                'caption' => 'Bewegungsmelder', 'name' => 'SensorID', 'width' => '200px',
+                'add' => 0, 'edit' => ['type' => 'SelectVariable']
+            ];
         }
-    ]
-}
-EOT;
+
+        // Target column: dropdown from registry or SelectVariable
+        if ($hasRegistry && count($lightOptions) > 1) {
+            $motionLightsColumns[] = [
+                'caption' => 'Lampe / Dimmer', 'name' => 'TargetID', 'width' => '250px',
+                'add' => 0, 'edit' => ['type' => 'Select', 'options' => $lightOptions]
+            ];
+        } else {
+            $motionLightsColumns[] = [
+                'caption' => 'Lampe / Dimmer', 'name' => 'TargetID', 'width' => '250px',
+                'add' => 0, 'edit' => ['type' => 'SelectVariable']
+            ];
+        }
+
+        // If using registry dropdown, add manual fallback
+        if ($hasRegistry && count($lightOptions) > 1) {
+            $motionLightsColumns[] = [
+                'caption' => 'Oder: Variable (manuell)', 'name' => 'ManualTargetID', 'width' => '200px',
+                'add' => 0, 'edit' => ['type' => 'SelectVariable']
+            ];
+        }
+
+        // Standard columns
+        $motionLightsColumns = array_merge($motionLightsColumns, [
+            ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+            ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '80px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
+            ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
+            ['caption' => 'Nacht-Modus', 'name' => 'NightMode', 'width' => '80px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+            ['caption' => 'Nacht-Wert', 'name' => 'NightValue', 'width' => '80px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Nacht von', 'name' => 'NightFrom', 'width' => '70px', 'add' => '23:00', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Nacht bis', 'name' => 'NightTo', 'width' => '70px', 'add' => '06:00', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Override', 'name' => 'RespectOverride', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+        ]);
+
+        // Build complete form
+        $form = [
+            'elements' => [
+                // --- Registry Selection ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Geraete-Quelle',
+                    'items' => [
+                        [
+                            'type' => 'SelectInstance',
+                            'name' => 'RegistryID',
+                            'caption' => 'Device Registry (SDR) Instanz (optional)',
+                        ],
+                        [
+                            'type' => 'Label',
+                            'caption' => $hasRegistry
+                                ? 'Registry verbunden: Lampen und Sensoren werden als Dropdown angezeigt.'
+                                : 'Keine Registry gesetzt. Variablen muessen manuell ausgewaehlt werden.',
+                        ],
+                    ],
+                ],
+                // --- Direct Motion Lights (Simple Mode) ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Direkt-Lichter (Einfach-Modus)',
+                    'expanded' => true,
+                    'items' => [
+                        [
+                            'type' => 'Label',
+                            'caption' => 'Einfache Zuordnung: Bewegungsmelder schaltet direkt eine Lampe/Dimmer. Kein Sequencer noetig.',
+                        ],
+                        [
+                            'type' => 'List',
+                            'name' => 'MotionLights',
+                            'caption' => 'Bewegungsmelder-Lichter',
+                            'rowCount' => 8,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => $motionLightsColumns,
+                        ],
+                    ],
+                ],
+                // --- Scenes ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Szenen-Definitionen (SmartSequencer)',
+                    'items' => [
+                        [
+                            'type' => 'Label',
+                            'caption' => 'Fuer komplexe Lichtszenarien: Jede Szene verweist auf eine SmartSequencer-Instanz.',
+                        ],
+                        [
+                            'type' => 'List',
+                            'name' => 'Scenes',
+                            'caption' => 'Szenen',
+                            'rowCount' => 8,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Szenen-Name', 'name' => 'SceneName', 'width' => '200px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Sequencer (Eintritt)', 'name' => 'SequencerID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
+                                ['caption' => 'Off-Sequencer (optional)', 'name' => 'OffSequencerID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectInstance']],
+                            ],
+                        ],
+                    ],
+                ],
+                // --- Scene-based Motion Triggers ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Bewegungsmelder-Trigger (Szenen-Modus)',
+                    'items' => [
+                        [
+                            'type' => 'Label',
+                            'caption' => 'Fuer komplexe Szenarien (z.B. Bad): Bewegungsmelder loest je nach Tageszeit unterschiedliche Szenen aus.',
+                        ],
+                        [
+                            'type' => 'List',
+                            'name' => 'MotionTriggers',
+                            'caption' => 'Szenen-Trigger',
+                            'rowCount' => 5,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Sensor (BWM)', 'name' => 'SensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '70px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
+                                ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
+                                ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Nacht von', 'name' => 'NightFrom', 'width' => '70px', 'add' => '23:00', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Nacht bis', 'name' => 'NightTo', 'width' => '70px', 'add' => '06:00', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Tag-Szene', 'name' => 'DaySceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Override', 'name' => 'RespectOverride', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+                            ],
+                        ],
+                    ],
+                ],
+                // --- Switch Triggers ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Schalter / Taster',
+                    'items' => [
+                        [
+                            'type' => 'Label',
+                            'caption' => 'Wandschalter und Taster loesen Szenen aus und koennen den manuellen Override setzen.',
+                        ],
+                        [
+                            'type' => 'List',
+                            'name' => 'SwitchTriggers',
+                            'caption' => 'Schalter-Konfiguration',
+                            'rowCount' => 5,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Schalter/Taster', 'name' => 'SwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Ausloese-Wert', 'name' => 'TriggerValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Toggle', 'name' => 'Toggle', 'width' => '60px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+                                ['caption' => 'Setzt Override', 'name' => 'SetsOverride', 'width' => '100px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+                            ],
+                        ],
+                    ],
+                ],
+                // --- Door Rules ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Tuer-/Fenster-Regeln',
+                    'items' => [
+                        [
+                            'type' => 'List',
+                            'name' => 'DoorRules',
+                            'caption' => 'Tuer-/Fenster-Kontakte',
+                            'rowCount' => 5,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Sensor', 'name' => 'DoorVariableID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '80px', 'add' => 1000, 'edit' => ['type' => 'NumberSpinner']],
+                                ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 10, 'edit' => ['type' => 'NumberSpinner']],
+                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Wasp-in-a-Box', 'name' => 'OccupancyLock', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                            ],
+                        ],
+                    ],
+                ],
+                // --- Twilight Rules ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Daemmerungs- / Zeitsteuerung',
+                    'items' => [
+                        [
+                            'type' => 'List',
+                            'name' => 'TwilightRules',
+                            'caption' => 'Daemmerungs-Regeln',
+                            'rowCount' => 5,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Aktiv', 'name' => 'Active', 'width' => '60px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+                                ['caption' => 'Trigger-Typ', 'name' => 'TriggerType', 'width' => '150px', 'add' => 1, 'edit' => ['type' => 'Select', 'options' => [
+                                    ['label' => 'Sonnenuntergang', 'value' => 1],
+                                    ['label' => 'Sonnenaufgang', 'value' => 2],
+                                    ['label' => 'Uhrzeit', 'value' => 3],
+                                ]]],
+                                ['caption' => 'Offset (Min) / Zeit (HH:MM)', 'name' => 'TimeValue', 'width' => '150px', 'add' => '-30', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Ziel-Licht (Legacy)', 'name' => 'TargetLightID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Aktion (Legacy)', 'name' => 'ActionValue', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'Select', 'options' => [
+                                    ['label' => 'Einschalten', 'value' => 1],
+                                    ['label' => 'Ausschalten', 'value' => 0],
+                                ]]],
+                            ],
+                        ],
+                    ],
+                ],
+                // --- Sync Rules ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Synchronisation (Master-Slave)',
+                    'items' => [
+                        [
+                            'type' => 'List',
+                            'name' => 'SyncRules',
+                            'caption' => 'Licht-Synchronisation',
+                            'rowCount' => 5,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Master-Licht / Dimmer', 'name' => 'MasterVariableID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                                ['caption' => 'Ziel-Licht (Slave)', 'name' => 'TargetLightID', 'width' => 'auto', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                            ],
+                        ],
+                    ],
+                ],
+                // --- Dependencies ---
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Abhaengigkeiten',
+                    'items' => [
+                        ['type' => 'SelectVariable', 'name' => 'SunsetVariableID', 'caption' => 'Variable fuer Sonnenuntergang (Unix Timestamp)'],
+                        ['type' => 'SelectVariable', 'name' => 'SunriseVariableID', 'caption' => 'Variable fuer Sonnenaufgang (Unix Timestamp)'],
+                    ],
+                ],
+                // --- Simulation ---
+                [
+                    'type' => 'CheckBox',
+                    'name' => 'SimulationMode',
+                    'caption' => 'Simulationsmodus (Testbetrieb)',
+                ],
+            ],
+        ];
+
+        return json_encode($form);
     }
 }
