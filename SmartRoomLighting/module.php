@@ -1020,6 +1020,8 @@ class SmartRoomLighting extends IPSModuleStrict
                     $name .= ' (Farbe)';
                 } elseif (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
                     $name .= ' (Dimmer)';
+                } elseif (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
+                    $name .= ' (Schalter)';
                 }
                 
                 if (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
