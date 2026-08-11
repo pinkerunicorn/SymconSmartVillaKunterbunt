@@ -103,7 +103,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $switchDefaults = [];
         $regId = (int)@$this->ReadPropertyInteger('RegistryID'); // Property is called RegistryID
         if ($regId > 0 && @IPS_InstanceExists($regId)) {
-            $devices = @SDR_GetDevicesByType($regId, 'DevicesSwitch');
+            $devices = @SDR_GetDevicesByType($regId, 'DevicesWallSwitch');
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
                     $varId = (int)($dev['OnOff_VarID'] ?? 0);
@@ -548,7 +548,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $dynamicOptions = [];
         $addedVarIds = [];
-        $devices = @SDR_GetDevicesByType($regId, 'DevicesSwitch');
+        $devices = @SDR_GetDevicesByType($regId, 'DevicesWallSwitch');
         if (!is_array($devices)) {
             return [];
         }
