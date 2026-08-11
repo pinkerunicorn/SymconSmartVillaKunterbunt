@@ -1182,16 +1182,12 @@ class SmartRoomLighting extends IPSModuleStrict
                     'items' => [
                         [
                             'type' => 'Label',
-                            'caption' => 'Eine Szene kann einen SmartSequencer (fuer komplexe Aktionen/WLED) ausloesen UND/ODER Lampen direkt schalten.',
-                        ],
-                        [
-                            'type' => 'Label',
-                            'caption' => '1. Sequencer-Zuordnung (optional)',
+                            'caption' => 'Hier legst du alle Namen deiner Szenen für diesen Raum fest (z.B. "Standard", "Kino"). Du kannst optional direkt einen SmartSequencer verknüpfen, musst das aber nicht (0 lassen).',
                         ],
                         [
                             'type' => 'List',
                             'name' => 'Scenes',
-                            'caption' => 'Szenen -> SmartSequencer',
+                            'caption' => '1. Szenen anlegen & definieren',
                             'rowCount' => 5,
                             'add' => true,
                             'delete' => true,
