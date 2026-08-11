@@ -1012,27 +1012,33 @@ class SmartRoomLighting extends IPSModuleStrict
                 continue;
             }
             foreach ($devices as $dev) {
-                $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
-                // Primary variable: Brightness for dimmers, OnOff for switches
-                $varId = 0;
+                $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
                 
+                // Add Color option
                 if (!empty($dev['ColorRGB_VarID']) && (int)$dev['ColorRGB_VarID'] > 0) {
-                    $name .= ' (Farbe)';
-                } elseif (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
-                    $name .= ' (Dimmer)';
-                } elseif (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
-                    $name .= ' (Schalter)';
+                    $varId = (int)$dev['ColorRGB_VarID'];
+                    if (!in_array($varId, $addedVarIds)) {
+                        $addedVarIds[] = $varId;
+                        $dynamicOptions[] = ['label' => $baseName . ' (Farbe)', 'value' => $varId];
+                    }
                 }
                 
+                // Add Dimmer option
                 if (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
                     $varId = (int)$dev['Brightness_VarID'];
-                } elseif (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
-                    $varId = (int)$dev['OnOff_VarID'];
+                    if (!in_array($varId, $addedVarIds)) {
+                        $addedVarIds[] = $varId;
+                        $dynamicOptions[] = ['label' => $baseName . ' (Dimmer)', 'value' => $varId];
+                    }
                 }
                 
-                if ($varId > 0 && !in_array($varId, $addedVarIds)) {
-                    $addedVarIds[] = $varId;
-                    $dynamicOptions[] = ['label' => $name, 'value' => $varId];
+                // Add Switch option
+                if (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
+                    $varId = (int)$dev['OnOff_VarID'];
+                    if (!in_array($varId, $addedVarIds)) {
+                        $addedVarIds[] = $varId;
+                        $dynamicOptions[] = ['label' => $baseName . ' (Schalter)', 'value' => $varId];
+                    }
                 }
             }
         }
