@@ -309,6 +309,16 @@ class SmartController extends IPSModuleStrict
             }
         }
 
+        // 4. Check Presence Simulation (Prio 2 - Yellow)
+        $presenceId = $this->ReadPropertyInteger('MonitorPresenceID');
+        if ($presenceId > 1 && @IPS_InstanceExists($presenceId)) {
+            $errId = @IPS_GetObjectIDByIdent('GeminiError', $presenceId);
+            if ($errId !== false && GetValue($errId)) {
+                if ($statusLevel < 2) $statusLevel = 2; // Warning
+                $messages[] = "Warnung: Fehler bei der Smart Presence Simulation KI!";
+            }
+        }
+
         $this->SetValue('SystemStatus', $statusLevel);
 
         if ($statusLevel === 0) {
@@ -715,6 +725,12 @@ class SmartController extends IPSModuleStrict
                     "name": "MonitorEventID",
                     "caption": "Smart Monitor Event",
                     "moduleID": "{72F8B3A1-C994-4E60-A54D-B591D8E72C42}"
+                },
+                {
+                    "type": "SelectModule",
+                    "name": "MonitorPresenceID",
+                    "caption": "Smart Presence Simulation",
+                    "moduleID": "{E3405EEF-3ECA-4105-9658-47103378E206}"
                 }
             ]
         },
