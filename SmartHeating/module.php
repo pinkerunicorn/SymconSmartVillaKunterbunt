@@ -90,7 +90,7 @@ class SmartHeating extends IPSModuleStrict
         // Build Device Map Cache
         $deviceMap = [];
         if ($regId > 0 && IPS_InstanceExists($regId)) {
-            if (method_exists($regId, 'GetDevicesByType')) {
+            if (function_exists('SDR_GetDevicesByType')) {
                 $devices = (array)@SDR_GetDevicesByType($regId, 'DevicesThermostat');
                 foreach ($devices as $dev) {
                     if (empty($dev['id'])) continue;
@@ -484,7 +484,7 @@ class SmartHeating extends IPSModuleStrict
     {
         $options = [['caption' => '(Nicht zugewiesen)', 'value' => '']];
         if ($regId > 0 && IPS_InstanceExists($regId)) {
-            if (method_exists($regId, 'GetDevicesByType')) {
+            if (function_exists('SDR_GetDevicesByType')) {
                 $devices = (array)@SDR_GetDevicesByType($regId, 'DevicesThermostat');
                 
                 $dynamicOptions = [];
