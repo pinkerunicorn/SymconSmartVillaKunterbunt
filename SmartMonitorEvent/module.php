@@ -33,8 +33,6 @@ class SmartMonitorEvent extends IPSModuleStrict
     {
         parent::ApplyChanges();
 
-        $this->InitializeSmartLog();
-
         // Unregister all old messages
         foreach ($this->GetMessageList() as $senderID => $messages) {
             foreach ($messages as $message) {
