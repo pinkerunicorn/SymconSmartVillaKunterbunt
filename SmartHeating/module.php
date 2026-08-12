@@ -100,9 +100,7 @@ class SmartHeating extends IPSModuleStrict
                         'TempSet'    => (int)($dev['TempSet_VarID'] ?? 0),
                         'ControlMode'=> (int)($dev['ControlMode_VarID'] ?? 0),
                         'BoostMode'  => (int)($dev['BoostMode_VarID'] ?? 0),
-                        'Humidity'   => (int)($dev['Humidity_VarID'] ?? 0),
-                        'AutoValue'  => $dev['AutoValue'] ?? 'AUTOMATIC',
-                        'ManuValue'  => $dev['ManuValue'] ?? 'MANUAL',
+                        'Humidity'   => (int)($dev['Humidity_VarID'] ?? 0)
                     ];
                 }
             }
@@ -239,12 +237,7 @@ class SmartHeating extends IPSModuleStrict
 
                 if ($controlModeId > 0 && IPS_VariableExists($controlModeId)) {
                     $currentMode = GetValue($controlModeId);
-                    $manuValue = $this->resolveDeviceValue($targetIdStr, 'ManuValue', 'MANUAL');
-                    
-                    // Umwandlung in den korrekten Typ (String oder Integer)
-                    if (is_numeric($manuValue) && !is_string($currentMode)) {
-                        $manuValue = (int)$manuValue;
-                    }
+                    $manuValue = is_string($currentMode) ? 'MANUAL' : 1;
                     
                     if (!$this->safeRequestAction($controlModeId, $manuValue)) {
                         $devName = @IPS_GetName($controlModeId) ?: "ID:$controlModeId";
@@ -295,15 +288,14 @@ class SmartHeating extends IPSModuleStrict
 
                         // Im Normalbetrieb schalten wir zusätzlich explizit in den Auto Modus,
                         // falls $prevMode unbekannt war.
-                        $autoValue = $this->resolveDeviceValue((string)$targetIdStr, 'AutoValue', 'AUTOMATIC');
+                        $autoValue = 'AUTOMATIC';
                         
                         if ($modeId > 0 && IPS_VariableExists($modeId)) {
-                            $targetMode = ($prevMode !== null) ? $prevMode : $autoValue;
-                            // Umwandlung
                             $currentMode = GetValue($modeId);
-                            if (is_numeric($targetMode) && !is_string($currentMode)) {
-                                $targetMode = (int)$targetMode;
+                            if (!is_string($currentMode)) {
+                                $autoValue = 0; // 0 is often AUTO in integer profiles
                             }
+                            $targetMode = ($prevMode !== null) ? $prevMode : $autoValue;
                             
                             if (!$this->safeRequestAction($modeId, $targetMode)) {
                                 $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($targetMode, true));
