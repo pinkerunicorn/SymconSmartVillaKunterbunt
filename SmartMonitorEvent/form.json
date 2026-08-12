@@ -10,9 +10,10 @@
             "caption": " "
         },
         {
-            "type": "SelectInstance",
+            "type": "SelectModule",
             "name": "TargetNotifier",
-            "caption": "SmartNotifier Instanz"
+            "caption": "SmartNotifier Instanz",
+            "moduleID": "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}"
         },
         {
             "type": "Label",
