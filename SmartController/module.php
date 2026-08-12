@@ -98,6 +98,7 @@ class SmartController extends IPSModuleStrict
         $this->RegisterPropertyInteger('MonitorAlarmID', 0);
         $this->RegisterPropertyInteger('MonitorDeviceID', 0);
         $this->RegisterPropertyInteger('MonitorEventID', 0);
+        $this->RegisterPropertyInteger('MonitorPresenceID', 0);
         // === Energy Price Properties ===
         $this->RegisterPropertyFloat('PriceElectricity', 0.32);
         $this->RegisterPropertyFloat('BasePriceElectricity', 0.0);
@@ -227,7 +228,7 @@ class SmartController extends IPSModuleStrict
         $this->UnregisterVariable('AlarmLevel');
 
         // References for Monitors
-        foreach (['MonitorAlarmID', 'MonitorDeviceID', 'MonitorEventID'] as $prop) {
+        foreach (['MonitorAlarmID', 'MonitorDeviceID', 'MonitorEventID', 'MonitorPresenceID'] as $prop) {
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 1 && @IPS_InstanceExists($id)) {
                 $this->RegisterReference($id);
