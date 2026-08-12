@@ -111,7 +111,9 @@ class SmartMonitorAlarm extends IPSModuleStrict
         }
 
         // Register manual alarm variable messages + dynamic Alarm_ variables
-$activeIdents = [];
+        $activeIdents = [];
+        
+        $monitored = $this->GetRegistrySensors($registryId);
 
         foreach ($monitored as $item) {
             $vid = $item['VariableID'] ?? 0;
