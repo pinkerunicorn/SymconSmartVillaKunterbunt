@@ -97,6 +97,18 @@ class SmartLog extends IPSModuleStrict
             $level = 'INFO';
         }
 
+        // Falls das Modul z.B. während des Systemstarts noch nicht vollständig geladen ist,
+        // weichen wir direkt auf das interne Symcon-Log aus, um Warnungen zu vermeiden.
+        $instance = @IPS_GetInstance($this->InstanceID);
+        if ($instance === false || $instance['InstanceStatus'] !== 102) {
+            $fallbackMsg = $message;
+            if ($details !== '') {
+                $fallbackMsg .= ' | ' . $details;
+            }
+            IPS_LogMessage($source, "[$level] " . $fallbackMsg);
+            return;
+        }
+
         $entry = [
             't' => time(),
             'l' => $level,
