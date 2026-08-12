@@ -20,16 +20,18 @@ class SmartHeating extends IPSModuleStrict
         
         $this->DA_RegisterAvailability(900);
 
+        $this->RegisterPropertyInteger('RegistryID', 0);
 
         // Target temperature during absence (Fallback)
         $this->RegisterPropertyFloat('TargetTemperature', 17.0);
         $this->RegisterPropertyFloat('FrostWarningThreshold', 5.0);
 
-        // JSON array of thermostat instances: [{"InstanceID": 12345, "TargetTemperature": 17.0}]
+        // JSON array of thermostat instances: [{"TargetID": "KEY", "TargetTemperature": 17.0}]
         $this->RegisterPropertyString('HeatingInstances', '[]');
 
         // Internal attribute to save previous states
         $this->RegisterAttributeString('PreviousStates', '{}');
+        $this->RegisterAttributeString('DeviceMapCache', '{}');
 
         // GUI Variables
         $this->RegisterVariableString('HeatingStatus', 'Status', [
@@ -66,7 +68,6 @@ class SmartHeating extends IPSModuleStrict
             'ICON' => 'Warning'
         ], 20);
         $this->EnableAction('AlarmFrostWarning');
-
     }
 
     public function ApplyChanges(): void
@@ -75,21 +76,39 @@ class SmartHeating extends IPSModuleStrict
         $this->DA_ApplyPresentation();
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
+        
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $list_HeatingInstances = $this->safeJsonDecode($this->ReadPropertyString('HeatingInstances'), true);
-        if (is_array($list_HeatingInstances)) {
-            foreach ($list_HeatingInstances as $item) {
-                $vid = $item['InstanceID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
+        
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId > 1 && IPS_InstanceExists($regId)) {
+            $this->RegisterReference($regId);
+        }
+        
+        // Build Device Map Cache
+        $deviceMap = [];
+        if ($regId > 0 && IPS_InstanceExists($regId)) {
+            if (method_exists($regId, 'GetDevicesByType')) {
+                $devices = (array)@SDR_GetDevicesByType($regId, 'DevicesThermostat');
+                foreach ($devices as $dev) {
+                    if (empty($dev['id'])) continue;
+                    $key = $dev['id'];
+                    $deviceMap[$key] = [
+                        'ActualTemp' => (int)($dev['ActualTemp_VarID'] ?? 0),
+                        'TempSet'    => (int)($dev['TempSet_VarID'] ?? 0),
+                        'ControlMode'=> (int)($dev['ControlMode_VarID'] ?? 0),
+                        'BoostMode'  => (int)($dev['BoostMode_VarID'] ?? 0),
+                        'Humidity'   => (int)($dev['Humidity_VarID'] ?? 0),
+                        'AutoValue'  => $dev['AutoValue'] ?? 'AUTOMATIC',
+                        'ManuValue'  => $dev['ManuValue'] ?? 'MANUAL',
+                    ];
                 }
             }
         }
+        $this->WriteAttributeString('DeviceMapCache', json_encode($deviceMap));
         // ---------------------------------
-        
 
         // Variable Aggregation (Logging) für Ø Haus-Temperatur aktivieren
         $avgTempId = $this->GetIDForIdent('AverageTemperature');
@@ -123,16 +142,11 @@ class SmartHeating extends IPSModuleStrict
         $heatingInsts = $this->safeJsonDecode($this->ReadPropertyString('HeatingInstances'), true);
         if (is_array($heatingInsts)) {
             foreach ($heatingInsts as $heating) {
-                $instId = $heating['InstanceID'];
-                if ($instId > 0 && IPS_InstanceExists($instId)) {
-                    foreach (IPS_GetChildrenIDs($instId) as $childId) {
-                        $obj = IPS_GetObject($childId);
-                        $ident = $obj['ObjectIdent'];
-                        $name = $obj['ObjectName'];
-                        if (strpos($name, 'Aktuelle Temperatur') !== false || strpos($name, 'Ventil-Ist-Temperatur') !== false || $ident === 'ACTUAL_TEMPERATURE'|| $ident === 'VALVE_ACTUAL_TEMPERATURE') {
-                            $this->RegisterMessage($childId, VM_UPDATE);
-                        }
-                    }
+                $targetIdStr = $heating['TargetID'] ?? ($heating['InstanceID'] ?? '');
+                $actualTempId = $this->resolveDeviceId((string)$targetIdStr, 'ActualTemp');
+                
+                if ($actualTempId > 0 && IPS_VariableExists($actualTempId)) {
+                    $this->RegisterMessage($actualTempId, VM_UPDATE);
                 }
             }
         }
@@ -156,6 +170,7 @@ class SmartHeating extends IPSModuleStrict
     {
         if ($Ident === 'HeatingSeason') {
             $this->SetValue($Ident, $Value);
+            $this->updateHeatingMode();
         } elseif ($Ident === 'AlarmFrostWarning') {
             $this->SetValue($Ident, false);
         }
@@ -190,7 +205,6 @@ class SmartHeating extends IPSModuleStrict
             $this->SetValue('IsAbsenkbetrieb', true);
             
             $globalTargetTemp = $this->ReadPropertyFloat('TargetTemperature');
-            // Bei Urlaub noch weiter absenken (2 Grad kühler als normale Abwesenheit)
             if ($isVacation) {
                 $globalTargetTemp = max(12.0, $globalTargetTemp - 2.0); 
             }
@@ -202,56 +216,41 @@ class SmartHeating extends IPSModuleStrict
             }
             
             foreach ($heatingInsts as $heating) {
-                $instId = $heating['InstanceID'];
-                if ($instId <= 0 || !IPS_InstanceExists($instId)) continue;
+                $targetIdStr = (string)($heating['TargetID'] ?? ($heating['InstanceID'] ?? ''));
+                if ($targetIdStr === '') continue;
                 
                 $individualTemp = isset($heating['TargetTemperature']) ? (float)$heating['TargetTemperature'] : $globalTargetTemp;
                 if ($isVacation) {
                     $individualTemp = max(12.0, $individualTemp - 2.0);
                 }
 
-                $targetTempId = 0;
-                $controlModeId = 0;
+                $targetTempId = $this->resolveDeviceId($targetIdStr, 'TempSet');
+                $controlModeId = $this->resolveDeviceId($targetIdStr, 'ControlMode');
 
-                // Variablen unterhalb der Instanz suchen
-                foreach (IPS_GetChildrenIDs($instId) as $childId) {
-                    $obj = IPS_GetObject($childId);
-                    $ident = $obj['ObjectIdent'];
-                    $name = $obj['ObjectName'];
-                    
-                    if (strpos($name, 'Sollwert Temperatur') !== false || $ident === 'SET_POINT_TEMPERATURE'|| $ident === 'POINT_TEMPERATURE') {
-                        $targetTempId = $childId;
-                    }
-                    if (strpos($name, 'Kontrollmodus') !== false || strpos($name, 'Control Mode') !== false || $ident === 'CONTROL_MODE'|| $ident === 'SET_POINT_MODE') {
-                        $controlModeId = $childId;
-                    }
-                }
-
-                if (!$wasAbsenkbetrieb || !isset($previousStates[$instId])) {
+                if (!$wasAbsenkbetrieb || !isset($previousStates[$targetIdStr])) {
                     $state = [
                         'tempId'=> $targetTempId,
                         'prevTemp'=> ($targetTempId > 0 && IPS_VariableExists($targetTempId)) ? GetValue($targetTempId) : null,
                         'modeId'=> $controlModeId,
                         'prevMode'=> ($controlModeId > 0 && IPS_VariableExists($controlModeId)) ? GetValue($controlModeId) : null
                     ];
-                    $previousStates[$instId] = $state;
+                    $previousStates[$targetIdStr] = $state;
                 }
 
                 if ($controlModeId > 0 && IPS_VariableExists($controlModeId)) {
                     $currentMode = GetValue($controlModeId);
-                    if (is_string($currentMode)) {
-                        if (!$this->safeRequestAction($controlModeId, 'MANUAL')) {
-                            $devName = @IPS_GetName($controlModeId) ?: "ID:$controlModeId";
-                            $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $controlModeId | Wert: 'MANUAL'");
-                        } else {
-                            $this->SLogInfo( 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 'MANUAL'");
-                        }
+                    $manuValue = $this->resolveDeviceValue($targetIdStr, 'ManuValue', 'MANUAL');
+                    
+                    // Umwandlung in den korrekten Typ (String oder Integer)
+                    if (is_numeric($manuValue) && !is_string($currentMode)) {
+                        $manuValue = (int)$manuValue;
+                    }
+                    
+                    if (!$this->safeRequestAction($controlModeId, $manuValue)) {
+                        $devName = @IPS_GetName($controlModeId) ?: "ID:$controlModeId";
+                        $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $controlModeId | Wert: " . var_export($manuValue, true));
                     } else {
-                        if (!$this->safeRequestAction($controlModeId, 1)) {
-                            $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $controlModeId | Wert: 1");
-                        } else {
-                            $this->SLogInfo( 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: 1");
-                        } // Meistens 1 = Manu
+                        $this->SLogInfo( 'Aktor in MANU Modus versetzt.', "ID: $controlModeId | Wert: " . var_export($manuValue, true));
                     }
                 }
 
@@ -288,17 +287,28 @@ class SmartHeating extends IPSModuleStrict
                 $previousStatesStr = $this->ReadAttributeString('PreviousStates');
                 $previousStates = $this->safeJsonDecode($previousStatesStr, true);
                 if (is_array($previousStates)) {
-                    foreach ($previousStates as $instId => $state) {
+                    foreach ($previousStates as $targetIdStr => $state) {
                         $modeId = isset($state['modeId']) ? $state['modeId'] : 0;
                         $prevMode = isset($state['prevMode']) ? $state['prevMode'] : null;
                         $tempId = isset($state['tempId']) ? $state['tempId'] : 0;
                         $prevTemp = isset($state['prevTemp']) ? $state['prevTemp'] : null;
 
-                        if ($modeId > 0 && $prevMode !== null && IPS_VariableExists($modeId)) {
-                            if (!$this->safeRequestAction($modeId, $prevMode)) {
-                                $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($prevMode, true));
+                        // Im Normalbetrieb schalten wir zusätzlich explizit in den Auto Modus,
+                        // falls $prevMode unbekannt war.
+                        $autoValue = $this->resolveDeviceValue((string)$targetIdStr, 'AutoValue', 'AUTOMATIC');
+                        
+                        if ($modeId > 0 && IPS_VariableExists($modeId)) {
+                            $targetMode = ($prevMode !== null) ? $prevMode : $autoValue;
+                            // Umwandlung
+                            $currentMode = GetValue($modeId);
+                            if (is_numeric($targetMode) && !is_string($currentMode)) {
+                                $targetMode = (int)$targetMode;
+                            }
+                            
+                            if (!$this->safeRequestAction($modeId, $targetMode)) {
+                                $this->SLogWarning( 'Aktor-Befehl fehlgeschlagen', "ID: $modeId | Wert: " . var_export($targetMode, true));
                             } else {
-                                $this->SLogInfo( 'Aktor-Modus wiederhergestellt.', "ID: $modeId | Wert: " . var_export($prevMode, true));
+                                $this->SLogInfo( 'Aktor-Modus wiederhergestellt.', "ID: $modeId | Wert: " . var_export($targetMode, true));
                             }
                         } elseif ($tempId > 0 && $prevTemp !== null && IPS_VariableExists($tempId)) {
                             if (!$this->safeRequestAction($tempId, $prevTemp)) {
@@ -326,33 +336,17 @@ class SmartHeating extends IPSModuleStrict
         $count = 0;
 
         foreach ($heatingInsts as $heating) {
-            $instId = $heating['InstanceID'];
-            if ($instId <= 0 || !IPS_InstanceExists($instId)) continue;
+            $targetIdStr = (string)($heating['TargetID'] ?? ($heating['InstanceID'] ?? ''));
+            if ($targetIdStr === '') continue;
 
-            $actualTemp = 0.0;
-            $fallbackTemp = 0.0;
-
-            foreach (IPS_GetChildrenIDs($instId) as $childId) {
-                $obj = IPS_GetObject($childId);
-                $ident = $obj['ObjectIdent'];
-                $name = $obj['ObjectName'];
-
-                if (strpos($name, 'Aktuelle Temperatur') !== false || $ident === 'ACTUAL_TEMPERATURE') {
-                    $val = (float)GetValue($childId);
-                    if ($val > 0) $actualTemp = $val;
+            $actualTempId = $this->resolveDeviceId($targetIdStr, 'ActualTemp');
+            
+            if ($actualTempId > 0 && IPS_VariableExists($actualTempId)) {
+                $val = (float)GetValue($actualTempId);
+                if ($val > 0) {
+                    $sumTemp += $val;
+                    $count++;
                 }
-                if (strpos($name, 'Ventil-Ist-Temperatur') !== false || $ident === 'VALVE_ACTUAL_TEMPERATURE') {
-                    $val = (float)GetValue($childId);
-                    if ($val > 0) $fallbackTemp = $val;
-                }
-            }
-
-            if ($actualTemp > 0) {
-                $sumTemp += $actualTemp;
-                $count++;
-            } elseif ($fallbackTemp > 0) {
-                $sumTemp += $fallbackTemp;
-                $count++;
             }
         }
 
@@ -382,85 +376,143 @@ class SmartHeating extends IPSModuleStrict
         }
     }
 
-    public function GetConfigurationForm(): string
+    private function resolveDeviceId(string|int $idStr, string $field = 'TempSet'): int
     {
-        return <<<'EOT'
-{
-    "elements": [
-        {
-            "type": "CheckBox",
-            "name": "SimulationMode",
-            "caption": "Simulationsmodus (Testbetrieb)"
-        },
-        {
-            "type": "Label",
-            "caption": " "
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "⚙ Allgemeine Einstellungen",
-            "items": [
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "NumberSpinner",
-                            "name": "TargetTemperature",
-                            "caption": "Absenktemperatur (°C)",
-                            "digits": 1,
-                            "minimum": 10,
-                            "maximum": 25
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "FrostWarningThreshold",
-                            "caption": "Frostwarnung unter (°C)",
-                            "digits": 1,
-                            "minimum": 1,
-                            "maximum": 15
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "List",
-            "name": "HeatingInstances",
-            "caption": "Thermostat-Gruppen (HCU Instanzen)",
-            "rowCount": 15,
-            "add": true,
-            "delete": true,
-            "changeOrder": true,
-            "columns": [
-                {
-                    "caption": "Thermostat-Instanz",
-                    "name": "InstanceID",
-                    "width": "300px",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectInstance"
-                    }
-                },
-                {
-                    "caption": "Indiv. Absenktemp. (°C)",
-                    "name": "TargetTemperature",
-                    "width": "auto",
-                    "add": 17,
-                    "edit": {
-                        "type": "NumberSpinner",
-                        "digits": 1,
-                        "minimum": 10,
-                        "maximum": 25
-                    }
-                }
-            ]
+        if (is_numeric($idStr)) {
+            // Fallback für alte Konfigurationen ohne Registry (wo InstanceID direkt verwendet wird)
+            // Dies ist ein Kompatibilitätsmodus, auch wenn wir die Kinder jetzt nicht mehr iterieren.
+            // Die Logik funktioniert am besten, wenn auf TargetID (DeviceKey) umgestellt wird.
+            return 0; 
         }
-    ]
-}
-EOT;
+
+        $cache = $this->safeJsonDecode($this->ReadAttributeString('DeviceMapCache'), true);
+        if (isset($cache[$idStr]) && isset($cache[$idStr][$field])) {
+            return (int)$cache[$idStr][$field];
+        }
+        return 0;
+    }
+    
+    private function resolveDeviceValue(string $idStr, string $field, mixed $default): mixed
+    {
+        $cache = $this->safeJsonDecode($this->ReadAttributeString('DeviceMapCache'), true);
+        if (isset($cache[$idStr]) && isset($cache[$idStr][$field])) {
+            return $cache[$idStr][$field];
+        }
+        return $default;
     }
 
+    public function GetConfigurationForm(): string
+    {
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        $thermostatOptions = $this->getRegistryThermostatOptions($regId);
 
+        $form = [
+            "elements" => [
+                [
+                    "type" => "SelectInstance",
+                    "name" => "RegistryID",
+                    "caption" => "Device Registry"
+                ],
+                [
+                    "type" => "CheckBox",
+                    "name" => "SimulationMode",
+                    "caption" => "Simulationsmodus (Testbetrieb)"
+                ],
+                [
+                    "type" => "Label",
+                    "caption" => " "
+                ],
+                [
+                    "type" => "ExpansionPanel",
+                    "caption" => "⚙ Allgemeine Einstellungen",
+                    "items" => [
+                        [
+                            "type" => "RowLayout",
+                            "items" => [
+                                [
+                                    "type" => "NumberSpinner",
+                                    "name" => "TargetTemperature",
+                                    "caption" => "Absenktemperatur (°C)",
+                                    "digits" => 1,
+                                    "minimum" => 10,
+                                    "maximum" => 25
+                                ],
+                                [
+                                    "type" => "NumberSpinner",
+                                    "name" => "FrostWarningThreshold",
+                                    "caption" => "Frostwarnung unter (°C)",
+                                    "digits" => 1,
+                                    "minimum" => 1,
+                                    "maximum" => 15
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    "type" => "List",
+                    "name" => "HeatingInstances",
+                    "caption" => "Thermostat-Gruppen (aus Registry)",
+                    "rowCount" => 15,
+                    "add" => true,
+                    "delete" => true,
+                    "changeOrder" => true,
+                    "columns" => [
+                        [
+                            "caption" => "Thermostat",
+                            "name" => "TargetID",
+                            "width" => "300px",
+                            "add" => "",
+                            "edit" => [
+                                "type" => "Select",
+                                "options" => $thermostatOptions
+                            ]
+                        ],
+                        [
+                            "caption" => "Indiv. Absenktemp. (°C)",
+                            "name" => "TargetTemperature",
+                            "width" => "auto",
+                            "add" => 17,
+                            "edit" => [
+                                "type" => "NumberSpinner",
+                                "digits" => 1,
+                                "minimum" => 10,
+                                "maximum" => 25
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ];
+        
+        return json_encode($form);
+    }
+    
+    private function getRegistryThermostatOptions(int $regId): array
+    {
+        $options = [['caption' => '(Nicht zugewiesen)', 'value' => '']];
+        if ($regId > 0 && IPS_InstanceExists($regId)) {
+            if (method_exists($regId, 'GetDevicesByType')) {
+                $devices = (array)@SDR_GetDevicesByType($regId, 'DevicesThermostat');
+                
+                $dynamicOptions = [];
+                foreach ($devices as $dev) {
+                    if (empty($dev['id'])) continue;
+                    $room = !empty($dev['room']) ? $dev['room'] : 'Unbekannt';
+                    $name = !empty($dev['name']) ? $dev['name'] : 'Unbenannt';
+                    $caption = "$room: $name";
+                    $dynamicOptions[] = ['caption' => $caption, 'value' => $dev['id']];
+                }
+                
+                usort($dynamicOptions, function ($a, $b) {
+                    return strnatcasecmp($a['caption'], $b['caption']);
+                });
+                
+                $options = array_merge($options, $dynamicOptions);
+            }
+        }
+        return $options;
+    }
 
     private function safeJsonDecode(string $json, bool $assoc = true) {
         try {
