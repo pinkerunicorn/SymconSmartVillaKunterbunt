@@ -647,15 +647,10 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     private function UpdateLinkFolders(): void
     {
-        $this->SyncFolderLinks('FolderLampen', 'Lampen', 'LightVariables');
-        $this->SyncFolderLinks('FolderDimmer', 'Dimmer', 'DimmerVariables');
-    }
-
-    private function SyncFolderLinks(string $ident, string $name, string $propertyName): void
-    {
+        $ident = 'FolderAllLights';
+        $name = 'Alle überwachten Lichter';
         $catID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
         
-        // Wenn es noch eine alte Kategorie (Ordner) ist, löschen wir diese kurz, um sie als Dummy-Modul neu anzulegen
         if ($catID !== false) {
             $obj = IPS_GetObject($catID);
             if ($obj['ObjectType'] === 0) { // 0 = Kategorie
@@ -668,77 +663,63 @@ class SmartPresenceSimulation extends IPSModuleStrict
         }
 
         if ($catID === false) {
-            // 485D0419-BE97-4548-AA9C-C083EB82E61E ist die GUID für das Dummy Modul
-            $catID = IPS_CreateInstance('{485D0419-BE97-4548-AA9C-C083EB82E61E}');
+            $catID = IPS_CreateInstance('{485D0419-BE97-4548-AA9C-C083EB82E61E}'); // Dummy Module
             IPS_SetParent($catID, $this->InstanceID);
             IPS_SetIdent($catID, $ident);
             IPS_SetName($catID, $name);
+            IPS_SetPosition($catID, 100);
         }
 
-        $vars = $this->safeJsonDecode($this->ReadPropertyString($propertyName), true);
-        if (!is_array($vars)) {
-            $vars = [];
-        }
-
-        $validItems = [];
-        foreach ($vars as $item) {
-            $id = (int)($item['VariableID'] ?? 0);
-            if ($id > 0 && IPS_VariableExists($id)) {
-                $customName = trim($item['Name'] ?? '');
-                if ($customName === '') {
-                    $customName = IPS_GetName($id);
-                }
-                $validItems[$id] = $customName;
-            }
-        }
-
-        // Veraltete Links löschen
-        $children = IPS_GetChildrenIDs($catID);
-        foreach ($children as $childID) {
+        $existingLinks = [];
+        foreach (IPS_GetChildrenIDs($catID) as $childID) {
             $obj = IPS_GetObject($childID);
-            if ($obj['ObjectType'] === 6) { // Link
-                $link = IPS_GetLink($childID);
-                if (!isset($validItems[$link['TargetID']])) {
-                    IPS_DeleteLink($childID);
-                }
+            if ($obj['ObjectType'] == 6) { // 6 = Link
+                $target = IPS_GetLink($childID)['TargetID'];
+                $existingLinks[$target] = $childID;
+            } else {
+                @IPS_DeleteInstance($childID);
             }
         }
 
-        // Neue Links erstellen / Bestehende aktualisieren
-        foreach ($validItems as $targetID => $desiredName) {
-            $linkExists = false;
-            foreach (IPS_GetChildrenIDs($catID) as $childID) {
-                $obj = IPS_GetObject($childID);
-                if ($obj['ObjectType'] === 6) {
-                    $link = IPS_GetLink($childID);
-                    if ($link['TargetID'] === $targetID) {
-                        $linkExists = true;
-                        // Name synchron halten
-                        if (IPS_GetName($childID) !== $desiredName) {
-                            IPS_SetName($childID, $desiredName);
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        $idx = 0;
+        if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SDR_GetDevices')) {
+            $allDevices = @SDR_GetDevices($regId);
+            if (is_array($allDevices)) {
+                foreach ($allDevices as $dev) {
+                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) continue;
+                    $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
+                    $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
+                    
+                    if ($vid > 0 && IPS_VariableExists($vid)) {
+                        $devName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                        if (!isset($existingLinks[$vid])) {
+                            $lid = IPS_CreateLink();
+                            IPS_SetParent($lid, $catID);
+                            IPS_SetName($lid, $devName);
+                            IPS_SetLinkTarget($lid, $vid);
+                            IPS_SetPosition($lid, $idx);
+                            IPS_SetIcon($lid, 'Bulb');
+                        } else {
+                            $lid = $existingLinks[$vid];
+                            IPS_SetName($lid, $devName);
+                            IPS_SetPosition($lid, $idx);
+                            unset($existingLinks[$vid]);
                         }
-                        break;
+                        $idx++;
                     }
                 }
             }
-            if (!$linkExists) {
-                $linkID = IPS_CreateLink();
-                IPS_SetParent($linkID, $catID);
-                IPS_SetLinkTargetID($linkID, $targetID);
-                IPS_SetName($linkID, $desiredName);
-                IPS_SetIcon($linkID, 'Bulb');
-            }
+        }
+
+        foreach ($existingLinks as $lid) {
+            IPS_DeleteLink($lid);
         }
     }
 
     private function SortLinkFolders(): void
     {
-        $this->SortFolderLinks('FolderLampen');
-        $this->SortFolderLinks('FolderDimmer');
-    }
-
-    private function SortFolderLinks(string $ident): void
-    {
+        $ident = 'FolderAllLights';
         $catID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
         if ($catID === false) return;
 
