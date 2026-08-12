@@ -96,15 +96,6 @@ class SmartMonitorAlarm extends IPSModuleStrict
             $this->RegisterReference($notifier);
         }
 
-        // Manual monitored variables
-        $list_MonitoredVariables = $this->safeJsonDecode($this->ReadPropertyString('MonitoredVariables'), true);
-        if (is_array($list_MonitoredVariables)) {
-            foreach ($list_MonitoredVariables as $item) {
-                $vid = $item['VariableID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) $this->RegisterReference($vid);
-            }
-        }
-
         // Registry references
         $registryId = $this->ReadPropertyInteger('RegistryID');
         if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
