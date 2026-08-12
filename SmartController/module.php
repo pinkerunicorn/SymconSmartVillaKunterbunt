@@ -701,13 +701,13 @@ class SmartController extends IPSModuleStrict
                     "type": "SelectModule",
                     "name": "MonitorAlarmID",
                     "caption": "Smart Monitor Alarm",
-                    "moduleID": "{EDBC541A-B804-4B28-A4ED-5B8015E2DB54}"
+                    "moduleID": "{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}"
                 },
                 {
                     "type": "SelectModule",
                     "name": "MonitorDeviceID",
                     "caption": "Smart Monitor Device",
-                    "moduleID": "{C562479B-8930-4C9D-9988-E715DFB2C96A}"
+                    "moduleID": "{4574D58D-2DC0-4E16-92DC-16D9CD27D014}"
                 },
                 {
                     "type": "SelectModule",
