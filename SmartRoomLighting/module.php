@@ -73,7 +73,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
         $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID', 'LuxSensorID']);
         $this->registerListReferences('SwitchTriggers', ['SwitchID', 'ManualSwitchID']);
-        $this->registerListReferences('DoorRules', ['DoorVariableID', 'LuxSensorID']);
+        $this->registerListReferences('DoorRules', ['DoorSensorID', 'ManualDoorVariableID', 'LuxSensorID']);
         $this->registerListReferences('TwilightRules', ['TargetLightID']);
         $this->registerListReferences('SyncRules', ['MasterVariableID', 'TargetLightID']);
 
@@ -172,7 +172,7 @@ class SmartRoomLighting extends IPSModuleStrict
         // --- Register sensors ---
         $this->registerSensorMessages('MotionTriggers', 'SensorID', 'ManualSensorID');
         $this->registerSensorMessages('SwitchTriggers', 'SwitchID', 'ManualSwitchID');
-        $this->registerSensorMessages('DoorRules', 'DoorVariableID');
+        $this->registerSensorMessages('DoorRules', 'DoorSensorID', 'ManualDoorVariableID');
         $this->registerSensorMessages('SyncRules', 'MasterVariableID');
 
         // --- Twilight Timers ---
@@ -267,7 +267,12 @@ class SmartRoomLighting extends IPSModuleStrict
         // --- Door Rules ---
         $doorRules = $this->safeJsonDecode($this->GetBuffer('DoorRulesCache'), true) ?: [];
         foreach ($doorRules as $index => $rule) {
-            if (($rule['DoorVariableID'] ?? 0) == $SenderID) {
+            $doorSensorId = $this->resolveDeviceId($rule['DoorSensorID'] ?? 0);
+            $manualDoorId = (int)($rule['ManualDoorVariableID'] ?? 0);
+            if ($doorSensorId <= 0 && $manualDoorId > 0) {
+                $doorSensorId = $manualDoorId;
+            }
+            if ($doorSensorId == $SenderID) {
                 $this->processDoorTrigger($rule, $index, $isTrigger);
             }
         }
@@ -1290,6 +1295,23 @@ class SmartRoomLighting extends IPSModuleStrict
             ['caption' => 'Override', 'name' => 'RespectOverride', 'width' => '70px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
         ]);
 
+        // --- DoorRules columns (dynamic based on registry) ---
+        $doorRulesColumns = [];
+        if ($hasRegistry && count($contactOptions) > 1) {
+            $doorRulesColumns[] = ['caption' => 'Kontakt (Registry)', 'name' => 'DoorSensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $contactOptions]];
+            $doorRulesColumns[] = ['caption' => 'Oder manuell', 'name' => 'ManualDoorVariableID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+        } else {
+            $doorRulesColumns[] = ['caption' => 'Sensor', 'name' => 'DoorSensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+        }
+
+        $doorRulesColumns = array_merge($doorRulesColumns, [
+            ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+            ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '80px', 'add' => 1000, 'edit' => ['type' => 'NumberSpinner']],
+            ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 10, 'edit' => ['type' => 'NumberSpinner']],
+            ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
+            ['caption' => 'Wasp-in-a-Box', 'name' => 'OccupancyLock', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+        ]);
+
         // Build complete form
         $form = [
             'elements' => [
@@ -1421,14 +1443,7 @@ class SmartRoomLighting extends IPSModuleStrict
                             'rowCount' => 5,
                             'add' => true,
                             'delete' => true,
-                            'columns' => [
-                                ['caption' => 'Sensor', 'name' => 'DoorVariableID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                                ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                                ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '80px', 'add' => 1000, 'edit' => ['type' => 'NumberSpinner']],
-                                ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 10, 'edit' => ['type' => 'NumberSpinner']],
-                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
-                                ['caption' => 'Wasp-in-a-Box', 'name' => 'OccupancyLock', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                            ],
+                            'columns' => $doorRulesColumns,
                         ],
                     ],
                 ],
