@@ -18,8 +18,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
         // Gemini API-Key und Modell werden zentral über SmartGeminiIO konfiguriert.
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
         $this->RegisterPropertyInteger('ArchiveControlID', 0);
-        $this->RegisterPropertyString('LightVariables', '[]');
-        $this->RegisterPropertyString('DimmerVariables', '[]');
+        $this->RegisterPropertyInteger('RegistryID', 0);
 
         $this->RegisterAttributeString('LightSchedule', '[]');
 
@@ -76,23 +75,9 @@ class SmartPresenceSimulation extends IPSModuleStrict
         if ($ref_ArchiveControlID > 1 && @IPS_ObjectExists($ref_ArchiveControlID)) {
             $this->RegisterReference($ref_ArchiveControlID);
         }
-        $list_LightVariables = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-        if (is_array($list_LightVariables)) {
-            foreach ($list_LightVariables as $item) {
-                $vid = $item['VariableID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
-            }
-        }
-        $list_DimmerVariables = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-        if (is_array($list_DimmerVariables)) {
-            foreach ($list_DimmerVariables as $item) {
-                $vid = $item['VariableID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
-                }
-            }
+        $ref_RegistryID = $this->ReadPropertyInteger('RegistryID');
+        if ($ref_RegistryID > 1 && @IPS_ObjectExists($ref_RegistryID)) {
+            $this->RegisterReference($ref_RegistryID);
         }
         // ---------------------------------
         
@@ -103,21 +88,22 @@ class SmartPresenceSimulation extends IPSModuleStrict
             return;
         }
 
-        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-        if (is_array($lightVars)) {
-            foreach ($lightVars as $light) {
-                $id = $light['VariableID'];
-                if ($id > 0 && IPS_VariableExists($id)) {
-                    $this->RegisterMessage($id, VM_UPDATE);
-                }
-            }
-        }
-        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-        if (is_array($dimmerVars)) {
-            foreach ($dimmerVars as $light) {
-                $id = $light['VariableID'];
-                if ($id > 0 && IPS_VariableExists($id)) {
-                    $this->RegisterMessage($id, VM_UPDATE);
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SDR_GetDevices')) {
+            $allDevices = @SDR_GetDevices($regId);
+            if (is_array($allDevices)) {
+                foreach ($allDevices as $dev) {
+                    // Only subscribe to Lights, Dimmers, Colors, and Switches
+                    if (in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                        // Subscribe to OnOff or Brightness or Status
+                        foreach (['OnOff_VarID', 'Status_VarID', 'Brightness_VarID'] as $field) {
+                            $id = (int)($dev[$field] ?? 0);
+                            if ($id > 0 && IPS_VariableExists($id)) {
+                                $this->RegisterMessage($id, VM_UPDATE);
+                                $this->RegisterReference($id);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -142,34 +128,36 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     private function CalculateActiveLights(): void
     {
-        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-        if (!is_array($lightVars)) $lightVars = [];
-        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-        if (!is_array($dimmerVars)) $dimmerVars = [];
-        
-        $allVars = array_merge($lightVars, $dimmerVars);
-        
+        $regId = $this->ReadPropertyInteger('RegistryID');
         $count = 0;
         $activeNames = [];
-        if (is_array($allVars)) {
-            foreach ($allVars as $light) {
-                $id = $light['VariableID'];
-                if ($id > 0 && IPS_VariableExists($id)) {
-                    $currentVal = GetValue($id);
-                    $isActive = false;
-                    
-                    if (is_bool($currentVal)) {
-                        $isActive = $currentVal;
-                    } else if (is_int($currentVal) || is_float($currentVal)) {
-                        $isActive = ($currentVal > 0);
-                    } else if (is_string($currentVal)) {
-                        $isActive = (strtolower(trim($currentVal)) === 'true'|| trim($currentVal) === '1');
-                    }
-                    
-                    if ($isActive) {
-                        $count++;
-                        $name = isset($light['Name']) && $light['Name'] != ''? $light['Name'] : IPS_GetName($id);
-                        $activeNames[] = $name;
+        
+        if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SDR_GetDevices')) {
+            $allDevices = @SDR_GetDevices($regId);
+            if (is_array($allDevices)) {
+                foreach ($allDevices as $dev) {
+                    if (in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                        $isActive = false;
+                        
+                        // Check state
+                        $vid = (int)($dev['OnOff_VarID'] ?? 0);
+                        if ($vid == 0) $vid = (int)($dev['Status_VarID'] ?? 0);
+                        if ($vid > 0 && IPS_VariableExists($vid)) {
+                            $isActive = (bool)GetValue($vid);
+                        } else {
+                            // Dimmer fallback
+                            $vid = (int)($dev['Brightness_VarID'] ?? 0);
+                            if ($vid > 0 && IPS_VariableExists($vid)) {
+                                $isActive = (GetValue($vid) > 0);
+                            }
+                        }
+                        
+                        if ($isActive) {
+                            $count++;
+                            $name = ($dev['room'] ?? '') . ' ' . ($dev['name'] ?? '');
+                            if (trim($name) === '') $name = IPS_GetName($vid);
+                            $activeNames[] = trim($name);
+                        }
                     }
                 }
             }
@@ -292,54 +280,42 @@ class SmartPresenceSimulation extends IPSModuleStrict
             }
         }
 
-        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-        if (!is_array($lightVars)) $lightVars = [];
-        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-        if (!is_array($dimmerVars)) $dimmerVars = [];
-        
-        if (count($lightVars) == 0 && count($dimmerVars) == 0) return;
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId <= 1 || !@IPS_ObjectExists($regId) || !function_exists('SDR_GetDevices')) return;
+        $allDevices = @SDR_GetDevices($regId);
+        if (!is_array($allDevices) || count($allDevices) == 0) return;
 
         $startTime = time() - (14 * 24 * 60 * 60);
         $endTime = time();
         $historyDataSwitches = [];
         $historyDataDimmers = [];
 
-        foreach ($lightVars as $light) {
-            $id = $light['VariableID'];
-            $name = isset($light['Name']) && $light['Name'] != ''? $light['Name'] : "Schalter ".$id;
-            if ($id > 0) {
-                if (!IPS_VariableExists($id) || !AC_GetLoggingStatus($archiveId, $id)) continue;
-                $values = AC_GetLoggedValues($archiveId, $id, $startTime, $endTime, 50);
-                $compactLog = [];
-                foreach ($values as $v) {
-                    $compactLog[] = ["time"=> date('Y-m-d H:i', $v['TimeStamp']), "val"=> $v['Value']];
-                }
-                $historyDataSwitches[$id] = [
-                    "name"=> $name,
-                    "log"=> $compactLog
-                ];
+        foreach ($allDevices as $dev) {
+            if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                continue;
             }
-        }
-        
-        foreach ($dimmerVars as $light) {
-            $id = $light['VariableID'];
-            $name = isset($light['Name']) && $light['Name'] != ''? $light['Name'] : "Dimmer ".$id;
-            if ($id > 0) {
-                if (!IPS_VariableExists($id) || !AC_GetLoggingStatus($archiveId, $id)) continue;
-                $values = AC_GetLoggedValues($archiveId, $id, $startTime, $endTime, 50);
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+            
+            $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
+            $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
+            
+            if ($vid > 0 && IPS_VariableExists($vid) && AC_GetLoggingStatus($archiveId, $vid)) {
+                $values = AC_GetLoggedValues($archiveId, $vid, $startTime, $endTime, 50);
                 $compactLog = [];
                 foreach ($values as $v) {
                     $compactLog[] = ["time"=> date('Y-m-d H:i', $v['TimeStamp']), "val"=> $v['Value']];
                 }
-                $historyDataDimmers[$id] = [
-                    "name"=> $name,
-                    "log"=> $compactLog
-                ];
+                
+                if ($isDimmer) {
+                    $historyDataDimmers[$vid] = ["name"=> $name, "log"=> $compactLog];
+                } else {
+                    $historyDataSwitches[$vid] = ["name"=> $name, "log"=> $compactLog];
+                }
             }
         }
 
         $prompt = "Du bist eine Smart Home KI. Heute ist der ". date('Y-m-d') . ". Der Sonnenuntergang ist um ". $sunsetTimeStr . "Uhr.\n";
-        $prompt .= "Hier sind die Schaltdaten der Lichter der letzten 14 Tage inkl. Name/Raum als JSON:\n";
+        $prompt .= "Hier sind die historischen Schaltdaten der Lichter der letzten 14 Tage inkl. Name/Raum als JSON:\n";
         if (count($historyDataSwitches) > 0) {
             $prompt .= "Geräte vom Typ SCHALTER (Werte: true/false):\n". json_encode($historyDataSwitches) . "\n";
         }
@@ -347,8 +323,10 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $prompt .= "Geräte vom Typ DIMMER (Werte: 0-100):\n". json_encode($historyDataDimmers) . "\n";
         }
         $prompt .= "Generiere einen realistischen Schaltplan für den heutigen Abend, der echte Anwesenheit simuliert und sich an den historischen Daten orientiert. Nutze die Raumnamen, um einen logischen Ablauf (z.B. Wohnzimmer vor Schlafzimmer) zu erstellen. ";
-        $prompt .= "Antworte AUSSCHLIESSLICH im folgenden JSON Format (ohne Markdown, ohne Erklärungen), verwende für 'device'zwingend die übermittelte numerische ID:\n";
-        $prompt .= "[ {\"time\":\"HH:MM\", \"device\": 12345, \"state\": true/false/dimvalue} ]";
+        $prompt .= "Ignoriere unwichtige Räume (wie Keller oder Abstellkammer) selbstständig. ";
+        $prompt .= "Entscheide für jedes eingeschaltete Gerät zusätzlich, ob es bei vorzeitiger Heimkehr der Bewohner absichtlich eingeschaltet bleiben soll (z.B. Außenlicht, Flur, Haustür) oder abgeschaltet werden soll (Schlafzimmer).\n";
+        $prompt .= "Antworte AUSSCHLIESSLICH im folgenden JSON Format (ohne Markdown, ohne Erklärungen), verwende für 'device' zwingend die übermittelte numerische ID:\n";
+        $prompt .= "[ {\"time\":\"HH:MM\", \"device\": 12345, \"state\": true/false/dimvalue, \"keep_on_return\": true/false} ]";
 
         // Async via SmartGeminiIO — 'application/json' = JSON-Modus ohne formales Schema
         $instanceId = $this->InstanceID;
@@ -378,16 +356,16 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $this->SetTimerInterval('GeminiRetryTimer', 0);
             $this->SetValue('GeminiError', false);
 
-            $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-            if (!is_array($lightVars)) $lightVars = [];
-            $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-            if (!is_array($dimmerVars)) $dimmerVars = [];
-
-            $allVars = array_merge($lightVars, $dimmerVars);
             $lightNames = [];
-            foreach ($allVars as $l) {
-                if (isset($l['Name']) && $l['Name'] != "") {
-                    $lightNames[$l['VariableID']] = $l['Name'];
+            $regId = $this->ReadPropertyInteger('RegistryID');
+            if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SDR_GetDevices')) {
+                $allDevices = @SDR_GetDevices($regId);
+                if (is_array($allDevices)) {
+                    foreach ($allDevices as $dev) {
+                        $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                        $vid = (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? $dev['Brightness_VarID'] ?? 0);
+                        if ($vid > 0) $lightNames[$vid] = $name;
+                    }
                 }
             }
 
@@ -428,15 +406,16 @@ class SmartPresenceSimulation extends IPSModuleStrict
         if (!is_array($schedule) || count($schedule) == 0) return;
 
         // Gerätenamen-Lookup für lesbares Logging aufbauen
-        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-        if (!is_array($lightVars)) $lightVars = [];
-        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-        if (!is_array($dimmerVars)) $dimmerVars = [];
         $lightNames = [];
-        foreach (array_merge($lightVars, $dimmerVars) as $l) {
-            $vid = $l['VariableID'] ?? 0;
-            if ($vid > 0) {
-                $lightNames[$vid] = (isset($l['Name']) && $l['Name'] !== '') ? $l['Name'] : IPS_GetName($vid);
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SDR_GetDevices')) {
+            $allDevices = @SDR_GetDevices($regId);
+            if (is_array($allDevices)) {
+                foreach ($allDevices as $dev) {
+                    $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                    $vid = (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? $dev['Brightness_VarID'] ?? 0);
+                    if ($vid > 0) $lightNames[$vid] = $name;
+                }
             }
         }
 
@@ -479,17 +458,15 @@ class SmartPresenceSimulation extends IPSModuleStrict
         if ($executedSomething) {
             $this->WriteAttributeString('LightSchedule', json_encode($remainingSchedule));
             
-            $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-            if (!is_array($lightVars)) $lightVars = [];
-            $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-            if (!is_array($dimmerVars)) $dimmerVars = [];
-            
-            $allVars = array_merge($lightVars, $dimmerVars);
             $lightNames = [];
-            if (is_array($allVars)) {
-                foreach ($allVars as $l) {
-                    if (isset($l['Name']) && $l['Name'] != "") {
-                        $lightNames[$l['VariableID']] = $l['Name'];
+            $regId = $this->ReadPropertyInteger('RegistryID');
+            if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SDR_GetDevices')) {
+                $allDevices = @SDR_GetDevices($regId);
+                if (is_array($allDevices)) {
+                    foreach ($allDevices as $dev) {
+                        $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                        $vid = (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? $dev['Brightness_VarID'] ?? 0);
+                        if ($vid > 0) $lightNames[$vid] = $name;
                     }
                 }
             }
@@ -513,55 +490,57 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     private function TurnOffAllSimulatedLights(bool $respectKeepOnReturn = false): void
     {
-        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-        if (is_array($lightVars)) {
-            foreach ($lightVars as $light) {
-                if ($respectKeepOnReturn && isset($light['KeepOnReturn']) && $light['KeepOnReturn']) {
-                    continue;
-                }
-                $id      = $light['VariableID'];
-                $devName = (isset($light['Name']) && $light['Name'] !== '') ? $light['Name'] : IPS_GetName($id);
-                if ($id > 0 && IPS_VariableExists($id)) {
-                    $varObj = IPS_GetVariable($id);
-                    if ($varObj['VariableType'] == 0) {
-                        if (GetValue($id) === true) {
-                            if (!$this->safeRequestAction($id, false)) {
-                                $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $id | Ziel: AUS");
-                            } else {
-                                $this->SLogInfo( "Licht ausgeschaltet: $devName", "ID: $id");
-                            }
-                            usleep(100000);
-                        }
-                    } else {
-                        if (GetValue($id) > 0) {
-                            if (!$this->safeRequestAction($id, 0)) {
-                                $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
-                            } else {
-                                $this->SLogInfo( "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
-                            }
-                            usleep(100000);
-                        }
+        $keepIds = [];
+        if ($respectKeepOnReturn) {
+            $scheduleStr = $this->ReadAttributeString('LightSchedule');
+            $schedule = $this->safeJsonDecode($scheduleStr, true);
+            if (is_array($schedule)) {
+                foreach ($schedule as $action) {
+                    if (isset($action['keep_on_return']) && $action['keep_on_return'] === true) {
+                        $keepIds[] = $action['device'];
                     }
                 }
             }
         }
-        
-        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-        if (is_array($dimmerVars)) {
-            foreach ($dimmerVars as $light) {
-                if ($respectKeepOnReturn && isset($light['KeepOnReturn']) && $light['KeepOnReturn']) {
-                    continue;
-                }
-                $id      = $light['VariableID'];
-                $devName = (isset($light['Name']) && $light['Name'] !== '') ? $light['Name'] : IPS_GetName($id);
-                if ($id > 0 && IPS_VariableExists($id)) {
-                    if (GetValue($id) > 0) {
-                        if (!$this->safeRequestAction($id, 0)) {
-                            $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $id | Ziel: 0");
-                        } else {
-                            $this->SLogInfo( "Licht (Dimmer) ausgeschaltet: $devName", "ID: $id");
+
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SDR_GetDevices')) {
+            $allDevices = @SDR_GetDevices($regId);
+            if (is_array($allDevices)) {
+                foreach ($allDevices as $dev) {
+                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                        continue;
+                    }
+                    
+                    $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
+                    $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
+                    $devName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+
+                    if ($vid > 0 && IPS_VariableExists($vid)) {
+                        if ($respectKeepOnReturn && in_array($vid, $keepIds)) {
+                            $this->SLogInfo("Licht bleibt an (KeepOnReturn durch KI): $devName", "ID: $vid");
+                            continue;
                         }
-                        usleep(100000);
+
+                        if ($isDimmer) {
+                            if (GetValue($vid) > 0) {
+                                if (!$this->safeRequestAction($vid, 0)) {
+                                    $this->SLogWarning("Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $vid | Ziel: 0");
+                                } else {
+                                    $this->SLogInfo("Licht (Dimmer) ausgeschaltet: $devName", "ID: $vid");
+                                }
+                                usleep(100000);
+                            }
+                        } else {
+                            if (GetValue($vid) === true) {
+                                if (!$this->safeRequestAction($vid, false)) {
+                                    $this->SLogWarning("Aktor-Befehl fehlgeschlagen: $devName", "ID: $vid | Ziel: AUS");
+                                } else {
+                                    $this->SLogInfo("Licht ausgeschaltet: $devName", "ID: $vid");
+                                }
+                                usleep(100000);
+                            }
+                        }
                     }
                 }
             }
@@ -631,122 +610,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        return <<<'EOT'
-{
-    "elements": [
-        {
-            "type": "CheckBox",
-            "name": "SimulationMode",
-            "caption": "Simulationsmodus (Testbetrieb)"
-        },
-        {
-            "type": "Label",
-            "caption": " "
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "⚙ Allgemeine Einstellungen",
-            "items": [
-                {
-                    "type": "Label",
-                    "caption": "API-Key und Modell werden zentral über die 'Smart Gemini IO' Instanz konfiguriert."
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "SunsetVariableID",
-                            "caption": "Sonnenuntergangs-Variable (Unix Timestamp oder H:i String)"
-                        },
-                        {
-                            "type": "SelectInstance",
-                            "name": "ArchiveControlID",
-                            "caption": "Archive Control Instanz"
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "type": "List",
-            "name": "LightVariables",
-            "caption": "Lampen (Schalter / Ein-Aus)",
-            "rowCount": 10,
-            "add": true,
-            "delete": true,
-            "changeOrder": true,
-            "columns": [
-                {
-                    "caption": "Raum/Name (Kontext für KI)",
-                    "name": "Name",
-                    "width": "150px",
-                    "add": "",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Variable (Schalten)",
-                    "name": "VariableID",
-                    "width": "auto",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectVariable"
-                    }
-                },
-                {
-                    "caption": "Bei Rückkehr anlassen",
-                    "name": "KeepOnReturn",
-                    "width": "150px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                }
-            ]
-        },
-        {
-            "type": "List",
-            "name": "DimmerVariables",
-            "caption": "Lampen (Dimmer / 0-100%)",
-            "rowCount": 10,
-            "add": true,
-            "delete": true,
-            "changeOrder": true,
-            "columns": [
-                {
-                    "caption": "Raum/Name (Kontext für KI)",
-                    "name": "Name",
-                    "width": "150px",
-                    "add": "",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Variable (Dimmen)",
-                    "name": "VariableID",
-                    "width": "auto",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectVariable"
-                    }
-                },
-                {
-                    "caption": "Bei Rückkehr anlassen",
-                    "name": "KeepOnReturn",
-                    "width": "150px",
-                    "add": false,
-                    "edit": {
-                        "type": "CheckBox"
-                    }
-                }
-            ]
-        }
-    ]
-}
-EOT;
+        return file_get_contents(__DIR__ . '/form.json');
     }
 
     private function EnsureArchiving(): void
@@ -756,20 +620,18 @@ EOT;
             return;
         }
 
-        $lightVars = $this->safeJsonDecode($this->ReadPropertyString('LightVariables'), true);
-        $dimmerVars = $this->safeJsonDecode($this->ReadPropertyString('DimmerVariables'), true);
-        
-        $vars = [];
-        if (is_array($lightVars)) {
-            $vars = array_merge($vars, $lightVars);
-        }
-        if (is_array($dimmerVars)) {
-            $vars = array_merge($vars, $dimmerVars);
-        }
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId <= 1 || !@IPS_ObjectExists($regId) || !function_exists('SDR_GetDevices')) return;
+        $allDevices = @SDR_GetDevices($regId);
+        if (!is_array($allDevices)) return;
 
         $changed = false;
-        foreach ($vars as $item) {
-            $vid = (int)($item['VariableID'] ?? 0);
+        foreach ($allDevices as $dev) {
+            if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) continue;
+            
+            $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
+            $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
+            
             if ($vid > 0 && IPS_VariableExists($vid)) {
                 if (!AC_GetLoggingStatus($archiveID, $vid)) {
                     AC_SetLoggingStatus($archiveID, $vid, true);
