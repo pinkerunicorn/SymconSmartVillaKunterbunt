@@ -13,24 +13,31 @@ class SmartSecurityManager extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
-    
-    public function Create(): void{
+
+    // Auto-alarm sensor types from registry and their default alarm level
+    private const REGISTRY_ALARM_TYPES = [
+        'DevicesSmokeSensor'  => ['level' => 2, 'label' => 'Rauchmelder'],
+        'DevicesWaterSensor'  => ['level' => 2, 'label' => 'Wassermelder'],
+        'DevicesAlarmSensor'  => ['level' => 2, 'label' => 'Alarmmelder'],
+    ];
+
+    public function Create(): void {
         parent::Create();
-        
+
         $this->DA_RegisterAvailability(900);
 
         // Security Properties
         $this->RegisterPropertyInteger('RegistryID', 0);
 
-        // Alarm Properties (From SmartAlarmManager)
+        // Manual alarm variables (custom fallback)
         $this->RegisterPropertyString("MonitoredVariables", "[]");
         $this->RegisterPropertyInteger("EscalationTimeLvl2", 300);
         $this->RegisterPropertyInteger("EscalationTimeLvl3", 900);
         $this->RegisterPropertyInteger("TargetNotifier", 0);
-        
+
         $this->RegisterTimer("EscalationTimer", 0, 'SAM_CheckEscalation($_IPS[\'TARGET\']);');
         $this->RegisterTimer("StatusResetTimer", 0, 'SAM_UpdateStatusVariables($_IPS[\'TARGET\']);');
-        
+
         $this->SetBuffer("ActiveAlarms", "{}");
 
         // UI Variables
@@ -43,13 +50,13 @@ class SmartSecurityManager extends IPSModuleStrict
             'ICON'         => 'Warning'
         ], 2);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('ActiveAlarmsCount'), '');
-        
+
         $this->RegisterVariableString("LastEvent", "Letztes Ereignis", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'Flag'
         ], 3);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('LastEvent'), '');
-        
+
         $this->RegisterVariableBoolean("AcknowledgeAll", "Alle Alarme quittieren", [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
             'ICON'         => 'Ok'
@@ -57,18 +64,18 @@ class SmartSecurityManager extends IPSModuleStrict
         $this->EnableAction("AcknowledgeAll");
 
         // Windows/Doors count variables
-        $this->RegisterVariableInteger('OpenWindowsCount', 'Offene Fenster / Türen (Zähler)', [
-            'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'           => 'Window',
-            'SUFFIX'         => ' offen'
+        $this->RegisterVariableInteger('OpenWindowsCount', 'Offene Fenster / Tueren (Zaehler)', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Window',
+            'SUFFIX'       => ' offen'
         ], 5);
-        $this->RegisterVariableString('OpenWindowsList', 'Offene Fenster / Türen (Namen)', [
-            'PRESENTATION'   => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'           => 'Information'
+        $this->RegisterVariableString('OpenWindowsList', 'Offene Fenster / Tueren (Namen)', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'Information'
         ], 6);
     }
 
-    public function ApplyChanges(): void{
+    public function ApplyChanges(): void {
         parent::ApplyChanges();
         $this->DA_ApplyPresentation();
 
@@ -89,6 +96,8 @@ class SmartSecurityManager extends IPSModuleStrict
         if ($notifier > 1 && @IPS_ObjectExists($notifier)) {
             $this->RegisterReference($notifier);
         }
+
+        // Manual monitored variables
         $list_MonitoredVariables = $this->safeJsonDecode($this->ReadPropertyString('MonitoredVariables'), true);
         if (is_array($list_MonitoredVariables)) {
             foreach ($list_MonitoredVariables as $item) {
@@ -96,18 +105,11 @@ class SmartSecurityManager extends IPSModuleStrict
                 if ($vid > 1 && @IPS_ObjectExists($vid)) $this->RegisterReference($vid);
             }
         }
-        
-        // Door & Window References from Registry
+
+        // Registry references
         $registryId = $this->ReadPropertyInteger('RegistryID');
         if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
             $this->RegisterReference($registryId);
-            $contactSensors = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesContactSensor') ?: '[]', true);
-            foreach ($contactSensors as $sensor) {
-                $vid = $sensor['Status_VarID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) $this->RegisterReference($vid);
-            }
-        } else {
-            $contactSensors = [];
         }
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
@@ -118,6 +120,7 @@ class SmartSecurityManager extends IPSModuleStrict
             }
         }
 
+        // Register manual alarm variable messages + dynamic Alarm_ variables
         $monitored = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true) ?: [];
         $activeIdents = [];
 
@@ -125,11 +128,11 @@ class SmartSecurityManager extends IPSModuleStrict
             $vid = $item['VariableID'] ?? 0;
             if ($vid > 0 && IPS_VariableExists($vid)) {
                 $this->RegisterMessage($vid, VM_UPDATE);
-                
+
                 if (($item['AlarmLevel'] ?? 1) > 0) {
-                    $ident = "Alarm_". $vid;
+                    $ident = "Alarm_" . $vid;
                     $activeIdents[] = $ident;
-                    $this->RegisterVariableBoolean($ident, "Status: ". ($item['Message'] ?? 'Alarm'), ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
+                    $this->RegisterVariableBoolean($ident, "Status: " . ($item['Message'] ?? 'Alarm'), ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
                     $this->EnableAction($ident);
                     $varID = $this->GetIDForIdent($ident);
                     $isAlarmActive = (bool)$this->GetValue($ident);
@@ -137,21 +140,44 @@ class SmartSecurityManager extends IPSModuleStrict
                 }
             }
         }
-        
-        // Always add the absence alarm to activeIdents so it isn't deleted
-        $absenceIdent = "Alarm_". $this->GetIDForIdent('OpenWindowsCount');
+
+        // Absence alarm ident
+        $absenceIdent = "Alarm_" . $this->GetIDForIdent('OpenWindowsCount');
         $activeIdents[] = $absenceIdent;
-        $this->RegisterVariableBoolean($absenceIdent, "Status: Fenster/Tür offen bei Abwesenheit", ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
+        $this->RegisterVariableBoolean($absenceIdent, "Status: Fenster/Tuer offen bei Abwesenheit", ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
         $this->EnableAction($absenceIdent);
         $varID = $this->GetIDForIdent($absenceIdent);
         IPS_SetHidden($varID, !(bool)$this->GetValue($absenceIdent));
-        
-        // Window & Door Messages
-        foreach ($contactSensors as $sensor) {
-            $id = $sensor['Status_VarID'] ?? 0;
-            if ($id > 0 && IPS_VariableExists($id)) $this->RegisterMessage($id, VM_UPDATE);
+
+        // Auto-register Registry alarm sensor messages + Alarm_ variables
+        $registrySensors = $this->GetRegistrySensors($registryId);
+        foreach ($registrySensors as $sensor) {
+            $vid = (int)($sensor['Status_VarID'] ?? 0);
+            if ($vid <= 0 || !IPS_VariableExists($vid)) continue;
+            $this->RegisterReference($vid);
+            $this->RegisterMessage($vid, VM_UPDATE);
+
+            $label = ($sensor['_label'] ?? 'Alarmmelder');
+            $name  = ($sensor['room'] ?? '') . ': ' . ($sensor['name'] ?? '');
+            $ident = "Alarm_" . $vid;
+            $activeIdents[] = $ident;
+            $this->RegisterVariableBoolean($ident, "Status: $name", ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
+            $this->EnableAction($ident);
+            $varID = $this->GetIDForIdent($ident);
+            IPS_SetHidden($varID, !(bool)$this->GetValue($ident));
         }
 
+        // Window & Door contact messages
+        $contactSensors = $this->GetRegistryContactSensors($registryId);
+        foreach ($contactSensors as $sensor) {
+            $id = $sensor['Status_VarID'] ?? 0;
+            if ($id > 0 && IPS_VariableExists($id)) {
+                $this->RegisterReference($id);
+                $this->RegisterMessage($id, VM_UPDATE);
+            }
+        }
+
+        // Clean up orphaned Alarm_ variables
         foreach (IPS_GetChildrenIDs($this->InstanceID) as $childID) {
             $ident = IPS_GetObject($childID)['ObjectIdent'];
             if (strpos($ident, "Alarm_") === 0) {
@@ -166,31 +192,80 @@ class SmartSecurityManager extends IPSModuleStrict
         $this->DA_SetAvailable(true);
     }
 
-    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void{
-        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
-
-        // Check if sender is a door or window
-        $isWindowOrDoor = false;
-        $registryId = $this->ReadPropertyInteger('RegistryID');
-        if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
-            $contactSensors = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesContactSensor') ?: '[]', true);
-            foreach ($contactSensors as $sensor) {
-                if (isset($sensor['Status_VarID']) && $sensor['Status_VarID'] == $SenderID) {
-                    $isWindowOrDoor = true;
-                    break;
-                }
+    /**
+     * Returns all sensors from registry that should trigger automatic alarms
+     * (SmokeSensor, WaterSensor, AlarmSensor)
+     */
+    private function GetRegistrySensors(int $registryId): array
+    {
+        if ($registryId <= 1 || !@IPS_ObjectExists($registryId)) return [];
+        $result = [];
+        foreach (self::REGISTRY_ALARM_TYPES as $type => $cfg) {
+            if (!function_exists('SDR_GetDevicesByType')) break;
+            $sensors = @SDR_GetDevicesByType($registryId, $type);
+            if (!is_array($sensors)) continue;
+            foreach ($sensors as $s) {
+                $s['_alarmLevel'] = $cfg['level'];
+                $s['_label']      = $cfg['label'];
+                $result[] = $s;
             }
         }
-        if ($isWindowOrDoor) {
-            $this->CalculateOpenWindows();
+        return $result;
+    }
+
+    private function GetRegistryContactSensors(int $registryId): array
+    {
+        if ($registryId <= 1 || !@IPS_ObjectExists($registryId) || !function_exists('SDR_GetDevicesByType')) return [];
+        $sensors = @SDR_GetDevicesByType($registryId, 'DevicesContactSensor');
+        return is_array($sensors) ? $sensors : [];
+    }
+
+    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void {
+        if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
+
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+
+        // Check if sender is a contact sensor (window/door)
+        $contactSensors = $this->GetRegistryContactSensors($registryId);
+        foreach ($contactSensors as $sensor) {
+            if (isset($sensor['Status_VarID']) && $sensor['Status_VarID'] == $SenderID) {
+                $this->CalculateOpenWindows();
+                break;
+            }
         }
 
-        // Generic Alarm Check
+        // Check if sender is an auto-alarm sensor from registry
+        $registrySensors = $this->GetRegistrySensors($registryId);
+        foreach ($registrySensors as $sensor) {
+            $vid = (int)($sensor['Status_VarID'] ?? 0);
+            if ($vid !== $SenderID) continue;
+            $currentVal = $Data[0];
+            // Smoke/water/alarm sensors: true = alarm triggered
+            if ($this->IsTriggered($currentVal, 'true')) {
+                $level  = $sensor['_alarmLevel'];
+                $name   = ($sensor['room'] ?? '') . ': ' . ($sensor['name'] ?? 'Sensor');
+                $label  = $sensor['_label'];
+                $this->HandleTrigger([
+                    'VariableID' => $vid,
+                    'AlarmLevel' => $level,
+                    'Message'    => "$label ausgeloest: $name",
+                    'AutoReset'  => true
+                ]);
+            } else {
+                // Auto-reset
+                $alarms = $this->safeJsonDecode($this->GetBuffer("ActiveAlarms"), true) ?: [];
+                if (isset($alarms[$vid])) {
+                    $this->RequestAction("Alarm_" . $vid, false);
+                }
+            }
+            return;
+        }
+
+        // Generic manual alarm check
         $monitored = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true);
         if (!is_array($monitored)) return;
 
-        $currentVal = $Data[0]; 
-        
+        $currentVal = $Data[0];
         foreach ($monitored as $item) {
             $vid = $item['VariableID'] ?? 0;
             if ($vid == $SenderID) {
@@ -201,8 +276,7 @@ class SmartSecurityManager extends IPSModuleStrict
                     if (($item['AutoReset'] ?? false)) {
                         $alarms = $this->safeJsonDecode($this->GetBuffer("ActiveAlarms"), true) ?: [];
                         if (isset($alarms[$vid])) {
-                            $this->SLogInfo("Auto-Reset für Sensor/Variable $vid");
-                            $this->RequestAction("Alarm_".$vid, false);
+                            $this->RequestAction("Alarm_" . $vid, false);
                         }
                     }
                 }
@@ -210,123 +284,20 @@ class SmartSecurityManager extends IPSModuleStrict
         }
     }
 
-    public function DiscoverVariables(bool $forceRefresh = false): void
-    {
-        $existing = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true) ?: [];
-        $existingIds = array_column($existing, 'VariableID');
-        
-        $cached = $this->GetBuffer('AllVariablesCache');
-        if ($forceRefresh || $cached === '') {
-            $allVars = IPS_GetVariableList();
-            $this->SetBuffer('AllVariablesCache', json_encode($allVars));
-        } else {
-            $allVars = $this->safeJsonDecode($cached, true);
-        }
-
-        $addedCount = 0;
-        foreach($allVars as $vid) {
-            if (in_array($vid, $existingIds)) continue;
-            
-            $obj = IPS_GetObject($vid);
-            $ident = $obj['ObjectIdent'];
-            $name = $obj['ObjectName'];
-            
-            $isAlarm = (
-                strpos(strtolower($ident), 'alarm') !== false ||
-                strpos(strtolower($name), 'alarm') !== false ||
-                strpos(strtolower($ident), 'error') !== false ||
-                strpos(strtolower($name), 'fehler') !== false ||
-                strpos(strtolower($ident), 'defect') !== false ||
-                strpos(strtolower($name), 'defekt') !== false ||
-                strpos(strtolower($ident), 'warning') !== false ||
-                strpos(strtolower($name), 'warnung') !== false ||
-                strpos(strtolower($ident), 'leak') !== false ||
-                strpos(strtolower($name), 'leck') !== false
-            );
-            
-            // Skip UI variables of this module itself
-            if ($obj['ParentID'] == $this->InstanceID) continue;
-            
-            if ($isAlarm) {
-                $type = IPS_GetVariable($vid)['VariableType'];
-                $trigger = 'true';
-                if ($type === 1) $trigger = '1';
-                
-                $parentName = IPS_GetName($obj['ParentID']);
-                
-                $existing[] = [
-                    'VariableID' => $vid,
-                    'Message' => $parentName . ': ' . $name,
-                    'TriggerValue' => $trigger,
-                    'AlarmLevel' => 2,
-                    'AutoReset' => true
-                ];
-                $addedCount++;
-            }
-        }
-        
-        if ($addedCount > 0) {
-            IPS_SetProperty($this->InstanceID, "MonitoredVariables", json_encode($existing));
-            IPS_ApplyChanges($this->InstanceID);
-            $this->SendDebug('Discover', "Es wurden $addedCount neue Alarm-Variablen gefunden und hinzugefügt!", 0);
-        } else {
-            $this->SendDebug('Discover', "Keine neuen Alarm-Variablen gefunden.", 0);
-        }
-    }
-
-    public function ImportAlarmsFromRegistry(): void
-    {
-        $registryId = $this->ReadPropertyInteger('RegistryID');
-        if ($registryId <= 1 || !@IPS_ObjectExists($registryId)) {
-            echo "Fehler: Keine gültige Device Registry ausgewählt!\n";
-            return;
-        }
-
-        $registryAlarms = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesAlarmSensor') ?: '[]', true);
-        $existing = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true) ?: [];
-        $existingIds = array_column($existing, 'VariableID');
-
-        $addedCount = 0;
-        foreach ($registryAlarms as $alarm) {
-            $vid = $alarm['Status_VarID'] ?? 0;
-            if ($vid > 0 && !in_array($vid, $existingIds)) {
-                $existing[] = [
-                    'VariableID' => $vid,
-                    'Message' => !empty($alarm['name']) ? $alarm['name'] : IPS_GetName($vid),
-                    'TriggerValue' => 'true',
-                    'AlarmLevel' => 2,
-                    'AutoReset' => true
-                ];
-                $addedCount++;
-            }
-        }
-
-        if ($addedCount > 0) {
-            IPS_SetProperty($this->InstanceID, "MonitoredVariables", json_encode($existing));
-            IPS_ApplyChanges($this->InstanceID);
-            echo "$addedCount neue Alarmmelder aus der Registry importiert!\n";
-        } else {
-            echo "Keine neuen Alarmmelder zum Importieren gefunden.\n";
-        }
-    }
-
     private function CalculateOpenWindows(): void
     {
         $registryId = $this->ReadPropertyInteger('RegistryID');
-        $contactSensors = [];
-        if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
-            $contactSensors = $this->safeJsonDecode(@IPS_GetProperty($registryId, 'DevicesContactSensor') ?: '[]', true);
-        }
+        $contactSensors = $this->GetRegistryContactSensors($registryId);
 
         $count = 0;
         $openNames = [];
-        
+
         foreach ($contactSensors as $sensor) {
             $id = $sensor['Status_VarID'] ?? 0;
             if ($id > 0 && IPS_VariableExists($id)) {
                 $currentVal = GetValue($id);
-                $checkVal = $sensor['ClosedValue'] ?? 'false';
-                if (!$this->IsTriggered($currentVal, $checkVal)) { // It is NOT closed
+                $checkVal   = $sensor['ClosedValue'] ?? 'false';
+                if (!$this->IsTriggered($currentVal, $checkVal)) {
                     $count++;
                     $name = !empty($sensor['name']) ? $sensor['name'] : IPS_GetName($id);
                     $openNames[] = $name;
@@ -337,7 +308,7 @@ class SmartSecurityManager extends IPSModuleStrict
         if (GetValue($this->GetIDForIdent('OpenWindowsCount')) !== $count) {
             $this->SetValue('OpenWindowsCount', $count);
         }
-        
+
         if ($count == 0) {
             if (GetValue($this->GetIDForIdent('OpenWindowsList')) !== 'Alle geschlossen') $this->SetValue('OpenWindowsList', 'Alle geschlossen');
         } else {
@@ -355,7 +326,7 @@ class SmartSecurityManager extends IPSModuleStrict
                 if ($this->GetValue('OpenWindowsCount') > 0) {
                     $mockItem = [
                         'AlarmLevel' => 2,
-                        'Message' => "Fenster/Türen offen während Abwesenheit: " . $this->GetValue('OpenWindowsList'),
+                        'Message'    => "Fenster/Tueren offen waehrend Abwesenheit: " . $this->GetValue('OpenWindowsList'),
                         'VariableID' => $this->GetIDForIdent('OpenWindowsCount')
                     ];
                     $this->HandleTrigger($mockItem);
@@ -364,87 +335,69 @@ class SmartSecurityManager extends IPSModuleStrict
         }
     }
 
-    
     private function dispatchNotification(string $title, string $msg, int $priority): void
     {
         $notifier = $this->ReadPropertyInteger('TargetNotifier');
         if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
             $payload = json_encode(['Title' => $title, 'Message' => $msg, 'Priority' => $priority]);
-            $this->safeRequestAction($notifier, $payload); // Note: Assuming NOTIFY_SendEvent maps to a command or RequestAction? Wait! The code calls @NOTIFY_SendEvent($notifier, $payload);
-            // Let me use the original function call
             @NOTIFY_SendEvent($notifier, $payload);
         }
     }
-private function HandleTrigger(array $item): void
+
+    private function HandleTrigger(array $item): void
     {
         $level = (int)($item['AlarmLevel'] ?? 1);
-        $msg = $item['Message'] ?? "Alarm ausgelöst";
-        $vid = $item['VariableID'];
-        
+        $msg   = $item['Message'] ?? "Alarm ausgeloest";
+        $vid   = $item['VariableID'];
+
         if ($level == 0) {
-            $this->SLogInfo("Info/Event ausgelöst: ". $msg);
-            $this->SendDebug("Trigger", "Info/Event: ". $msg, 0);
+            $this->SLogInfo("Info/Event ausgeloest: " . $msg);
             $this->dispatchNotification('Info', $msg, 0);
-            
-            $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- ". $msg);
+            $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- " . $msg);
             if ($this->GetValue("SystemStatus") == 0) {
                 $this->SetValue("SystemStatus", 1);
                 $this->SetTimerInterval("StatusResetTimer", 3000);
             }
         } else {
             $alarms = $this->safeJsonDecode($this->GetBuffer("ActiveAlarms"), true) ?: [];
-            
             if (!isset($alarms[$vid])) {
-                $alarms[$vid] = [
-                    "timestamp"=> time(),
-                    "level"=> $level,
-                    "item"=> $item
-                ];
+                $alarms[$vid] = ["timestamp" => time(), "level" => $level, "item" => $item];
                 $this->SetBuffer("ActiveAlarms", json_encode($alarms));
-                
-                $this->SLogWarning("ALARM ausgelöst (Stufe $level): ". $msg);
-                $this->SendDebug("Trigger", "Alarm Stufe $level: ". $msg, 0);
-                
+                $this->SLogWarning("ALARM ausgeloest (Stufe $level): " . $msg);
                 $this->dispatchNotification('Alarm', $msg, $level);
-                
-                $ident = "Alarm_". $vid;
+
+                $ident = "Alarm_" . $vid;
                 if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID)) {
                     $varID = $this->GetIDForIdent($ident);
                     $this->SetValue($ident, true);
                     IPS_SetHidden($varID, false);
                 }
-                
-                $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- ALARM: ". $msg);
+                $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- ALARM: " . $msg);
                 $this->SetTimerInterval("EscalationTimer", 10000);
                 $this->UpdateStatusVariables();
             }
         }
     }
 
-    public function RequestAction(string $Ident, mixed $Value): void{
+    public function RequestAction(string $Ident, mixed $Value): void {
         if (strpos($Ident, "Alarm_") === 0) {
             if ($Value == false) {
                 $this->SetValue($Ident, false);
                 $varID = $this->GetIDForIdent($Ident);
                 IPS_SetHidden($varID, true);
 
-                $vid = substr($Ident, 6);
+                $vid    = substr($Ident, 6);
                 $alarms = $this->safeJsonDecode($this->GetBuffer("ActiveAlarms"), true) ?: [];
-
-                $alarmName = $alarms[$vid]['item']['Message'] ?? ($alarms[$vid]['message'] ?? null);
+                $alarmName = $alarms[$vid]['item']['Message'] ?? null;
                 if (!$alarmName && IPS_VariableExists((int)$vid)) {
                     $alarmName = IPS_GetName((int)$vid);
                 }
-                $alarmName = $alarmName ?: ('Variable #' . $vid);
-
-                $this->SLogInfo('Alarm quittiert', $alarmName);
-                $this->SendDebug("Acknowledge", "Quittiert: ". $Ident, 0);
+                $this->SLogInfo('Alarm quittiert', $alarmName ?: ('Variable #' . $vid));
 
                 if (isset($alarms[$vid])) {
                     unset($alarms[$vid]);
                     $this->SetBuffer("ActiveAlarms", json_encode($alarms));
                 }
-                
                 if (empty($alarms)) {
                     $this->SetTimerInterval("EscalationTimer", 0);
                 }
@@ -454,13 +407,12 @@ private function HandleTrigger(array $item): void
             if ($Value == true) {
                 $alarms = $this->safeJsonDecode($this->GetBuffer("ActiveAlarms"), true) ?: [];
                 foreach ($alarms as $vid => $alarm) {
-                    $ident = "Alarm_". $vid;
+                    $ident = "Alarm_" . $vid;
                     if (@IPS_GetObjectIDByIdent($ident, $this->InstanceID)) {
                         $this->SetValue($ident, false);
                         IPS_SetHidden($this->GetIDForIdent($ident), true);
                     }
                 }
-
                 foreach (IPS_GetChildrenIDs($this->InstanceID) as $childID) {
                     $ident = IPS_GetObject($childID)['ObjectIdent'];
                     if (strpos($ident, "Alarm_") === 0) {
@@ -468,13 +420,11 @@ private function HandleTrigger(array $item): void
                         IPS_SetHidden($childID, true);
                     }
                 }
-                
                 $this->SetBuffer("ActiveAlarms", "{}");
                 $this->SetTimerInterval("EscalationTimer", 0);
                 $this->UpdateStatusVariables();
                 $this->SLogInfo("Alle Alarme quittiert.");
                 $this->SetValue("LastEvent", date("d.m.Y H:i:s") . "- Alle Alarme quittiert");
-                
                 $this->SetValue("AcknowledgeAll", false);
             }
         } else {
@@ -490,28 +440,22 @@ private function HandleTrigger(array $item): void
             return;
         }
 
-        $now = time();
-        $changed = false;
+        $now       = time();
+        $changed   = false;
         $lvl2_time = $this->ReadPropertyInteger("EscalationTimeLvl2");
         $lvl3_time = $this->ReadPropertyInteger("EscalationTimeLvl3");
 
         foreach ($alarms as $vid => &$alarm) {
             $elapsed = $now - $alarm['timestamp'];
-            $msg = $alarm['item']['Message'] ?? "Alarm";
-            
+            $msg     = $alarm['item']['Message'] ?? "Alarm";
             if ($alarm['level'] == 1 && $elapsed >= $lvl2_time) {
                 $alarm['level'] = 2;
                 $changed = true;
-                $this->SLogWarning("Alarm ESKALATION (Stufe 2): ". $msg);
-                $this->SendDebug("Escalation", "Stufe 2: ". $msg, 0);
                 $this->dispatchNotification('Alarm (Stufe 2)', $msg, 2);
             }
-
             if ($alarm['level'] == 2 && $elapsed >= $lvl3_time) {
                 $alarm['level'] = 3;
                 $changed = true;
-                $this->SLogError("VOLLALARM (Stufe 3): ". $msg);
-                $this->SendDebug("Escalation", "Stufe 3: ". $msg, 0);
                 $this->dispatchNotification('VOLLALARM', $msg, 2);
             }
         }
@@ -533,9 +477,22 @@ private function HandleTrigger(array $item): void
             $vid = $item['VariableID'] ?? 0;
             if ($vid > 0) $monitoredMap[$vid] = $item;
         }
-        
+
+        // Add registry sensors to monitoredMap for status update
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        foreach ($this->GetRegistrySensors($registryId) as $sensor) {
+            $vid = (int)($sensor['Status_VarID'] ?? 0);
+            if ($vid > 0) {
+                $monitoredMap[$vid] = [
+                    'AlarmLevel' => $sensor['_alarmLevel'],
+                    'Message'    => ($sensor['_label'] ?? '') . ': ' . ($sensor['name'] ?? ''),
+                    'VariableID' => $vid
+                ];
+            }
+        }
+
         $absenceID = $this->GetIDForIdent('OpenWindowsCount');
-        $monitoredMap[$absenceID] = ['AlarmLevel' => 2, 'Message' => 'Fenster/Tür offen bei Abwesenheit', 'VariableID' => $absenceID];
+        $monitoredMap[$absenceID] = ['AlarmLevel' => 2, 'Message' => 'Fenster/Tuer offen bei Abwesenheit', 'VariableID' => $absenceID];
 
         foreach ($alarms as $vid => $alarmData) {
             $ident = "Alarm_" . $vid;
@@ -554,7 +511,7 @@ private function HandleTrigger(array $item): void
                 }
             }
         }
-        
+
         $this->SetBuffer("ActiveAlarms", json_encode($alarms));
         $count = count($alarms);
         $this->SetValue("ActiveAlarmsCount", $count);
@@ -562,7 +519,7 @@ private function HandleTrigger(array $item): void
         if (@IPS_GetObjectIDByIdent('AcknowledgeAll', $this->InstanceID) !== false) {
             IPS_SetHidden($this->GetIDForIdent('AcknowledgeAll'), $count === 0);
         }
-        
+
         if ($count == 0) {
             if ($this->GetValue("SystemStatus") > 0) $this->SetValue("SystemStatus", 0);
             $this->SetTimerInterval("EscalationTimer", 0);
@@ -574,12 +531,12 @@ private function HandleTrigger(array $item): void
             }
             $this->SetValue("SystemStatus", $maxLevel + 1);
         }
-        
+
         $systemStatus = $this->GetValue("SystemStatus");
         $shcLevel = 0;
         if ($systemStatus == 1) $shcLevel = 1;
         elseif ($systemStatus > 1) $shcLevel = 2;
-        
+
         $instances = IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
         if (count($instances) > 0 && function_exists('SHC_SetAlarmLevel')) {
             @SHC_SetAlarmLevel($instances[0], $shcLevel);
@@ -589,19 +546,18 @@ private function HandleTrigger(array $item): void
     private function IsTriggered(mixed $currentVal, string $triggerValStr): bool
     {
         if (is_bool($currentVal)) {
-            $t = strtolower(trim((string)$triggerValStr));
-            $target = ($t === 'true'|| $t === '1'|| $t === 'wahr');
+            $t      = strtolower(trim((string)$triggerValStr));
+            $target = ($t === 'true' || $t === '1' || $t === 'wahr');
             return $currentVal === $target;
         }
-        if (is_int($currentVal)) return $currentVal === (int)$triggerValStr;
+        if (is_int($currentVal))   return $currentVal === (int)$triggerValStr;
         if (is_float($currentVal)) return $currentVal === (float)$triggerValStr;
         if (is_string($currentVal)) return strtolower(trim($currentVal)) === strtolower(trim($triggerValStr));
         return (string)$currentVal === (string)$triggerValStr;
     }
 
-
-
-    private function safeJsonDecode(string $json, bool $assoc = true) {
+    private function safeJsonDecode(string $json, bool $assoc = true): mixed
+    {
         try {
             if (trim($json) === '') return $assoc ? [] : null;
             return json_decode($json, $assoc, 512, JSON_THROW_ON_ERROR);
@@ -610,5 +566,4 @@ private function HandleTrigger(array $item): void
             return $assoc ? [] : null;
         }
     }
-
 }

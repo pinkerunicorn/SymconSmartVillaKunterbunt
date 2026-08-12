@@ -56,21 +56,6 @@
             "caption": "🚨 Generische Alarm-Sensoren",
             "items": [
                 {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "Button",
-                            "caption": "🔍 Auto-Scan: Fehlende Alarme suchen",
-                            "onClick": "SAM_DiscoverVariables($id, true);"
-                        },
-                        {
-                            "type": "Button",
-                            "caption": "📥 Alarmmelder aus Registry importieren",
-                            "onClick": "SAM_ImportAlarmsFromRegistry($id);"
-                        }
-                    ]
-                },
-                {
                     "type": "List",
                     "name": "MonitoredVariables",
                     "caption": "Variablen",
@@ -131,7 +116,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Türen und Fenster werden nun automatisch und live aus der Device Registry (Liste: Fenster- / Türkontakte) überwacht. Sobald ein Kontakt bei Abwesenheit geöffnet wird, löst dies sofort einen Alarm aus. Eine manuelle Pflege in diesem Modul ist nicht mehr erforderlich."
+                    "caption": "Rauchmelder, Wassermelder und sonstige Alarmmelder werden automatisch und live aus der Device Registry ueberwacht. Sobald ein Sensor ausloest, wird sofort ein Alarm der Stufe 2 (Vollalarm) ausgeloest. Eine manuelle Konfiguration ist nicht notwendig."
                 }
             ]
         }
