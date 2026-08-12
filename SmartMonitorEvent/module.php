@@ -103,15 +103,6 @@ class SmartMonitorEvent extends IPSModuleStrict
                             ]
                         ],
                         [
-                            'name' => 'TriggerValue',
-                            'caption' => 'Auslöser (z.B. true/false)',
-                            'width' => '150px',
-                            'add' => 'true',
-                            'edit' => [
-                                'type' => 'ValidationTextBox'
-                            ]
-                        ],
-                        [
                             'name' => 'AlarmLevel',
                             'caption' => 'Stufe',
                             'width' => '100px',
@@ -244,9 +235,37 @@ class SmartMonitorEvent extends IPSModuleStrict
 
     private function HandleEventTrigger(array $event, $currentValue): void
     {
-        $triggerValueStr = strtolower(trim((string)($event['TriggerValue'] ?? '')));
+        $vid = (int)($event['VariableID'] ?? 0);
+        if ($vid === 0) return;
+
+        // Fallback NormalState
+        $triggerValueStr = 'true'; // If normal is false, trigger is true
+
+        // Read NormalState from Registry
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId > 1 && @IPS_InstanceExists($registryId) && function_exists('SDR_GetDevicesByType')) {
+            $devices = @SDR_GetDevicesByType($registryId, 'DevicesEvent');
+            if (is_array($devices)) {
+                foreach ($devices as $dev) {
+                    if ((int)($dev['Status_VarID'] ?? 0) === $vid) {
+                        $normalState = strtolower(trim((string)($dev['NormalState'] ?? '')));
+                        if ($normalState === '') $normalState = 'false';
+                        
+                        // Invert normal state to get trigger value
+                        if ($normalState === 'true' || $normalState === '1') {
+                            $triggerValueStr = 'false';
+                        } elseif ($normalState === 'false' || $normalState === '0') {
+                            $triggerValueStr = 'true';
+                        } else {
+                            $triggerValueStr = $normalState; // fallback if it's a string state, though event variables are usually bool
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         $currentValueStr = strtolower(trim((string)$currentValue));
-        
         $isTriggered = false;
         
         // Boolean check
@@ -255,8 +274,8 @@ class SmartMonitorEvent extends IPSModuleStrict
         } elseif ($triggerValueStr === 'false' || $triggerValueStr === '0') {
             $isTriggered = (bool)$currentValue === false;
         } else {
-            // String/Int check
-            $isTriggered = ($triggerValueStr === $currentValueStr);
+            // String/Int check (if NormalState was string, trigger means they don't match)
+            $isTriggered = ($currentValueStr !== $triggerValueStr);
         }
 
         $messageText = $event['Message'] ?? 'Unbekanntes Ereignis';
