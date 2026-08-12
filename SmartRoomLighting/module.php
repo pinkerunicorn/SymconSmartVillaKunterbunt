@@ -71,7 +71,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerPropertyReference('SunsetVariableID');
         $this->registerPropertyReference('SunriseVariableID');
         $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
-        $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID', 'LuxSensorID']);
+        $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID', 'LuxSensorID', 'ManualLuxSensorID']);
         $this->registerListReferences('SwitchTriggers', ['SwitchID', 'ManualSwitchID']);
         $this->registerListReferences('DoorRules', ['DoorSensorID', 'ManualDoorVariableID', 'LuxSensorID']);
         $this->registerListReferences('TwilightRules', ['TargetLightID']);
@@ -129,6 +129,8 @@ class SmartRoomLighting extends IPSModuleStrict
                     $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
                     $varId = (int)($dev['Status_VarID'] ?? 0);
                     if ($varId > 0) $deviceMap[$key] = $varId;
+                    $luxVarId = (int)($dev['Lux_VarID'] ?? 0);
+                    if ($luxVarId > 0) $deviceMap[$key . '::Lux'] = $luxVarId;
                 }
             }
 
@@ -463,6 +465,10 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // 2. Check Lux threshold
         $luxSensorId = $this->resolveDeviceId($trigger['LuxSensorID'] ?? 0);
+        $manualLuxId = (int)($trigger['ManualLuxSensorID'] ?? 0);
+        if ($luxSensorId <= 0 && $manualLuxId > 0) {
+            $luxSensorId = $manualLuxId;
+        }
         $maxLux = $trigger['MaxLux'] ?? 50;
         if ($luxSensorId > 0 && IPS_VariableExists($luxSensorId)) {
             $currentLux = GetValue($luxSensorId);
@@ -1227,6 +1233,35 @@ class SmartRoomLighting extends IPSModuleStrict
         return array_merge($options, $dynamicOptions);
     }
 
+    /**
+     * Query the DeviceRegistry (SDR) for lux sensors on motion sensors.
+     */
+    private function getRegistryLuxSensorOptions(int $regId): array
+    {
+        $options = [['label' => '(Manuell per Variable)', 'value' => 0]];
+        if ($regId <= 0 || !@IPS_InstanceExists($regId)) {
+            return $options;
+        }
+
+        $dynamicOptions = [];
+        $devices = @SDR_GetDevicesByType($regId, 'DevicesMotionSensor');
+        if (!is_array($devices)) {
+            return $options;
+        }
+
+        foreach ($devices as $dev) {
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $luxVarId = (int)($dev['Lux_VarID'] ?? 0);
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Lux';
+            if ($luxVarId > 0) {
+                $dynamicOptions[] = ['label' => $name . ' (Helligkeit)', 'value' => $deviceKey];
+            }
+        }
+
+        usort($dynamicOptions, fn($a, $b) => strcasecmp($a['label'], $b['label']));
+        return array_merge($options, $dynamicOptions);
+    }
+
     // =====================================================================
     // === Dynamic Configuration Form ===
     // =====================================================================
@@ -1250,6 +1285,7 @@ class SmartRoomLighting extends IPSModuleStrict
         $switchOptions = $hasRegistry ? $this->getRegistrySwitchOptions($regId) : [];
         $motionOptions = $hasRegistry ? $this->getRegistryMotionSensorOptions($regId) : [];
         $contactOptions = $hasRegistry ? $this->getRegistryContactSensorOptions($regId) : [];
+        $luxOptions = $hasRegistry ? $this->getRegistryLuxSensorOptions($regId) : [];
 
         // --- SceneDevices columns (dynamic based on registry) ---
         $sceneDevicesColumns = [
@@ -1285,7 +1321,15 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $motionTriggersColumns = array_merge($motionTriggersColumns, [
-            ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+            $hasRegistry && count($luxOptions) > 1
+                ? ['caption' => 'Lux-Sensor (Registry)', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $luxOptions]]
+                : ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+        ]);
+        if ($hasRegistry && count($luxOptions) > 1) {
+            $motionTriggersColumns[] = ['caption' => 'Oder Lux manuell', 'name' => 'ManualLuxSensorID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+        }
+
+        $motionTriggersColumns = array_merge($motionTriggersColumns, [
             ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '70px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
             ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
             ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
