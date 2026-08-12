@@ -17,6 +17,9 @@ class SmartShading extends IPSModuleStrict
     {
         parent::Create();
         
+        // DeviceRegistry
+        $this->RegisterPropertyInteger('RegistryID', 0);
+        
         $this->DA_RegisterAvailability(900);
 
 
@@ -130,6 +133,10 @@ class SmartShading extends IPSModuleStrict
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
             $this->RegisterReference($ref_SunsetVariableID);
         }
+        $registryID = $this->ReadPropertyInteger('RegistryID');
+        if ($registryID > 1 && @IPS_ObjectExists($registryID)) {
+            $this->RegisterReference($registryID);
+        }
         $list_BlindVariables = json_decode($this->ReadPropertyString('BlindVariables'), true);
         $activeModeIdents = [];
         if (is_array($list_BlindVariables)) {
@@ -213,12 +220,12 @@ class SmartShading extends IPSModuleStrict
         if (!is_array($blinds)) return;
         
         foreach ($blinds as $blind) {
-            $varID = $blind['VariableID'] ?? 0;
+            list($varID, $contactID) = $this->ResolveBlindVariables($blind);
             if ($varID > 0 && IPS_VariableExists($varID)) {
                 $this->RegisterMessage($varID, VM_UPDATE);
             }
             
-            $contactID = $blind['ContactID'] ?? 0;
+            // contactID resolved above
             if ($contactID > 0 && IPS_VariableExists($contactID)) {
                 $this->RegisterMessage($contactID, VM_UPDATE);
             }
@@ -243,8 +250,8 @@ class SmartShading extends IPSModuleStrict
             if (!is_array($blinds)) return;
             
             foreach ($blinds as $blind) {
-                $contactID = $blind['ContactID'] ?? 0;
-                $varID = $blind['VariableID'] ?? 0;
+                // contactID resolved above
+                list($varID, $contactID) = $this->ResolveBlindVariables($blind);
                 
                 if ($SenderID == $contactID) {
                     // Fensterkontakt hat sich geändert -> Sofort evaluieren
@@ -279,7 +286,8 @@ class SmartShading extends IPSModuleStrict
                 $matchedBlind = null;
                 if (is_array($blinds)) {
                     foreach ($blinds as $blind) {
-                        if (($blind['VariableID'] ?? 0) == $varId) {
+                        list($vid, $cid) = $this->ResolveBlindVariables($blind);
+                        if ($vid == $varId) {
                             $matchedBlind = $blind;
                             break;
                         }
@@ -334,7 +342,7 @@ class SmartShading extends IPSModuleStrict
     private function CalculateBlindState(array $blind, bool $isNight, bool $isHotAndBright, float $azimuth): ?float
     {
         // Fensterkontakt prüfen
-        $contactID = $blind['ContactID'] ?? 0;
+        // contactID resolved above
         $isOpen = false;
         if ($contactID > 0 && IPS_VariableExists($contactID)) {
             $contactVal = GetValue($contactID);
@@ -394,6 +402,40 @@ class SmartShading extends IPSModuleStrict
         }
     }
 
+        private function ResolveBlindVariables(array $blind): array
+    {
+        $registryID = $this->ReadPropertyInteger('RegistryID');
+        $vid = 0;
+        $contactID = 0;
+        
+        if ($registryID > 1 && @IPS_ObjectExists($registryID) && function_exists('SDR_GetDevicesByType')) {
+            if (isset($blind['DeviceID']) && $blind['DeviceID'] !== '' && $blind['DeviceID'] !== '0') {
+                $blindsMap = @SDR_GetDevicesByType($registryID, 'DevicesBlind');
+                foreach ($blindsMap as $b) {
+                    if ($b['id'] === $blind['DeviceID']) {
+                        $vid = (int)($b['OpenClose_VarID'] ?? 0);
+                        break;
+                    }
+                }
+            }
+            if (isset($blind['ContactID']) && !is_numeric($blind['ContactID']) && $blind['ContactID'] !== '') {
+                $contactsMap = @SDR_GetDevicesByType($registryID, 'DevicesContactSensor');
+                foreach ($contactsMap as $c) {
+                    if ($c['id'] === $blind['ContactID']) {
+                        $contactID = (int)($c['Status_VarID'] ?? 0);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Fallbacks
+        if ($vid === 0 && isset($blind['VariableID'])) $vid = (int)$blind['VariableID'];
+        if ($contactID === 0 && isset($blind['ContactID']) && is_numeric($blind['ContactID'])) $contactID = (int)$blind['ContactID'];
+        
+        return [$vid, $contactID];
+    }
+
     public function EvaluateConditions(): void
     {
         $blindsJson = $this->ReadPropertyString('BlindVariables');
@@ -437,7 +479,7 @@ class SmartShading extends IPSModuleStrict
         $shadingCount = 0;
         
         foreach ($blinds as $blind) {
-            $id = $blind['VariableID'] ?? 0;
+            list($id, $cid) = $this->ResolveBlindVariables($blind);
             if ($id <= 0) {
                 continue;
             }
@@ -537,235 +579,180 @@ class SmartShading extends IPSModuleStrict
         }
     }
 
-    public function GetConfigurationForm(): string
+        public function GetConfigurationForm(): string
     {
-        return <<<'EOT'
-{
-    "elements": [
-        {
-            "type": "CheckBox",
-            "name": "SimulationMode",
-            "caption": "Simulationsmodus (Testbetrieb)"
-        },
-        {
-            "type": "Label",
-            "caption": " "
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "⚙ SmartHome Shading - Intelligente Sonnenstands- & Hitzebeschattung",
-            "items": [
-                {
-                    "type": "Label",
-                    "caption": "Willkommen bei SmartHome Shading! Lass uns deine Rollläden intelligent machen."
-                },
-                {
-                    "type": "Label",
-                    "caption": "1. Globale Sensorik"
-                },
-                {
-                    "type": "Label",
-                    "caption": "Hier wählst du die Sensoren für den Sonnenstand aus. Diese benötigt das Modul, um zu wissen, wo die Sonne gerade steht:"
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "AzimuthVariableID",
-                            "caption": "Sonnen-Azimut (Location-Modul)"
-                        },
-                        {
-                            "type": "SelectVariable",
-                            "name": "ElevationVariableID",
-                            "caption": "Sonnen-Höhe (Elevation)"
-                        }
+        $form = [
+            "elements" => [
+                [
+                    "type" => "CheckBox",
+                    "name" => "SimulationMode",
+                    "caption" => "Simulationsmodus (Testbetrieb)"
+                ],
+                [
+                    "type" => "SelectModule",
+                    "name" => "RegistryID",
+                    "caption" => "Device Registry (Geräteverwaltung)",
+                    "moduleID" => "{C1F5C0DF-2FEE-450C-920E-5C138E66270E}"
+                ],
+                [
+                    "type" => "Label",
+                    "caption" => " "
+                ],
+                [
+                    "type" => "ExpansionPanel",
+                    "caption" => "⚙ SmartHome Shading - Intelligente Sonnenstands- & Hitzebeschattung",
+                    "items" => [
+                        ["type" => "Label", "caption" => "Willkommen bei SmartHome Shading! Lass uns deine Rollläden intelligent machen."],
+                        ["type" => "Label", "caption" => "1. Globale Sensorik"],
+                        ["type" => "Label", "caption" => "Hier wählst du die Sensoren für den Sonnenstand aus. Diese benötigt das Modul, um zu wissen, wo die Sonne gerade steht:"],
+                        [
+                            "type" => "RowLayout",
+                            "items" => [
+                                ["type" => "SelectVariable", "name" => "AzimuthVariableID", "caption" => "Sonnen-Azimut (Location-Modul)"],
+                                ["type" => "SelectVariable", "name" => "ElevationVariableID", "caption" => "Sonnen-Höhe (Elevation)"]
+                            ]
+                        ],
+                        ["type" => "Label", "caption" => "Ab wie viel Lux soll beschattet werden? Wähle deinen Helligkeitssensor und den Schwellwert:"],
+                        [
+                            "type" => "RowLayout",
+                            "items" => [
+                                ["type" => "SelectVariable", "name" => "BrightnessVariableID", "caption" => "Helligkeits-Sensor (Lux)"],
+                                ["type" => "NumberSpinner", "name" => "BrightnessThreshold", "caption" => "Schwellwert Lux (z.B. 40000)", "minimum" => 0, "maximum" => 200000]
+                            ]
+                        ],
+                        ["type" => "Label", "caption" => "Ab welcher Temperatur wird es dir zu warm im Haus? Beschattung startet nur, wenn es draußen heißer ist als dieser Wert:"],
+                        [
+                            "type" => "RowLayout",
+                            "items" => [
+                                ["type" => "SelectVariable", "name" => "OutdoorTempVariableID", "caption" => "Außentemperatur-Sensor (°C)"],
+                                ["type" => "NumberSpinner", "name" => "TempThreshold", "caption" => "Hitze-Schwellwert (°C, z.B. 24)", "minimum" => -20, "maximum" => 50, "digits" => 1]
+                            ]
+                        ],
+                        ["type" => "Label", "caption" => "Sturmschutz: Ab welcher Windgeschwindigkeit sollen die Rollläden zum Schutz hochfahren?"],
+                        [
+                            "type" => "RowLayout",
+                            "items" => [
+                                ["type" => "SelectVariable", "name" => "WindVariableID", "caption" => "Wind-Sensor (km/h)"],
+                                ["type" => "NumberSpinner", "name" => "WindThreshold", "caption" => "Sturm-Schutz ab (km/h)", "minimum" => 0, "maximum" => 150, "digits" => 1]
+                            ]
+                        ],
+                        ["type" => "Label", "caption" => "Damit die Rollläden abends automatisch schließen und morgens öffnen, wähle hier die Astro-Variablen:"],
+                        [
+                            "type" => "RowLayout",
+                            "items" => [
+                                ["type" => "SelectVariable", "name" => "SunriseVariableID", "caption" => "Sonnenaufgang Variable (Astro)"],
+                                ["type" => "SelectVariable", "name" => "SunsetVariableID", "caption" => "Sonnenuntergang Variable (Astro)"]
+                            ]
+                        ]
                     ]
-                },
-                {
-                    "type": "Label",
-                    "caption": "Ab wie viel Lux soll beschattet werden? Wähle deinen Helligkeitssensor und den Schwellwert:"
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "BrightnessVariableID",
-                            "caption": "Helligkeits-Sensor (Lux)"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "BrightnessThreshold",
-                            "caption": "Schwellwert Lux (z.B. 40000)",
-                            "minimum": 0,
-                            "maximum": 200000
-                        }
-                    ]
-                },
-                {
-                    "type": "Label",
-                    "caption": "Ab welcher Temperatur wird es dir zu warm im Haus? Beschattung startet nur, wenn es draußen heißer ist als dieser Wert:"
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "OutdoorTempVariableID",
-                            "caption": "Außentemperatur-Sensor (°C)"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "TempThreshold",
-                            "caption": "Hitze-Schwellwert (°C, z.B. 24)",
-                            "minimum": -20,
-                            "maximum": 50,
-                            "digits": 1
-                        }
-                    ]
-                },
-                {
-                    "type": "Label",
-                    "caption": "Sturmschutz: Ab welcher Windgeschwindigkeit sollen die Rollläden zum Schutz hochfahren?"
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "WindVariableID",
-                            "caption": "Wind-Sensor (km/h)"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "WindThreshold",
-                            "caption": "Sturm-Schutz ab (km/h)",
-                            "minimum": 0,
-                            "maximum": 150,
-                            "digits": 1
-                        }
-                    ]
-                },
-                {
-                    "type": "Label",
-                    "caption": "Damit die Rollläden abends automatisch schließen und morgens öffnen, wähle hier die Astro-Variablen:"
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "SelectVariable",
-                            "name": "SunriseVariableID",
-                            "caption": "Sonnenaufgang Variable (Astro)"
-                        },
-                        {
-                            "type": "SelectVariable",
-                            "name": "SunsetVariableID",
-                            "caption": "Sonnenuntergang Variable (Astro)"
-                        }
-                    ]
-                }
+                ],
+                [
+                    "type" => "Label",
+                    "caption" => "2. Rollläden & Fenster (0=Auf, 1=Zu)"
+                ],
+                [
+                    "type" => "Label",
+                    "caption" => "Hier legst du deine Rollläden an. Wähle das Gerät aus der Registry. Gib an, bei welchem Sonnenstand (Azimut Von/Bis) das Fenster Sonne abbekommt. Trage außerdem die Positionen für 'Auf', 'Zu', 'Beschatten' und 'Lüften' (wenn die Tür offen ist) ein."
+                ]
             ]
-        },
-        {
-            "type": "Label",
-            "caption": "2. Rollläden & Fenster (0=Auf, 1=Zu)"
-        },
-        {
-            "type": "Label",
-            "caption": "Hier legst du deine Rollläden an. Gib an, bei welchem Sonnenstand (Azimut Von/Bis) das Fenster Sonne abbekommt. Trage außerdem die Positionen für 'Auf', 'Zu', 'Beschatten' und 'Lüften' (wenn die Tür offen ist) ein."
-        },
-        {
-            "type": "List",
-            "name": "BlindVariables",
-            "caption": "Rollläden",
-            "rowCount": 15,
-            "add": true,
-            "delete": true,
-            "changeOrder": true,
-            "columns": [
-                {
-                    "caption": "Rollladen Variable",
-                    "name": "VariableID",
-                    "width": "auto",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectVariable"
-                    }
-                },
-                {
-                    "caption": "Fensterkontakt",
-                    "name": "ContactID",
-                    "width": "150px",
-                    "add": 0,
-                    "edit": {
-                        "type": "SelectVariable"
-                    }
-                },
-                {
-                    "caption": "Sonne Azimut Von (°)",
-                    "name": "AzimuthFrom",
-                    "width": "150px",
-                    "add": 90,
-                    "edit": {
-                        "type": "NumberSpinner",
-                        "minimum": 0,
-                        "maximum": 360
-                    }
-                },
-                {
-                    "caption": "Sonne Azimut Bis (°)",
-                    "name": "AzimuthTo",
-                    "width": "150px",
-                    "add": 270,
-                    "edit": {
-                        "type": "NumberSpinner",
-                        "minimum": 0,
-                        "maximum": 360
-                    }
-                },
-                {
-                    "caption": "Auf-Pos",
-                    "name": "ValueOpen",
-                    "width": "80px",
-                    "add": "0",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Zu-Pos",
-                    "name": "ValueClose",
-                    "width": "80px",
-                    "add": "1",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Schatten-Pos",
-                    "name": "ValueShade",
-                    "width": "150px",
-                    "add": "0.1",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
-                },
-                {
-                    "caption": "Tür/Fenster Offen Position",
-                    "name": "ValueVentilate",
-                    "width": "200px",
-                    "add": "0.3",
-                    "edit": {
-                        "type": "ValidationTextBox"
-                    }
+        ];
+
+        // Baue die Optionen für Registry-Geräte
+        $blindOptions = [["caption" => "-", "value" => "0"]];
+        $contactOptions = [["caption" => "-", "value" => "0"]];
+        
+        $registryID = $this->ReadPropertyInteger('RegistryID');
+        if ($registryID > 1 && @IPS_ObjectExists($registryID) && function_exists('SDR_GetDevicesByType')) {
+            $blinds = @SDR_GetDevicesByType($registryID, 'DevicesBlind');
+            if (is_array($blinds)) {
+                foreach ($blinds as $b) {
+                    $blindOptions[] = ["caption" => ($b['room'] ?? '') . " - " . ($b['name'] ?? ''), "value" => $b['id']];
                 }
-            ]
+            }
+            
+            $contacts = @SDR_GetDevicesByType($registryID, 'DevicesContactSensor');
+            if (is_array($contacts)) {
+                foreach ($contacts as $c) {
+                    $contactOptions[] = ["caption" => ($c['room'] ?? '') . " - " . ($c['name'] ?? ''), "value" => $c['id']];
+                }
+            }
         }
-    ]
-}
-EOT;
+
+        $form["elements"][] = [
+            "type" => "List",
+            "name" => "BlindVariables",
+            "caption" => "Rollläden",
+            "rowCount" => 15,
+            "add" => true,
+            "delete" => true,
+            "changeOrder" => true,
+            "columns" => [
+                [
+                    "caption" => "Gerät (Registry)",
+                    "name" => "DeviceID",
+                    "width" => "250px",
+                    "add" => "0",
+                    "edit" => [
+                        "type" => "Select",
+                        "options" => $blindOptions
+                    ]
+                ],
+                [
+                    "caption" => "Fensterkontakt",
+                    "name" => "ContactID",
+                    "width" => "200px",
+                    "add" => "0",
+                    "edit" => [
+                        "type" => "Select",
+                        "options" => $contactOptions
+                    ]
+                ],
+                [
+                    "caption" => "Azimut Von (°)",
+                    "name" => "AzimuthFrom",
+                    "width" => "120px",
+                    "add" => 90,
+                    "edit" => ["type" => "NumberSpinner", "minimum" => 0, "maximum" => 360]
+                ],
+                [
+                    "caption" => "Azimut Bis (°)",
+                    "name" => "AzimuthTo",
+                    "width" => "120px",
+                    "add" => 270,
+                    "edit" => ["type" => "NumberSpinner", "minimum" => 0, "maximum" => 360]
+                ],
+                [
+                    "caption" => "Auf-Pos",
+                    "name" => "ValueOpen",
+                    "width" => "80px",
+                    "add" => "0",
+                    "edit" => ["type" => "ValidationTextBox"]
+                ],
+                [
+                    "caption" => "Zu-Pos",
+                    "name" => "ValueClose",
+                    "width" => "80px",
+                    "add" => "1",
+                    "edit" => ["type" => "ValidationTextBox"]
+                ],
+                [
+                    "caption" => "Schatten-Pos",
+                    "name" => "ValueShade",
+                    "width" => "120px",
+                    "add" => "0.1",
+                    "edit" => ["type" => "ValidationTextBox"]
+                ],
+                [
+                    "caption" => "Tür Offen-Pos",
+                    "name" => "ValueVentilate",
+                    "width" => "120px",
+                    "add" => "0.3",
+                    "edit" => ["type" => "ValidationTextBox"]
+                ]
+            ]
+        ];
+
+        return json_encode($form);
     }
 }
 
