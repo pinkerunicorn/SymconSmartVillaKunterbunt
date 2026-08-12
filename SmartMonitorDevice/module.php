@@ -285,32 +285,86 @@ HTML;
 
     public function GetConfigurationForm(): string
     {
-        return json_encode([
-            "elements" => [
+        $elements = [];
+        
+        $elements[] = [
+            "type"     => "SelectModule",
+            "name"     => "RegistryID",
+            "caption"  => "Device Registry (Geraeteverwaltung)",
+            "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
+        ];
+        
+        // Dynamic Read-Only List of Monitored Devices
+        $monitoredList = [];
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId > 1 && @IPS_ObjectExists($registryId) && function_exists('SDR_GetDevices')) {
+            $allDevices = @SDR_GetDevices($registryId);
+            if (is_array($allDevices)) {
+                foreach ($allDevices as $dev) {
+                    $hasBattery = (isset($dev['Battery_VarID']) && (int)$dev['Battery_VarID'] > 0);
+                    $hasReachable = (isset($dev['Reachable_VarID']) && (int)$dev['Reachable_VarID'] > 0);
+                    
+                    if ($hasBattery || $hasReachable) {
+                        $monitors = [];
+                        if ($hasBattery) $monitors[] = "Batterie";
+                        if ($hasReachable) $monitors[] = "Erreichbarkeit";
+                        
+                        $monitoredList[] = [
+                            "id" => $dev['id'] ?? '',
+                            "name" => $dev['name'] ?? 'Unbekannt',
+                            "room" => $dev['room'] ?? '',
+                            "monitors" => implode(", ", $monitors)
+                        ];
+                    }
+                }
+            }
+        }
+        
+        $elements[] = [
+            "type" => "ExpansionPanel",
+            "caption" => "🔋 Automatisch überwachte Geräte (Aus der Registry)",
+            "items" => [
                 [
-                    "type"     => "SelectModule",
-                    "name"     => "RegistryID",
-                    "caption"  => "Device Registry (Geraeteverwaltung)",
-                    "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
+                    "type" => "Label",
+                    "caption" => "Die folgenden Geräte werden vollautomatisch auf leere Batterien oder Verbindungsabbrüche überwacht:"
                 ],
                 [
-                    "type"    => "Label",
-                    "caption" => "Der Monitor ueberwacht automatisch alle Geraete aus der Registry, die eine 'Erreichbarkeit Variable' oder 'Batterie Variable' eingetragen haben. Kein manuelles Konfigurieren notwendig!"
-                ],
-                [
-                    "type"     => "SelectModule",
-                    "name"     => "TargetNotifier",
-                    "caption"  => "SmartNotifier Instanz (fuer Push-Benachrichtigungen)",
-                    "moduleID" => "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}"
-                ],
-                [
-                    "type"    => "NumberSpinner",
-                    "name"    => "LowBatteryThreshold",
-                    "caption" => "Batterie Warnschwelle (%)",
-                    "minimum" => 1,
-                    "maximum" => 50
+                    "type" => "List",
+                    "name" => "_dummyList",
+                    "caption" => "Geräte",
+                    "add" => false,
+                    "delete" => false,
+                    "edit" => false,
+                    "columns" => [
+                        ["name" => "name", "caption" => "Name", "width" => "250px"],
+                        ["name" => "room", "caption" => "Raum", "width" => "150px"],
+                        ["name" => "monitors", "caption" => "Überwachung", "width" => "auto"]
+                    ],
+                    "values" => $monitoredList
                 ]
-            ],
+            ]
+        ];
+
+        $elements[] = [
+            "type" => "Label",
+            "caption" => " "
+        ];
+        $elements[] = [
+            "type"     => "SelectModule",
+            "name"     => "TargetNotifier",
+            "caption"  => "SmartNotifier Instanz (fuer Push-Benachrichtigungen)",
+            "moduleID" => "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}"
+        ];
+        $elements[] = [
+            "type"    => "NumberSpinner",
+            "name"    => "LowBatteryThreshold",
+            "caption" => "Batterie Warnschwelle (%)",
+            "minimum" => 1,
+            "maximum" => 50
+        ];
+
+        return json_encode([
+            "elements" => $elements,
             "actions" => [
                 [
                     "type"    => "Button",
