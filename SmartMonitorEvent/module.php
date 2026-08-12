@@ -23,10 +23,167 @@ class SmartMonitorEvent extends IPSModuleStrict
         $this->RegisterPropertyBoolean("SimulationMode", false);
         $this->RegisterPropertyString("MonitoredEvents", "[]");
         $this->RegisterPropertyInteger("TargetNotifier", 0);
+        $this->RegisterPropertyInteger("RegistryID", 0);
 
         // Variables
         $this->RegisterVariableInteger("ActiveEventsCount", "Aktive Ereignisse", "", 1);
         $this->RegisterVariableString("LastEvent", "Letztes Ereignis", "", 2);
+    }
+
+        public function GetConfigurationForm(): string
+    {
+        $form = [
+            'elements' => [
+                [
+                    'type' => 'CheckBox',
+                    'name' => 'SimulationMode',
+                    'caption' => 'Simulationsmodus (Testbetrieb)'
+                ],
+                [
+                    'type' => 'SelectModule',
+                    'name' => 'RegistryID',
+                    'caption' => 'Device Registry',
+                    'moduleID' => '{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}'
+                ],
+                [
+                    'type' => 'SelectModule',
+                    'name' => 'TargetNotifier',
+                    'caption' => 'SmartNotifier Instanz',
+                    'moduleID' => '{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}'
+                ]
+            ]
+        ];
+        
+        $options = [];
+        $regId = $this->ReadPropertyInteger('RegistryID');
+        if ($regId > 1 && @IPS_InstanceExists($regId)) {
+            if (function_exists('SDR_GetDevicesByType')) {
+                $devices = @SDR_GetDevicesByType($regId, 'DevicesEvent');
+                if (is_array($devices)) {
+                    foreach ($devices as $dev) {
+                        $vid = (int)($dev['Status_VarID'] ?? 0);
+                        if ($vid > 0) {
+                            $name = $dev['name'] ?? 'Unbekannt';
+                            $room = $dev['room'] ?? '';
+                            $caption = $name . ($room !== '' ? " ($room)" : "");
+                            $options[] = ['caption' => $caption, 'value' => (string)$vid];
+                        }
+                    }
+                }
+            }
+        }
+
+        if (empty($options)) {
+            $options[] = ['caption' => 'Keine Ereignisse in Registry', 'value' => '0'];
+        }
+
+        $form['elements'][] = [
+            'type' => 'ExpansionPanel',
+            'caption' => '📅 Haus-Ereignisse & Komfort',
+            'items' => [
+                [
+                    'type' => 'Label',
+                    'caption' => 'Verknüpfe hier deine Ereignisse aus der Device Registry.'
+                ],
+                [
+                    'type' => 'List',
+                    'name' => 'MonitoredEvents',
+                    'caption' => 'Ereignisse',
+                    'add' => true,
+                    'delete' => true,
+                    'columns' => [
+                        [
+                            'name' => 'VariableID',
+                            'caption' => 'Ereignis (aus Registry)',
+                            'width' => '250px',
+                            'add' => '0',
+                            'edit' => [
+                                'type' => 'Select',
+                                'options' => $options
+                            ]
+                        ],
+                        [
+                            'name' => 'TriggerValue',
+                            'caption' => 'Auslöser (z.B. true/false)',
+                            'width' => '150px',
+                            'add' => 'true',
+                            'edit' => [
+                                'type' => 'ValidationTextBox'
+                            ]
+                        ],
+                        [
+                            'name' => 'AlarmLevel',
+                            'caption' => 'Stufe',
+                            'width' => '100px',
+                            'add' => 0,
+                            'edit' => [
+                                'type' => 'Select',
+                                'options' => [
+                                    [ "caption" => "0 (Info)", "value" => 0 ],
+                                    [ "caption" => "1 (Hinweis)", "value" => 1 ]
+                                ]
+                            ]
+                        ],
+                        [
+                            'name' => 'Message',
+                            'caption' => 'Meldung (TTS/Push)',
+                            'width' => '200px',
+                            'add' => '',
+                            'edit' => [
+                                'type' => 'ValidationTextBox'
+                            ]
+                        ],
+                        [
+                            'name' => 'AutoReset',
+                            'caption' => 'Auto-Reset',
+                            'width' => '100px',
+                            'add' => false,
+                            'edit' => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
+                            'name' => 'TargetPush',
+                            'caption' => 'Push',
+                            'width' => '60px',
+                            'add' => true,
+                            'edit' => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
+                            'name' => 'TargetSonos',
+                            'caption' => 'Sonos',
+                            'width' => '60px',
+                            'add' => false,
+                            'edit' => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
+                            'name' => 'TargetVestaboard',
+                            'caption' => 'Vesta',
+                            'width' => '60px',
+                            'add' => false,
+                            'edit' => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
+                            'name' => 'TargetMP3',
+                            'caption' => 'MP3',
+                            'width' => '60px',
+                            'add' => false,
+                            'edit' => [
+                                'type' => 'CheckBox'
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ];
+
+        return json_encode($form);
     }
 
     public function ApplyChanges(): void
@@ -47,6 +204,12 @@ class SmartMonitorEvent extends IPSModuleStrict
         $notifierId = $this->ReadPropertyInteger('TargetNotifier');
         if ($notifierId > 1 && IPS_InstanceExists($notifierId)) {
             $this->RegisterReference($notifierId);
+        }
+
+        // Registry Reference
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId > 1 && IPS_InstanceExists($registryId)) {
+            $this->RegisterReference($registryId);
         }
 
         // Subscribe to events

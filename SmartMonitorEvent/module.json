@@ -24,6 +24,10 @@
         "TargetNotifier": {
             "type": "integer",
             "default": 0
+        },
+        "RegistryID": {
+            "type": "integer",
+            "default": 0
         }
     }
 }
