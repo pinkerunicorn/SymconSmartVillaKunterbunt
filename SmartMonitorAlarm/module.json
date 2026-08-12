@@ -1,17 +1,17 @@
 {
     "id": "{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}",
-    "name": "SmartSecurityManager",
+    "name": "SmartMonitorAlarm",
     "type": 3,
     "vendor": "Florian Gra\u00dfinger",
     "aliases": [
-        "Smart Security Manager"
+        "Smart Monitor Alarm"
     ],
     "parentRequirements": [],
     "childRequirements": [],
     "implemented": [],
     "prefix": "SAM",
     "author": "Florian Gra\u00dfinger",
-    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartSecurityManager",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartMonitorAlarm",
     "properties": {
         "RegistryID": {
             "type": "integer",
@@ -21,10 +21,7 @@
             "type": "boolean",
             "default": false
         },
-        "MonitoredVariables": {
-            "type": "string",
-            "default": "[]"
-        },
+
         "EscalationTimeLvl2": {
             "type": "integer",
             "default": 300

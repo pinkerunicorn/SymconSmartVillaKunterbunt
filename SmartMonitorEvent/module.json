@@ -1,0 +1,29 @@
+{
+    "id": "{72F8B3A1-C994-4E60-A54D-B591D8E72C42}",
+    "name": "SmartMonitorEvent",
+    "type": 3,
+    "vendor": "Florian Gra\u00dfinger",
+    "aliases": [
+        "Smart Monitor Event"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "SME",
+    "author": "Florian Gra\u00dfinger",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartMonitorEvent",
+    "properties": {
+        "SimulationMode": {
+            "type": "boolean",
+            "default": false
+        },
+        "MonitoredEvents": {
+            "type": "string",
+            "default": "[]"
+        },
+        "TargetNotifier": {
+            "type": "integer",
+            "default": 0
+        }
+    }
+}

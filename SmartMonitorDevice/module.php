@@ -5,7 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
-class SmartDeviceMonitor extends IPSModuleStrict
+class SmartMonitorDevice extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use DeviceAvailability_Trait;
@@ -50,7 +50,7 @@ class SmartDeviceMonitor extends IPSModuleStrict
         ], 10);
 
         // Health-check timer (every 30 minutes)
-        $this->RegisterTimer('HealthCheckTimer', 0, 'SDM_CheckHealth($_IPS[\'TARGET\'], false);');
+        $this->RegisterTimer('HealthCheckTimer', 0, 'SMD_CheckHealth($_IPS[\'TARGET\'], false);');
     }
 
     public function ApplyChanges(): void
@@ -314,7 +314,7 @@ HTML;
                 [
                     "type"    => "Button",
                     "caption" => "Jetzt Geraete pruefen",
-                    "onClick" => 'SDM_CheckHealth($id, false); echo "Pruefung abgeschlossen!";'
+                    "onClick" => 'SMD_CheckHealth($id, false); echo "Pruefung abgeschlossen!";'
                 ]
             ]
         ]);

@@ -1,0 +1,126 @@
+{
+    "elements": [
+        {
+            "type": "CheckBox",
+            "name": "SimulationMode",
+            "caption": "Simulationsmodus (Testbetrieb)"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "SelectInstance",
+            "name": "TargetNotifier",
+            "caption": "SmartNotifier Instanz"
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "📅 Haus-Ereignisse & Komfort",
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Trage hier deine Ereignisse wie Waschmaschine, Briefkasten oder Kellerfenster ein."
+                },
+                {
+                    "type": "List",
+                    "name": "MonitoredEvents",
+                    "caption": "Ereignisse",
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "name": "VariableID",
+                            "caption": "Variable",
+                            "width": "200px",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectVariable"
+                            }
+                        },
+                        {
+                            "name": "TriggerValue",
+                            "caption": "Ausloesewert (true/false/Zahl)",
+                            "width": "150px",
+                            "add": "true",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "name": "AlarmLevel",
+                            "caption": "Stufe",
+                            "width": "100px",
+                            "add": 0,
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    { "caption": "0 (Info)", "value": 0 },
+                                    { "caption": "1 (Hinweis)", "value": 1 }
+                                ]
+                            }
+                        },
+                        {
+                            "name": "Message",
+                            "caption": "Meldung (TTS/Push)",
+                            "width": "200px",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "name": "AutoReset",
+                            "caption": "Auto-Reset",
+                            "width": "100px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "name": "TargetPush",
+                            "caption": "Push",
+                            "width": "60px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "name": "TargetSonos",
+                            "caption": "Sonos",
+                            "width": "60px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "name": "TargetVestaboard",
+                            "caption": "Vesta",
+                            "width": "60px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "name": "TargetMP3",
+                            "caption": "MP3",
+                            "width": "60px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

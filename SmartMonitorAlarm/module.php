@@ -7,7 +7,7 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 
-class SmartSecurityManager extends IPSModuleStrict
+class SmartMonitorAlarm extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
@@ -30,7 +30,6 @@ class SmartSecurityManager extends IPSModuleStrict
         $this->RegisterPropertyInteger('RegistryID', 0);
 
         // Manual alarm variables (custom fallback)
-        $this->RegisterPropertyString("MonitoredVariables", "[]");
         $this->RegisterPropertyInteger("EscalationTimeLvl2", 300);
         $this->RegisterPropertyInteger("EscalationTimeLvl3", 900);
         $this->RegisterPropertyInteger("TargetNotifier", 0);
@@ -121,8 +120,7 @@ class SmartSecurityManager extends IPSModuleStrict
         }
 
         // Register manual alarm variable messages + dynamic Alarm_ variables
-        $monitored = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true) ?: [];
-        $activeIdents = [];
+$activeIdents = [];
 
         foreach ($monitored as $item) {
             $vid = $item['VariableID'] ?? 0;
@@ -262,8 +260,7 @@ class SmartSecurityManager extends IPSModuleStrict
         }
 
         // Generic manual alarm check
-        $monitored = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true);
-        if (!is_array($monitored)) return;
+if (!is_array($monitored)) return;
 
         $currentVal = $Data[0];
         foreach ($monitored as $item) {
@@ -470,15 +467,7 @@ class SmartSecurityManager extends IPSModuleStrict
     {
         $this->SetTimerInterval('StatusResetTimer', 0);
         $alarms = $this->safeJsonDecode($this->GetBuffer("ActiveAlarms"), true) ?: [];
-
-        $monitored = $this->safeJsonDecode($this->ReadPropertyString("MonitoredVariables"), true) ?: [];
-        $monitoredMap = [];
-        foreach ($monitored as $item) {
-            $vid = $item['VariableID'] ?? 0;
-            if ($vid > 0) $monitoredMap[$vid] = $item;
-        }
-
-        // Add registry sensors to monitoredMap for status update
+$monitoredMap = [];
         $registryId = $this->ReadPropertyInteger('RegistryID');
         foreach ($this->GetRegistrySensors($registryId) as $sensor) {
             $vid = (int)($sensor['Status_VarID'] ?? 0);
@@ -565,5 +554,98 @@ class SmartSecurityManager extends IPSModuleStrict
             $this->SLogWarning("JSON Decode Exception", $e->getMessage());
             return $assoc ? [] : null;
         }
+    }
+
+    public function GetConfigurationForm(): string
+    {
+        $elements = [];
+        
+        $elements[] = [
+            "type" => "CheckBox",
+            "name" => "SimulationMode",
+            "caption" => "Simulationsmodus (Testbetrieb)"
+        ];
+        
+        $elements[] = [
+            "type" => "Label",
+            "caption" => " "
+        ];
+        
+        $elements[] = [
+            "type" => "SelectModule",
+            "name" => "RegistryID",
+            "caption" => "Device Registry",
+            "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
+        ];
+        
+        $elements[] = [
+            "type" => "Label",
+            "caption" => " "
+        ];
+        
+        // Dynamic Read-Only List of Monitored Sensors
+        $sensorsList = [];
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId > 1 && @IPS_ObjectExists($registryId)) {
+            foreach ($this->GetRegistrySensors($registryId) as $sensor) {
+                $sensorsList[] = [
+                    "id" => $sensor['id'] ?? '',
+                    "name" => $sensor['name'] ?? 'Unbekannt',
+                    "room" => $sensor['room'] ?? '',
+                    "type" => $sensor['type'] ?? '',
+                    "level" => "Vollalarm (2)"
+                ];
+            }
+        }
+        
+        $elements[] = [
+            "type" => "ExpansionPanel",
+            "caption" => "🛡️ Automatisch überwachte Sensoren (Aus der Registry)",
+            "items" => [
+                [
+                    "type" => "Label",
+                    "caption" => "Die folgenden Rauch-, Wasser- und Einbruchmelder werden vollautomatisch überwacht:"
+                ],
+                [
+                    "type" => "List",
+                    "name" => "_dummyList",
+                    "caption" => "Sensoren",
+                    "add" => false,
+                    "delete" => false,
+                    "edit" => false,
+                    "columns" => [
+                        ["name" => "name", "caption" => "Name", "width" => "250px"],
+                        ["name" => "room", "caption" => "Raum", "width" => "150px"],
+                        ["name" => "type", "caption" => "Typ", "width" => "150px"],
+                        ["name" => "level", "caption" => "Alarmstufe", "width" => "auto"]
+                    ],
+                    "values" => $sensorsList
+                ]
+            ]
+        ];
+        
+        $elements[] = [
+            "type" => "ExpansionPanel",
+            "caption" => "📢 Notifier & Eskalation",
+            "items" => [
+                [
+                    "type" => "Label",
+                    "caption" => "Wähle hier die Ziele für die Alarmierung aus."
+                ],
+                [ "type" => "SelectInstance", "name" => "TargetWebFront", "caption" => "WebFront Instanz" ],
+                [ "type" => "SelectInstance", "name" => "TargetSMTP", "caption" => "SMTP Instanz (E-Mail)" ],
+                [ "type" => "SelectInstance", "name" => "TargetVestaboard", "caption" => "Vestaboard" ],
+                [ "type" => "SelectInstance", "name" => "TargetSonos", "caption" => "Sonos" ],
+                [ "type" => "ValidationTextBox", "name" => "EmailAddress", "caption" => "E-Mail Empfänger" ],
+                [
+                    "type" => "Label",
+                    "caption" => " "
+                ],
+                [ "type" => "NumberSpinner", "name" => "EscalationTimeLvl2", "caption" => "Eskalationszeit zu Stufe 2 (Sekunden)", "minimum" => 0 ],
+                [ "type" => "NumberSpinner", "name" => "EscalationTimeLvl3", "caption" => "Eskalationszeit zu Stufe 3 (Sekunden)", "minimum" => 0 ]
+            ]
+        ];
+        
+        return json_encode(["elements" => $elements]);
     }
 }

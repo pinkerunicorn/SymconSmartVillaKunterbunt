@@ -1,15 +1,15 @@
 {
     "id": "{4574D58D-2DC0-4E16-92DC-16D9CD27D014}",
-    "name": "SmartDeviceMonitor",
+    "name": "SmartMonitorDevice",
     "type": 3,
     "vendor": "Florian Graßinger",
     "aliases": [
-        "Smart Device Monitor"
+        "Smart Monitor Device"
     ],
     "parentRequirements": [],
     "childRequirements": [],
     "implemented": [],
-    "prefix": "SDM",
+    "prefix": "SMD",
     "author": "Florian Graßinger",
-    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartDeviceMonitor"
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartMonitorDevice"
 }
