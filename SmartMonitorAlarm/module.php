@@ -612,11 +612,6 @@ $monitoredMap = [];
                     "caption" => "SmartNotifier Instanz", 
                     "moduleID" => "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}" 
                 ],
-                [ "type" => "SelectInstance", "name" => "TargetWebFront", "caption" => "WebFront Instanz" ],
-                [ "type" => "SelectInstance", "name" => "TargetSMTP", "caption" => "SMTP Instanz (E-Mail)" ],
-                [ "type" => "SelectInstance", "name" => "TargetVestaboard", "caption" => "Vestaboard" ],
-                [ "type" => "SelectInstance", "name" => "TargetSonos", "caption" => "Sonos" ],
-                [ "type" => "ValidationTextBox", "name" => "EmailAddress", "caption" => "E-Mail Empfänger" ],
                 [
                     "type" => "Label",
                     "caption" => " "

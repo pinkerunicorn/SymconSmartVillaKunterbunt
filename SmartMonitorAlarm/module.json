@@ -30,25 +30,9 @@
             "type": "integer",
             "default": 900
         },
-        "TargetWebFront": {
+        "TargetNotifier": {
             "type": "integer",
             "default": 0
-        },
-        "TargetSMTP": {
-            "type": "integer",
-            "default": 0
-        },
-        "TargetVestaboard": {
-            "type": "integer",
-            "default": 0
-        },
-        "TargetSonos": {
-            "type": "integer",
-            "default": 0
-        },
-        "EmailAddress": {
-            "type": "string",
-            "default": ""
         }
     }
 }
