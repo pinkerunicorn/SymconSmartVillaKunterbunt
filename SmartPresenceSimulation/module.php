@@ -94,7 +94,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
                     // Only subscribe to Lights, Dimmers, Colors, and Switches
-                    if (in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                    if (in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) {
                         // Subscribe to OnOff or Brightness or Status
                         foreach (['OnOff_VarID', 'Status_VarID', 'Brightness_VarID'] as $field) {
                             $id = (int)($dev[$field] ?? 0);
@@ -136,7 +136,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $allDevices = @SDR_GetDevices($regId);
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
-                    if (in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                    if (in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) {
                         $isActive = false;
                         
                         // Check state
@@ -291,7 +291,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
         $historyDataDimmers = [];
 
         foreach ($allDevices as $dev) {
-            if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+            if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) {
                 continue;
             }
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
@@ -508,7 +508,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $allDevices = @SDR_GetDevices($regId);
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
-                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) {
                         continue;
                     }
                     
@@ -667,7 +667,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $allDevices = @SDR_GetDevices($registryId);
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
-                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) {
                         continue;
                     }
                     
@@ -745,7 +745,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
         $changed = false;
         foreach ($allDevices as $dev) {
-            if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) continue;
+            if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) continue;
             
             $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
             $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
@@ -824,7 +824,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $allDevices = @SDR_GetDevices($regId);
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
-                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) continue;
+                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) continue;
                     
                     $ident = 'FolderSwitches';
                     if ($dev['Type'] === 'DevicesLightDimmer') $ident = 'FolderDimmers';
