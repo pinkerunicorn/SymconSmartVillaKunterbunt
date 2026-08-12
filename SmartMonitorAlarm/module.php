@@ -252,26 +252,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
             return;
         }
 
-        // Generic manual alarm check
-if (!is_array($monitored)) return;
 
-        $currentVal = $Data[0];
-        foreach ($monitored as $item) {
-            $vid = $item['VariableID'] ?? 0;
-            if ($vid == $SenderID) {
-                $triggerVal = $item['TriggerValue'] ?? 'true';
-                if ($this->IsTriggered($currentVal, $triggerVal)) {
-                    $this->HandleTrigger($item);
-                } else {
-                    if (($item['AutoReset'] ?? false)) {
-                        $alarms = $this->safeJsonDecode($this->GetBuffer("ActiveAlarms"), true) ?: [];
-                        if (isset($alarms[$vid])) {
-                            $this->RequestAction("Alarm_" . $vid, false);
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private function CalculateOpenWindows(): void
