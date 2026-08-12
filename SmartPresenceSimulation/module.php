@@ -610,7 +610,125 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        return file_get_contents(__DIR__ . '/form.json');
+        $elements = [];
+
+        $elements[] = [
+            "type" => "CheckBox",
+            "name" => "SimulationMode",
+            "caption" => "Simulationsmodus (Testbetrieb ohne echtes Schalten)"
+        ];
+
+        $elements[] = [
+            "type" => "Label",
+            "caption" => " "
+        ];
+
+        $elements[] = [
+            "type" => "ExpansionPanel",
+            "caption" => "⚙ Allgemeine Einstellungen",
+            "items" => [
+                [
+                    "type" => "Label",
+                    "caption" => "API-Key und Modell werden zentral über die 'Smart Gemini IO' Instanz konfiguriert."
+                ],
+                [
+                    "type" => "RowLayout",
+                    "items" => [
+                        [
+                            "type" => "SelectVariable",
+                            "name" => "SunsetVariableID",
+                            "caption" => "Sonnenuntergangs-Variable"
+                        ],
+                        [
+                            "type" => "SelectInstance",
+                            "name" => "ArchiveControlID",
+                            "caption" => "Archive Control Instanz"
+                        ]
+                    ]
+                ],
+                [
+                    "type" => "SelectModule",
+                    "name" => "RegistryID",
+                    "caption" => "Device Registry (Geräteverwaltung)",
+                    "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
+                ]
+            ]
+        ];
+
+        $elements[] = [
+            "type" => "Label",
+            "caption" => " "
+        ];
+
+        // Dynamic Read-Only List of Monitored Lights
+        $monitoredList = [];
+        $registryId = $this->ReadPropertyInteger('RegistryID');
+        if ($registryId > 1 && @IPS_ObjectExists($registryId) && function_exists('SDR_GetDevices')) {
+            $allDevices = @SDR_GetDevices($registryId);
+            if (is_array($allDevices)) {
+                foreach ($allDevices as $dev) {
+                    if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor', 'DevicesSwitch'])) {
+                        continue;
+                    }
+                    
+                    $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
+                    $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
+                    
+                    if ($vid > 0 && IPS_VariableExists($vid)) {
+                        $typeStr = "Schalter";
+                        if ($dev['Type'] === 'DevicesLightDimmer') $typeStr = "Dimmer";
+                        if ($dev['Type'] === 'DevicesLightColor') $typeStr = "Farb-LED";
+                        
+                        $monitoredList[] = [
+                            "id" => $dev['id'] ?? '',
+                            "name" => $dev['name'] ?? 'Unbekannt',
+                            "room" => $dev['room'] ?? '',
+                            "typeStr" => $typeStr
+                        ];
+                    }
+                }
+            }
+        }
+
+        if (count($monitoredList) > 0) {
+            $elements[] = [
+                "type" => "ExpansionPanel",
+                "caption" => "💡 Automatisch erkannte Lichter (" . count($monitoredList) . " Geräte)",
+                "items" => [
+                    [
+                        "type" => "Label",
+                        "caption" => "Die folgenden Lichter und Schalter wurden in der Device Registry gefunden und stehen der KI zur Verfügung:"
+                    ],
+                    [
+                        "type" => "List",
+                        "name" => "_dummyList",
+                        "caption" => "Lichter",
+                        "add" => false,
+                        "delete" => false,
+                        "edit" => false,
+                        "columns" => [
+                            ["name" => "name", "caption" => "Name", "width" => "250px"],
+                            ["name" => "room", "caption" => "Raum", "width" => "150px"],
+                            ["name" => "typeStr", "caption" => "Typ", "width" => "auto"]
+                        ],
+                        "values" => $monitoredList
+                    ],
+                    [
+                        "type" => "Label",
+                        "caption" => "Hinweis: Die KI ignoriert unwichtige Räume (wie Keller oder Abstellkammer) selbstständig und entscheidet auch, welche Lichter bei der Rückkehr an bleiben sollen (KeepOnReturn)."
+                    ]
+                ]
+            ];
+        } else {
+            $elements[] = [
+                "type" => "Label",
+                "caption" => "💡 Hinweis: Bitte wähle oben die Device Registry aus und übernehme die Einstellungen, um die verfügbaren Lichter anzuzeigen."
+            ];
+        }
+
+        return json_encode([
+            "elements" => $elements
+        ]);
     }
 
     private function EnsureArchiving(): void
