@@ -47,67 +47,57 @@ class SmartController extends IPSModuleStrict
         ], 4);
         $this->EnableAction('GlobalSimulationMode');
 
-        // === Central State Variables (read-only, set by other modules via public API) ===
-        $this->RegisterVariableBoolean('FireplaceActive', 'Kamin aktiv', [
+        // === System Status ===
+        $intervals = json_encode([
+            [
+                'IntervalMinValue' => 0, 'IntervalMaxValue' => 0,
+                'ConstantActive' => true, 'ConstantValue' => 'Alles OK',
+                'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Ok',
+                'ColorActive' => true, 'ColorValue' => 0x00CC00,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ],
+            [
+                'IntervalMinValue' => 1, 'IntervalMaxValue' => 1,
+                'ConstantActive' => true, 'ConstantValue' => 'Info',
+                'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Information',
+                'ColorActive' => true, 'ColorValue' => 0x0088FF,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ],
+            [
+                'IntervalMinValue' => 2, 'IntervalMaxValue' => 2,
+                'ConstantActive' => true, 'ConstantValue' => 'Warnung',
+                'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Warning',
+                'ColorActive' => true, 'ColorValue' => 0xFFAA00,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ],
+            [
+                'IntervalMinValue' => 3, 'IntervalMaxValue' => 3,
+                'ConstantActive' => true, 'ConstantValue' => 'Alarm',
+                'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
+                'IconActive' => true, 'IconValue' => 'Alert',
+                'ColorActive' => true, 'ColorValue' => 0xFF0000,
+                'ContentColorActive' => false, 'ContentColorValue' => 0
+            ]
+        ]);
+
+        $this->RegisterVariableInteger("SystemStatus", "Haus Status", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Flame',
-            'DIGITS' => 2,
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'PREVIEW_STYLE' => 1,
-            'SHOW_PREVIEW' => true,
-            'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Flame', 'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
-                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-                ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Flame', 'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
-                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
-            ])
+            'INTERVALS_ACTIVE' => true,
+            'INTERVALS' => $intervals
         ], 10);
 
-        $this->RegisterVariableString('AlarmLevel', 'Alarm-Stufe', [
+        $this->RegisterVariableString("SystemMessage", "Aktuelle Meldung", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Alert'
+            'ICON' => 'Information'
         ], 11);
 
-        $this->RegisterVariableBoolean('MediaPlaying', 'Medien aktiv', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Speaker',
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'PREVIEW_STYLE' => 1,
-            'SHOW_PREVIEW' => true,
-            'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Speaker', 'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
-                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-                ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Speaker', 'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0x00AAFF, 'ContentColorActive' => false,
-                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00AAFF]
-            ])
-        ], 12);
-
-        $this->RegisterVariableBoolean('IrrigationActive', 'Bewässerung aktiv', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Drops',
-            'COLOR' => -1,
-            'CONTENT_COLOR' => -1,
-            'DISPLAY_TYPE' => 0,
-            'PREVIEW_STYLE' => 1,
-            'SHOW_PREVIEW' => true,
-            'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Aus', 'IconValue' => 'Drops', 'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ContentColorActive' => false,
-                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x888888],
-                ['Value' => true, 'Caption' => 'Aktiv', 'IconValue' => 'Drops', 'IconActive' => true,
-                 'ColorActive' => true, 'ColorDisplay' => 0x0088FF, 'ContentColorActive' => false,
-                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x0088FF]
-            ])
-        ], 13);
-
+        // Monitor Links
+        $this->RegisterPropertyInteger('MonitorAlarmID', 0);
+        $this->RegisterPropertyInteger('MonitorDeviceID', 0);
+        $this->RegisterPropertyInteger('MonitorEventID', 0);
         // === Energy Price Properties ===
         $this->RegisterPropertyFloat('PriceElectricity', 0.32);
         $this->RegisterPropertyFloat('BasePriceElectricity', 0.0);
@@ -231,6 +221,26 @@ class SmartController extends IPSModuleStrict
 
 
         // === Remove old legacy variables ===
+        $this->UnregisterVariable('FireplaceActive');
+        $this->UnregisterVariable('MediaPlaying');
+        $this->UnregisterVariable('IrrigationActive');
+        $this->UnregisterVariable('AlarmLevel');
+
+        // References for Monitors
+        foreach (['MonitorAlarmID', 'MonitorDeviceID', 'MonitorEventID'] as $prop) {
+            $id = $this->ReadPropertyInteger($prop);
+            if ($id > 1 && @IPS_InstanceExists($id)) {
+                $this->RegisterReference($id);
+                // Subscribe to all variables of the monitor instance
+                foreach (IPS_GetChildrenIDs($id) as $childId) {
+                    if (IPS_VariableExists($childId)) {
+                        $this->RegisterMessage($childId, VM_UPDATE);
+                    }
+                }
+            }
+        }
+        
+        $this->CalculateSystemStatus();
         $this->UnregisterVariable('HouseMode');
         $this->UnregisterVariable('AbsenceStatus');
 
@@ -249,6 +259,72 @@ class SmartController extends IPSModuleStrict
     // =========================================================================
     // RequestAction (WebFront / Google Home)
     // =========================================================================
+
+    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
+    {
+        if ($Message === VM_UPDATE) {
+            $this->CalculateSystemStatus();
+        }
+    }
+
+    private function CalculateSystemStatus(): void
+    {
+        $statusLevel = 0;
+        $messages = [];
+
+        // 1. Check Alarms (Prio 3 - Red)
+        $alarmId = $this->ReadPropertyInteger('MonitorAlarmID');
+        if ($alarmId > 1 && @IPS_InstanceExists($alarmId)) {
+            $vid = @IPS_GetObjectIDByIdent('ActiveAlarmsCount', $alarmId);
+            if ($vid !== false && GetValue($vid) > 0) {
+                $statusLevel = 3;
+                $lastEventVid = @IPS_GetObjectIDByIdent('LastEvent', $alarmId);
+                $messages[] = "ALARM: " . ($lastEventVid !== false ? GetValue($lastEventVid) : "Aktiver Alarm");
+            }
+        }
+
+        // 2. Check Events (Prio 2 - Yellow)
+        $eventId = $this->ReadPropertyInteger('MonitorEventID');
+        if ($eventId > 1 && @IPS_InstanceExists($eventId)) {
+            $vid = @IPS_GetObjectIDByIdent('ActiveEventsCount', $eventId);
+            if ($vid !== false && GetValue($vid) > 0) {
+                if ($statusLevel < 2) $statusLevel = 2;
+                $lastEventVid = @IPS_GetObjectIDByIdent('LastEvent', $eventId);
+                $messages[] = "Hinweis: " . ($lastEventVid !== false ? GetValue($lastEventVid) : "Aktives Ereignis");
+            }
+        }
+
+        // 3. Check Devices (Prio 1 - Blue)
+        $deviceId = $this->ReadPropertyInteger('MonitorDeviceID');
+        if ($deviceId > 1 && @IPS_InstanceExists($deviceId)) {
+            $offlineVid = @IPS_GetObjectIDByIdent('OfflineDeviceCount', $deviceId);
+            $batteryVid = @IPS_GetObjectIDByIdent('LowBatteryCount', $deviceId);
+            if (($offlineVid !== false && GetValue($offlineVid) > 0) || ($batteryVid !== false && GetValue($batteryVid) > 0)) {
+                if ($statusLevel < 1) $statusLevel = 1;
+                $summaryVid = @IPS_GetObjectIDByIdent('SummaryText', $deviceId);
+                if ($summaryVid !== false) {
+                    $messages[] = "Info: " . GetValue($summaryVid);
+                }
+            }
+        }
+
+        $this->SetValue('SystemStatus', $statusLevel);
+
+        if ($statusLevel === 0) {
+            $this->SetValue('SystemMessage', 'Keine besonderen Vorkommnisse (Alles OK)');
+        } else {
+            if (count($messages) > 0) {
+                $primaryMessage = $messages[0];
+                $additionalCount = count($messages) - 1;
+                if ($additionalCount > 0) {
+                    $primaryMessage .= " (+" . $additionalCount . " weitere)";
+                }
+                $this->SetValue('SystemMessage', $primaryMessage);
+            } else {
+                $this->SetValue('SystemMessage', 'Auffälligkeit (Keine Details verfügbar)');
+            }
+        }
+    }
 
     public function RequestAction(string $Ident, mixed $Value): void
     {
@@ -612,6 +688,35 @@ class SmartController extends IPSModuleStrict
         $json = <<<'EOT'
 {
     "elements": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "🔎 Smart Monitore (System Status)",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Verknüpfe hier die drei Monitore. Daraus wird automatisch die System-Ampel und die aktuelle Status-Meldung generiert."
+                },
+                {
+                    "type": "SelectModule",
+                    "name": "MonitorAlarmID",
+                    "caption": "Smart Monitor Alarm",
+                    "moduleID": "{EDBC541A-B804-4B28-A4ED-5B8015E2DB54}"
+                },
+                {
+                    "type": "SelectModule",
+                    "name": "MonitorDeviceID",
+                    "caption": "Smart Monitor Device",
+                    "moduleID": "{C562479B-8930-4C9D-9988-E715DFB2C96A}"
+                },
+                {
+                    "type": "SelectModule",
+                    "name": "MonitorEventID",
+                    "caption": "Smart Monitor Event",
+                    "moduleID": "{72F8B3A1-C994-4E60-A54D-B591D8E72C42}"
+                }
+            ]
+        },
         {
             "type": "ExpansionPanel",
             "caption": "📍 Anwesenheits-Sequenzen",
