@@ -342,7 +342,7 @@ class SmartShading extends IPSModuleStrict
     private function CalculateBlindState(array $blind, bool $isNight, bool $isHotAndBright, float $azimuth): ?float
     {
         // Fensterkontakt prüfen
-        // contactID resolved above
+        $contactID = $blind['ContactID'] ?? 0;
         $isOpen = false;
         if ($contactID > 0 && IPS_VariableExists($contactID)) {
             $contactVal = GetValue($contactID);
