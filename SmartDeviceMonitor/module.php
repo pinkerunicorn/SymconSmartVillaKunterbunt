@@ -291,7 +291,7 @@ HTML;
                     "type"     => "SelectModule",
                     "name"     => "RegistryID",
                     "caption"  => "Device Registry (Geraeteverwaltung)",
-                    "moduleID" => "{C1F5C0DF-2FEE-450C-920E-5C138E66270E}"
+                    "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
                 ],
                 [
                     "type"    => "Label",
