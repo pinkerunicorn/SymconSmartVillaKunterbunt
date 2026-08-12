@@ -697,7 +697,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                             $lid = IPS_CreateLink();
                             IPS_SetParent($lid, $catID);
                             IPS_SetName($lid, $devName);
-                            IPS_SetLinkTarget($lid, $vid);
+                            IPS_SetLinkTargetID($lid, $vid);
                             IPS_SetPosition($lid, $idx);
                             IPS_SetIcon($lid, 'Bulb');
                         } else {
