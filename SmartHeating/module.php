@@ -990,9 +990,10 @@ class SmartHeating extends IPSModuleStrict
         $form = [
             "elements" => [
                 [
-                    "type" => "SelectInstance",
+                    "type" => "SelectModule",
                     "name" => "RegistryID",
-                    "caption" => "Device Registry"
+                    "caption" => "Device Registry",
+                    "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
                 ],
                 [
                     "type" => "CheckBox",

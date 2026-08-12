@@ -1378,9 +1378,10 @@ class SmartRoomLighting extends IPSModuleStrict
                     'caption' => 'Geraete-Quelle',
                     'items' => [
                         [
-                            'type' => 'SelectInstance',
+                            'type' => 'SelectModule',
                             'name' => 'RegistryID',
                             'caption' => 'Device Registry (SDR) Instanz (optional)',
+                            'moduleID' => '{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}'
                         ],
                         [
                             'type' => 'Label',
