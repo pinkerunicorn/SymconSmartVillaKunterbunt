@@ -606,6 +606,12 @@ $monitoredMap = [];
                     "type" => "Label",
                     "caption" => "Wähle hier die Ziele für die Alarmierung aus."
                 ],
+                [ 
+                    "type" => "SelectModule", 
+                    "name" => "TargetNotifier", 
+                    "caption" => "SmartNotifier Instanz", 
+                    "moduleID" => "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}" 
+                ],
                 [ "type" => "SelectInstance", "name" => "TargetWebFront", "caption" => "WebFront Instanz" ],
                 [ "type" => "SelectInstance", "name" => "TargetSMTP", "caption" => "SMTP Instanz (E-Mail)" ],
                 [ "type" => "SelectInstance", "name" => "TargetVestaboard", "caption" => "Vestaboard" ],

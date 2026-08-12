@@ -298,9 +298,10 @@ HTML;
                     "caption" => "Der Monitor ueberwacht automatisch alle Geraete aus der Registry, die eine 'Erreichbarkeit Variable' oder 'Batterie Variable' eingetragen haben. Kein manuelles Konfigurieren notwendig!"
                 ],
                 [
-                    "type"    => "SelectInstance",
-                    "name"    => "TargetNotifier",
-                    "caption" => "SmartNotifier Instanz (fuer Push-Benachrichtigungen)"
+                    "type"     => "SelectModule",
+                    "name"     => "TargetNotifier",
+                    "caption"  => "SmartNotifier Instanz (fuer Push-Benachrichtigungen)",
+                    "moduleID" => "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}"
                 ],
                 [
                     "type"    => "NumberSpinner",
