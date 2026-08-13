@@ -1324,9 +1324,6 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $motionTriggersColumns = array_merge($motionTriggersColumns, [
-            $hasRegistry && count($luxOptions) > 1
-                ? ['caption' => 'Lux-Sensor (Registry)', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $luxOptions]]
-                : ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
             ['caption' => 'Nur bei Dunkelheit', 'name' => 'OnlyWhenDark', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
             ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '100px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
             ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
