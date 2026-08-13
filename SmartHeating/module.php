@@ -484,13 +484,13 @@ class SmartHeating extends IPSModuleStrict
             $debounces[$room] = time() + $debounceSecs;
             $this->WriteAttributeString('WindowDebounceStates', json_encode($debounces));
             $this->SetTimerInterval('WindowCheckTimer', 5000);
-            $this->SLogInfo('Fenster Status', "Fenster im Raum {$room} geoeffnet. Entprellung gestartet ({$debounceSecs}s).");
+            $this->SendDebug('Fenster Status', "Fenster im Raum {$room} geoeffnet. Entprellung gestartet ({$debounceSecs}s).", 0);
         } else {
             // All windows closed -> cancel debounce if active, or restore if already applied
             if (isset($debounces[$room])) {
                 unset($debounces[$room]);
                 $this->WriteAttributeString('WindowDebounceStates', json_encode($debounces));
-                $this->SLogInfo('Fenster Status', "Fenster im Raum {$room} wieder geschlossen vor Ablauf der Entprellung.");
+                $this->SendDebug('Fenster Status', "Fenster im Raum {$room} wieder geschlossen vor Ablauf der Entprellung.", 0);
             } else {
                 $this->restoreWindowClose($room);
             }
