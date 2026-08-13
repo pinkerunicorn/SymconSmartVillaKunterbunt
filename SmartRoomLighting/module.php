@@ -58,7 +58,7 @@ class SmartRoomLighting extends IPSModuleStrict
         parent::ApplyChanges();
 
         // Subscribe to central house state
-        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode', 'IsDark']);
 
         // --- References ---
         foreach ($this->GetReferenceList() as $refID) {
@@ -80,9 +80,9 @@ class SmartRoomLighting extends IPSModuleStrict
         }
         
         $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
-        $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID', 'LuxSensorID', 'ManualLuxSensorID']);
+        $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID']);
         $this->registerListReferences('SwitchTriggers', ['SwitchID', 'ManualSwitchID']);
-        $this->registerListReferences('DoorRules', ['DoorSensorID', 'ManualDoorVariableID', 'LuxSensorID']);
+        $this->registerListReferences('DoorRules', ['DoorSensorID', 'ManualDoorVariableID']);
         $this->registerListReferences('TwilightRules', ['TargetLightID']);
         $this->registerListReferences('SyncRules', ['MasterVariableID', 'TargetLightID']);
 
@@ -472,19 +472,11 @@ class SmartRoomLighting extends IPSModuleStrict
             return;
         }
 
-        // 2. Check Lux threshold
-        $luxSensorId = $this->resolveDeviceId($trigger['LuxSensorID'] ?? 0);
-        $manualLuxId = (int)($trigger['ManualLuxSensorID'] ?? 0);
-        if ($luxSensorId <= 0 && $manualLuxId > 0) {
-            $luxSensorId = $manualLuxId;
-        }
-        $maxLux = $trigger['MaxLux'] ?? 50;
-        if ($luxSensorId > 0 && IPS_VariableExists($luxSensorId)) {
-            $currentLux = GetValue($luxSensorId);
-            if ($currentLux >= $maxLux) {
-                $this->SendDebug('Motion', "Lux $currentLux >= $maxLux – ignoriert", 0);
-                return;
-            }
+        // 2. Check Darkness
+        $onlyWhenDark = $trigger['OnlyWhenDark'] ?? false;
+        if ($onlyWhenDark && !$this->GetCentralState('IsDark')) {
+            $this->SendDebug('Motion', 'Es ist hell – ignoriert', 0);
+            return;
         }
 
         // 3. Determine scene based on time conditions
@@ -660,13 +652,10 @@ class SmartRoomLighting extends IPSModuleStrict
                 return;
             }
 
-            // Normal door open: check lux, then activate scene
-            $luxSensorId = $this->resolveDeviceId($rule['LuxSensorID'] ?? 0);
-            $maxLux = $rule['MaxLux'] ?? 1000;
-            if ($luxSensorId > 0 && IPS_VariableExists($luxSensorId)) {
-                if (GetValue($luxSensorId) >= $maxLux) {
-                    return;
-                }
+            // Normal door open: check darkness, then activate scene
+            $onlyWhenDark = $rule['OnlyWhenDark'] ?? false;
+            if ($onlyWhenDark && !$this->GetCentralState('IsDark')) {
+                return;
             }
 
             if ($sceneName !== '') {
@@ -1338,14 +1327,8 @@ class SmartRoomLighting extends IPSModuleStrict
             $hasRegistry && count($luxOptions) > 1
                 ? ['caption' => 'Lux-Sensor (Registry)', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $luxOptions]]
                 : ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-        ]);
-        if ($hasRegistry && count($luxOptions) > 1) {
-            $motionTriggersColumns[] = ['caption' => 'Oder Lux manuell', 'name' => 'ManualLuxSensorID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
-        }
-
-        $motionTriggersColumns = array_merge($motionTriggersColumns, [
-            ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '70px', 'add' => 50, 'edit' => ['type' => 'NumberSpinner']],
-            ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
+            ['caption' => 'Nur bei Dunkelheit', 'name' => 'OnlyWhenDark', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+            ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '100px', 'add' => 120, 'edit' => ['type' => 'NumberSpinner']],
             ['caption' => 'Nacht-Szene', 'name' => 'NightSceneName', 'width' => '120px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
             ['caption' => 'Nacht von', 'name' => 'NightFrom', 'width' => '70px', 'add' => '23:00', 'edit' => ['type' => 'ValidationTextBox']],
             ['caption' => 'Nacht bis', 'name' => 'NightTo', 'width' => '70px', 'add' => '06:00', 'edit' => ['type' => 'ValidationTextBox']],
@@ -1356,19 +1339,23 @@ class SmartRoomLighting extends IPSModuleStrict
         // --- DoorRules columns (dynamic based on registry) ---
         $doorRulesColumns = [];
         if ($hasRegistry && count($contactOptions) > 1) {
-            $doorRulesColumns[] = ['caption' => 'Kontakt (Registry)', 'name' => 'DoorSensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $contactOptions]];
-            $doorRulesColumns[] = ['caption' => 'Oder manuell', 'name' => 'ManualDoorVariableID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+            $doorRulesColumns = [
+                ['caption' => 'Kontakt (Registry)', 'name' => 'DoorSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $contactOptions]],
+                ['caption' => 'Oder manuell', 'name' => 'ManualDoorVariableID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Nur bei Dunkelheit', 'name' => 'OnlyWhenDark', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '100px', 'add' => 10, 'edit' => ['type' => 'NumberSpinner']],
+                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
+                ['caption' => 'Wasp-in-a-Box', 'name' => 'OccupancyLock', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+            ];
         } else {
-            $doorRulesColumns[] = ['caption' => 'Sensor', 'name' => 'DoorSensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+            $doorRulesColumns = [
+                ['caption' => 'Sensor', 'name' => 'DoorSensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
+                ['caption' => 'Nur bei Dunkelheit', 'name' => 'OnlyWhenDark', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '100px', 'add' => 10, 'edit' => ['type' => 'NumberSpinner']],
+                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
+                ['caption' => 'Wasp-in-a-Box', 'name' => 'OccupancyLock', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+            ];
         }
-
-        $doorRulesColumns = array_merge($doorRulesColumns, [
-            ['caption' => 'Lux-Sensor', 'name' => 'LuxSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-            ['caption' => 'Max Lux', 'name' => 'MaxLux', 'width' => '80px', 'add' => 1000, 'edit' => ['type' => 'NumberSpinner']],
-            ['caption' => 'Nachlauf (Sek)', 'name' => 'DurationSec', 'width' => '90px', 'add' => 10, 'edit' => ['type' => 'NumberSpinner']],
-            ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
-            ['caption' => 'Wasp-in-a-Box', 'name' => 'OccupancyLock', 'width' => '100px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-        ]);
 
         // Build complete form
         $form = [
