@@ -1,0 +1,12 @@
+{
+    "id": "{0AEF4A29-A71A-48C8-BB5A-A3BEF27D22CF}",
+    "name": "SmartBriefing",
+    "type": 3,
+    "vendor": "Florian Graßinger",
+    "aliases": ["Smart Briefing (Daily Digest)"],
+    "parentRequirements": ["{15E4C471-118E-9CF1-A0E5-FEAF4BC2DF65}"],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "SBR",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartBriefing"
+}
