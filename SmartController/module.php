@@ -109,7 +109,6 @@ class SmartController extends IPSModuleStrict
         $this->RegisterPropertyInteger('MonitorDeviceID', 0);
         $this->RegisterPropertyInteger('MonitorEventID', 0);
         $this->RegisterPropertyInteger('MonitorPresenceID', 0);
-
         // === Sequencer Properties ===
         $this->RegisterPropertyString('PresenceSequencers', json_encode([
             ['ModeID' => 0, 'ModeName' => 'Zuhause',  'EntrySequencer' => 0, 'ExitSequencer' => 0],
@@ -179,6 +178,7 @@ class SmartController extends IPSModuleStrict
         $this->UnregisterVariable('VarBasePriceWater');
         $this->UnregisterVariable('VarPriceGas');
         $this->UnregisterVariable('VarBasePriceGas');
+        
         $this->UnregisterVariable('FireplaceActive');
         $this->UnregisterVariable('MediaPlaying');
         $this->UnregisterVariable('AlarmLevel');
@@ -293,6 +293,171 @@ class SmartController extends IPSModuleStrict
         }
     }
 
+    public function RequestAction(string $Ident, mixed $Value): void
+    {
+        switch ($Ident) {
+            case 'PresenceMode':
+                $this->SetPresenceMode($Value);
+                break;
+            case 'ActivityMode':
+                $this->SetActivityMode($Value);
+                break;
+            case 'PresenceStatus':
+                $this->SetPresenceMode($Value ? self::PRESENCE_HOME : self::PRESENCE_AWAY);
+                break;
+            case 'GlobalSimulationMode':
+                $this->SetValue($Ident, $Value);
+                $this->SLogInfo($Value ? "Globaler Simulationsmodus aktiviert!" : "Globaler Simulationsmodus deaktiviert!");
+                break;
+            default:
+                throw new Exception("Invalid Ident in RequestAction: $Ident");
+        }
+    }
+
+    // =========================================================================
+    // Public Setter Methods (called by other modules)
+    // =========================================================================
+
+    public function SetPresenceMode(int $mode): void
+    {
+        if ($mode < 0 || $mode > 2) {
+            $this->SLogError( 'Ungültiger PresenceMode: ' . $mode);
+            return;
+        }
+
+        if ($mode !== self::PRESENCE_VACATION) {
+            $this->WriteAttributeBoolean('VacationFromCalendar', false);
+        }
+
+        $oldMode = (int)$this->GetValue('PresenceMode');
+        if ($oldMode !== $mode) {
+            // Execute exit sequence for old presence mode
+            $this->TriggerSequencer('PresenceSequencers', $oldMode, false);
+        }
+
+        $this->SetValue('PresenceMode', $mode);
+        $this->SetValue('PresenceStatus', $mode === self::PRESENCE_HOME);
+
+        // Dynamisch das Aktivitäts-Objekt aktivieren/deaktivieren
+        if ($mode === self::PRESENCE_HOME) {
+            IPS_SetDisabled($this->GetIDForIdent('ActivityMode'), false);
+        } else {
+            IPS_SetDisabled($this->GetIDForIdent('ActivityMode'), true);
+        }
+
+        $modeName = match($mode) {
+            self::PRESENCE_HOME     => 'Zuhause',
+            self::PRESENCE_AWAY     => 'Kurz weg',
+            self::PRESENCE_VACATION => 'Urlaub',
+            default                 => 'Unbekannt'
+        };
+        $this->SLogInfo( 'Anwesenheit gewechselt auf: ' . $modeName);
+
+        // Auto-Reset: ActivityMode Ã¢â€ â€™ Normal when leaving
+        if ($mode !== self::PRESENCE_HOME) {
+            $currentActivity = (int)$this->GetValue('ActivityMode');
+            if ($currentActivity !== self::ACTIVITY_NORMAL) {
+                $this->TriggerSequencer('ActivitySequencers', $currentActivity, false);
+                $this->SetValue('ActivityMode', self::ACTIVITY_NORMAL);
+                $this->SLogInfo( 'Auto-Reset: Aktivität zurück auf Normal (Haus verlassen).');
+                $this->TriggerSequencer('ActivitySequencers', self::ACTIVITY_NORMAL, true);
+            }
+        }
+
+        if ($oldMode !== $mode) {
+            // Execute entry sequence for new presence mode
+            $this->TriggerSequencer('PresenceSequencers', $mode, true);
+        }
+    }
+
+    public function SetActivityMode(int $mode): void
+    {
+        if ($mode < 0 || $mode > 3) {
+            $this->SLogError( 'Ungültiger ActivityMode: ' . $mode);
+            return;
+        }
+
+        // ActivityMode kann nur geändert werden wenn jemand Zuhause ist
+        if ((int)$this->GetValue('PresenceMode') !== self::PRESENCE_HOME) {
+            $this->SLogWarning('Aktivität kann nur geändert werden wenn jemand Zuhause ist.');
+            return;
+        }
+
+        $oldMode = (int)$this->GetValue('ActivityMode');
+        if ($oldMode !== $mode) {
+            // Execute exit sequence for old activity mode
+            $this->TriggerSequencer('ActivitySequencers', $oldMode, false);
+        }
+
+        $this->SetValue('ActivityMode', $mode);
+
+        $modeName = match($mode) {
+            self::ACTIVITY_NORMAL => 'Normal',
+            self::ACTIVITY_CINEMA => 'Heimkino',
+            self::ACTIVITY_SLEEP  => 'Schlafen',
+            self::ACTIVITY_PARTY  => 'Party',
+            default               => 'Unbekannt'
+        };
+        $this->SLogInfo( 'Aktivität gewechselt auf: ' . $modeName);
+
+        if ($oldMode !== $mode) {
+            // Execute entry sequence for new activity mode
+            $this->TriggerSequencer('ActivitySequencers', $mode, true);
+        }
+    }
+
+    public function SetFireplaceActive(bool $active): void
+    {
+        $this->SetValue('FireplaceActive', $active);
+        $this->SLogInfo( 'Kamin: ' . ($active ? 'Aktiv' : 'Aus'));
+    }
+
+    public function SetAlarmLevel(int $level): void
+    {
+        if ($level < 0 || $level > 2) {
+            return;
+        }
+        $levelName = match($level) {
+            self::ALARM_OK      => 'OK',
+            self::ALARM_WARNING => 'Warnung',
+            self::ALARM_ALARM   => 'Alarm',
+            default             => 'Unbekannt'
+        };
+        $this->SetValue('AlarmLevel', $levelName);
+        $this->SLogInfo( 'Alarm-Stufe: ' . $levelName);
+    }
+
+    public function SetMediaPlaying(bool $playing): void
+    {
+        $this->SetValue('MediaPlaying', $playing);
+    }
+
+    public function SetIrrigationActive(bool $active): void
+    {
+        $this->SetValue('IrrigationActive', $active);
+    }
+
+    // =========================================================================
+    // Public Getter Methods (called by other modules)
+    // =========================================================================
+
+    public function GetPresenceMode(): int
+    {
+        return (int)$this->GetValue('PresenceMode');
+    }
+
+    public function GetActivityMode(): int
+    {
+        return (int)$this->GetValue('ActivityMode');
+    }
+
+    // =========================================================================
+    // Calendar Automation
+    // =========================================================================
+
+    public function CheckCalendar(): void
+    {
+        $url = $this->ReadPropertyString('CalendarURL');
         if (empty($url)) {
             $this->SLogDebug( 'CheckCalendar: Keine iCal-URL hinterlegt.');
             return;
