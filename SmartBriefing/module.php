@@ -39,6 +39,11 @@ class SmartBriefing extends IPSModuleStrict
             'ICON' => 'Information'
         ], 2);
 
+        $this->RegisterVariableString('LastPrompt', 'Zuletzt gesendeter Prompt', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Script'
+        ], 3);
+
         $this->RegisterVariableBoolean('GeminiError', 'Fehler aufgetreten', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Alert',
@@ -148,6 +153,9 @@ class SmartBriefing extends IPSModuleStrict
         $dataStr = "Hier sind die aktuellen Haus-Daten:\n" . json_encode($collectedData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         
         $prompt = $basePrompt . "\n\n" . $dataStr;
+
+        $this->SetValue('LastPrompt', $prompt);
+        $this->SLogInfo('Briefing Prompt gesendet', "Folgender Prompt wurde an die KI übermittelt:\n" . $prompt);
 
         // Async via SmartGeminiIO
         $instanceId = $this->InstanceID;
