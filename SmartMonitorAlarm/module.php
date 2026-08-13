@@ -364,7 +364,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
                 if (!$alarmName && IPS_VariableExists((int)$vid)) {
                     $alarmName = IPS_GetName((int)$vid);
                 }
-                $this->SLogInfo('Alarm quittiert', $alarmName ?: ('Variable #' . $vid));
+                $this->SLogInfo('Alarm quittiert', $alarmName ?: ('Variable #' . $vid), 'WebFront');
 
                 if (isset($alarms[$vid])) {
                     unset($alarms[$vid]);

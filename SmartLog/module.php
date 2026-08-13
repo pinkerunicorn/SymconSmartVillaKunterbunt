@@ -90,7 +90,7 @@ class SmartLog extends IPSModuleStrict
      * @param string $message Kurze Logmeldung
      * @param string $details Optionale Details
      */
-    public function Log(string $level, string $source, string $message, string $details = ''): void
+    public function Log(string $level, string $source, string $message, string $details = '', string $trigger = ''): void
     {
         $level = strtoupper(trim($level));
         if (!in_array($level, self::VALID_LEVELS, true)) {
@@ -118,6 +118,9 @@ class SmartLog extends IPSModuleStrict
 
         if ($details !== '') {
             $entry['d'] = $details;
+        }
+        if ($trigger !== '') {
+            $entry['tr'] = $trigger;
         }
 
         // Ringbuffer
@@ -148,24 +151,24 @@ class SmartLog extends IPSModuleStrict
         }
     }
 
-    public function Debug(string $source, string $message, string $details = ''): void
+    public function Debug(string $source, string $message, string $details = '', string $trigger = ''): void
     {
-        $this->Log('DEBUG', $source, $message, $details);
+        $this->Log('DEBUG', $source, $message, $details, $trigger);
     }
 
-    public function Info(string $source, string $message, string $details = ''): void
+    public function Info(string $source, string $message, string $details = '', string $trigger = ''): void
     {
-        $this->Log('INFO', $source, $message, $details);
+        $this->Log('INFO', $source, $message, $details, $trigger);
     }
 
-    public function Warning(string $source, string $message, string $details = ''): void
+    public function Warning(string $source, string $message, string $details = '', string $trigger = ''): void
     {
-        $this->Log('WARNING', $source, $message, $details);
+        $this->Log('WARNING', $source, $message, $details, $trigger);
     }
 
-    public function Error(string $source, string $message, string $details = ''): void
+    public function Error(string $source, string $message, string $details = '', string $trigger = ''): void
     {
-        $this->Log('ERROR', $source, $message, $details);
+        $this->Log('ERROR', $source, $message, $details, $trigger);
     }
 
     public function ClearLog(): void

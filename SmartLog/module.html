@@ -145,11 +145,14 @@
             const details = entry.d || '';
             const time = formatTime(entry.t || 0);
 
+            const trigger = entry.tr || '';
+
             html += '<div class="slog-entry" data-level="' + level + '">'
                 + '<div class="slog-entry-level">' + icon + '</div>'
                 + '<div class="slog-entry-body">'
                 + '<div class="slog-entry-header">'
                 + '<span class="slog-entry-source">' + escapeHtml(source) + '</span>'
+                + (trigger ? ' <span style="opacity: 0.6; font-size: 0.8em; border-radius: 4px; padding: 2px 4px; background: rgba(255,255,255,0.1); margin-left: 6px;">⚡ ' + escapeHtml(trigger) + '</span>' : '')
                 + '<span class="slog-entry-time">' + time + '</span>'
                 + '</div>'
                 + '<div class="slog-entry-message">' + escapeHtml(message) + '</div>'
