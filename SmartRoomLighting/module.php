@@ -1555,15 +1555,6 @@ class SmartRoomLighting extends IPSModuleStrict
                         ],
                     ],
                 ],
-                // --- Dependencies ---
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Abhaengigkeiten',
-                    'items' => [
-                        ['type' => 'SelectVariable', 'name' => 'SunsetVariableID', 'caption' => 'Variable fuer Sonnenuntergang (Unix Timestamp)'],
-                        ['type' => 'SelectVariable', 'name' => 'SunriseVariableID', 'caption' => 'Variable fuer Sonnenaufgang (Unix Timestamp)'],
-                    ],
-                ],
                 // --- Simulation ---
                 [
                     'type' => 'CheckBox',
