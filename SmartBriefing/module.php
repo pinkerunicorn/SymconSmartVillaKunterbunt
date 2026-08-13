@@ -138,12 +138,7 @@ class SmartBriefing extends IPSModuleStrict
                 }
 
                 if ($vid > 0 && IPS_VariableExists($vid)) {
-                    $val = GetValue($vid);
-                    if (is_bool($val)) {
-                        $valStr = $val ? 'Ja/Aktiv' : 'Nein/Inaktiv';
-                    } else {
-                        $valStr = (string)$val;
-                    }
+                    $valStr = (string)GetValueFormatted($vid);
                     $collectedData[$name] = $valStr;
                 }
             }
