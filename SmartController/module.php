@@ -57,6 +57,18 @@ class SmartController extends IPSModuleStrict
             ])
         ], 5);
 
+        // Darkness Status
+        $this->RegisterPropertyInteger('BrightnessSensorID', 0);
+        $this->RegisterPropertyInteger('DarknessThreshold', 50);
+        $this->RegisterVariableBoolean('IsDark', 'Dunkelheit', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Moon',
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Hell', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => 0xFFAA00],
+                ['Value' => true, 'Caption' => 'Dunkel', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388]
+            ])
+        ], 6);
+
         // === System Status ===
         $intervals = json_encode([
             [
@@ -196,6 +208,15 @@ class SmartController extends IPSModuleStrict
                 }
             }
         }
+
+        $brightnessId = $this->ReadPropertyInteger('BrightnessSensorID');
+        if ($brightnessId > 1 && @IPS_VariableExists($brightnessId)) {
+            $this->RegisterReference($brightnessId);
+            $this->RegisterMessage($brightnessId, VM_UPDATE);
+            
+            // Set initial state
+            $this->CalculateDarkness(GetValue($brightnessId));
+        }
         
         $this->CalculateSystemStatus();
         $this->UnregisterVariable('HouseMode');
@@ -220,7 +241,22 @@ class SmartController extends IPSModuleStrict
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
         if ($Message === VM_UPDATE) {
+            $brightnessId = $this->ReadPropertyInteger('BrightnessSensorID');
+            if ($brightnessId > 1 && $SenderID === $brightnessId) {
+                $this->CalculateDarkness($Data[0]);
+                return;
+            }
             $this->CalculateSystemStatus();
+        }
+    }
+
+    private function CalculateDarkness(mixed $lux): void
+    {
+        $threshold = $this->ReadPropertyInteger('DarknessThreshold');
+        $isDark = ((float)$lux < $threshold);
+        if ($this->GetValue('IsDark') !== $isDark) {
+            $this->SetValue('IsDark', $isDark);
+            $this->SLogInfo('Dunkelheit', $isDark ? 'Es ist dunkel geworden.' : 'Es ist hell geworden.');
         }
     }
 
@@ -777,6 +813,24 @@ class SmartController extends IPSModuleStrict
                     "type": "ValidationTextBox",
                     "name": "CalendarURL",
                     "caption": "Google Kalender (iCal) URL"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🌙 Außenhelligkeit",
+            "expanded": true,
+            "items": [
+                {
+                    "type": "SelectVariable",
+                    "name": "BrightnessSensorID",
+                    "caption": "Helligkeitssensor (Lux) Variable"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "DarknessThreshold",
+                    "caption": "Schwellwert für Dunkelheit (Lux)",
+                    "suffix": " Lux"
                 }
             ]
         }
