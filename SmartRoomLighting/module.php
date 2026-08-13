@@ -488,6 +488,11 @@ class SmartRoomLighting extends IPSModuleStrict
         $isNight = $this->isInTimeRange($nightFrom, $nightTo);
         $sceneName = $isNight ? $nightSceneName : $daySceneName;
 
+        // Fallback: If no time range is specified and DayScene is empty, but a NightScene is provided
+        if ($sceneName === '' && $nightSceneName !== '' && trim($nightFrom) === '' && trim($nightTo) === '') {
+            $sceneName = $nightSceneName;
+        }
+
         if ($sceneName === '') {
             return;
         }
