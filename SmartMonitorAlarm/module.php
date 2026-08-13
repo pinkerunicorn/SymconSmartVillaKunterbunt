@@ -19,6 +19,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         'DevicesSmokeSensor'  => ['level' => 2, 'label' => 'Rauchmelder'],
         'DevicesWaterSensor'  => ['level' => 2, 'label' => 'Wassermelder'],
         'DevicesAlarmSensor'  => ['level' => 2, 'label' => 'Alarmmelder'],
+        'DevicesCoSensor'     => ['level' => 2, 'label' => 'CO-Melder'],
     ];
 
     public function Create(): void {
