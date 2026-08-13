@@ -767,76 +767,7 @@ class SmartController extends IPSModuleStrict
                 }
             ]
         },
-        {
-            "type": "ExpansionPanel",
-            "caption": "💰 Energiepreise",
-            "expanded": false,
-            "items": [
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "NumberSpinner",
-                            "name": "PriceElectricity",
-                            "caption": "Strompreis (€/kWh)",
-                            "digits": 4,
-                            "minimum": 0,
-                            "suffix": "€/kWh"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "BasePriceElectricity",
-                            "caption": "Grundpreis (€/Jahr)",
-                            "digits": 2,
-                            "minimum": 0,
-                            "suffix": "€/Jahr"
-                        }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "NumberSpinner",
-                            "name": "PriceWater",
-                            "caption": "Wasserpreis (€/m³)",
-                            "digits": 4,
-                            "minimum": 0,
-                            "suffix": "€/m³"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "BasePriceWater",
-                            "caption": "Grundpreis (€/Jahr)",
-                            "digits": 2,
-                            "minimum": 0,
-                            "suffix": "€/Jahr"
-                        }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "NumberSpinner",
-                            "name": "PriceGas",
-                            "caption": "Gaspreis (€/kWh)",
-                            "digits": 4,
-                            "minimum": 0,
-                            "suffix": "€/kWh"
-                        },
-                        {
-                            "type": "NumberSpinner",
-                            "name": "BasePriceGas",
-                            "caption": "Grundpreis (€/Jahr)",
-                            "digits": 2,
-                            "minimum": 0,
-                            "suffix": "€/Jahr"
-                        }
-                    ]
-                }
-            ]
-        },
+
         {
             "type": "ExpansionPanel",
             "caption": "📅 Urlaubs-Automatik",
