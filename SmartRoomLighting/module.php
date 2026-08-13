@@ -34,8 +34,6 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->RegisterPropertyString('DoorRules', '[]');
         $this->RegisterPropertyString('TwilightRules', '[]');
         $this->RegisterPropertyString('SyncRules', '[]');
-        $this->RegisterPropertyInteger('SunsetVariableID', 0);
-        $this->RegisterPropertyInteger('SunriseVariableID', 0);
         $this->RegisterPropertyString('MasterOnScene', '');
 
         // === State ===
@@ -68,8 +66,19 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $this->registerPropertyReference('RegistryID');
-        $this->registerPropertyReference('SunsetVariableID');
-        $this->registerPropertyReference('SunriseVariableID');
+        
+        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
+        if ($regId > 1 && @IPS_InstanceExists($regId)) {
+            $sunsetId = (int)@IPS_GetProperty($regId, 'SunsetVariableID');
+            $sunriseId = (int)@IPS_GetProperty($regId, 'SunriseVariableID');
+            if ($sunsetId > 1 && @IPS_VariableExists($sunsetId)) {
+                $this->RegisterReference($sunsetId);
+            }
+            if ($sunriseId > 1 && @IPS_VariableExists($sunriseId)) {
+                $this->RegisterReference($sunriseId);
+            }
+        }
+        
         $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
         $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID', 'LuxSensorID', 'ManualLuxSensorID']);
         $this->registerListReferences('SwitchTriggers', ['SwitchID', 'ManualSwitchID']);
@@ -709,11 +718,16 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true) ?: [];
-        $sunsetId = $this->ReadPropertyInteger('SunsetVariableID');
-        $sunriseId = $this->ReadPropertyInteger('SunriseVariableID');
+        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
+        $sunsetId = 0;
+        $sunriseId = 0;
+        if ($regId > 1 && @IPS_InstanceExists($regId)) {
+            $sunsetId = (int)@IPS_GetProperty($regId, 'SunsetVariableID');
+            $sunriseId = (int)@IPS_GetProperty($regId, 'SunriseVariableID');
+        }
 
-        $sunsetTime = ($sunsetId > 0 && IPS_VariableExists($sunsetId)) ? (int)GetValue($sunsetId) : 0;
-        $sunriseTime = ($sunriseId > 0 && IPS_VariableExists($sunriseId)) ? (int)GetValue($sunriseId) : 0;
+        $sunsetTime = ($sunsetId > 0 && @IPS_VariableExists($sunsetId)) ? (int)GetValue($sunsetId) : 0;
+        $sunriseTime = ($sunriseId > 0 && @IPS_VariableExists($sunriseId)) ? (int)GetValue($sunriseId) : 0;
         $now = time();
 
         foreach ($rules as $index => $rule) {
