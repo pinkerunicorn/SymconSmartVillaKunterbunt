@@ -7,7 +7,7 @@ require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 
 /**
  * SmartBriefing
- * Generiert ein Morgen-Briefing mithilfe der KI aus beliebigen Variablen.
+ * Generiert ein Briefing mithilfe der KI aus beliebigen Variablen.
  *
  * @author Florian Graßinger
  * @url https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartBriefing
@@ -25,7 +25,7 @@ class SmartBriefing extends IPSModuleStrict
         $this->RegisterPropertyString('VariablesList', '[]');
         $this->RegisterPropertyInteger('TargetNotifier', 0);
         $this->RegisterPropertyBoolean('AutoTrigger', true);
-        $this->RegisterPropertyString('CustomPrompt', 'Du bist ein charmanter Smart Home Assistent. Fasse die folgenden Daten zu einem kurzen, freundlichen Morgen-Briefing zusammen. Erwähne Dinge nur, wenn sie relevant sind (z.B. Müll heute, schwache Batterien, Fenster offen). Wenn alles ok ist, wünsche einfach einen guten Tag.');
+        $this->RegisterPropertyString('CustomPrompt', 'Du bist ein charmanter Smart Home Assistent. Fasse die folgenden Daten zu einem kurzen, freundlichen Briefing zusammen. Erwähne Dinge nur, wenn sie relevant sind (z.B. Müll heute, schwache Batterien, Fenster offen). Wenn alles ok ist, wünsche einfach einen guten Tag.');
 
         // Variablen (UI)
         $this->RegisterVariableBoolean('GenerateBriefing', 'Briefing jetzt generieren', [
@@ -107,7 +107,7 @@ class SmartBriefing extends IPSModuleStrict
             $autoTrigger = $this->ReadPropertyBoolean('AutoTrigger');
             // 0 = Normal/Awake
             if ($autoTrigger && (int)$newValue === 0) {
-                $this->SLogInfo('Auto-Trigger', 'ActivityMode gewechselt auf Normal. Generiere Morgen-Briefing.');
+                $this->SLogInfo('Auto-Trigger', 'ActivityMode gewechselt auf Normal. Generiere Briefing.');
                 $this->GenerateBriefing();
             }
         }
@@ -188,7 +188,7 @@ class SmartBriefing extends IPSModuleStrict
         $notifierId = $this->ReadPropertyInteger('TargetNotifier');
         if ($notifierId > 1 && IPS_InstanceExists($notifierId)) {
             $payload = [
-                'Title' => 'Morgen-Briefing',
+                'Title' => 'Briefing',
                 'Message' => $text,
                 'Priority' => 0
             ];
