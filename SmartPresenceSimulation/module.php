@@ -55,6 +55,12 @@ class SmartPresenceSimulation extends IPSModuleStrict
         ], 5);
         $this->EnableAction('AlarmLightsOnDuringAbsence');
 
+        $this->RegisterVariableBoolean('TurnOffAllLights', 'Alle aktiven Lichter ausschalten', [
+            'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
+            'ICON'          => 'Power'
+        ], 6);
+        $this->EnableAction('TurnOffAllLights');
+
         $this->RegisterTimer('LightExecutionTimer', 0, 'SPS_CheckAndExecuteLightSchedule($_IPS[\'TARGET\']);');
         $this->RegisterTimer('GeminiRetryTimer', 0, 'SPS_GenerateAiSchedule($_IPS[\'TARGET\'], true);');
     }
@@ -597,6 +603,10 @@ class SmartPresenceSimulation extends IPSModuleStrict
     {
         if ($Ident === 'AlarmLightsOnDuringAbsence') {
             $this->SetValue($Ident, false);
+        } elseif ($Ident === 'TurnOffAllLights') {
+            $this->TurnOffAllSimulatedLights(false);
+            $this->SetValue($Ident, false);
+            $this->SLogInfo('Manueller Eingriff', 'Alle aktiven Lichter wurden über den Schalter ausgeschaltet.');
         }
     }
 
