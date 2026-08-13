@@ -1,0 +1,13 @@
+{
+    "id": "{72F8B3A1-C1E9-4B52-9D4A-3E8F5A6C2B1A}",
+    "name": "SmartAppliance Summary",
+    "type": 3,
+    "vendor": "Florian Graßinger",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt",
+    "aliases": ["SmartApplianceSummary"],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": ["{00000000-0000-0000-0000-000000000000}"],
+    "prefix": "SAS",
+    "author": "Florian Graßinger"
+}
