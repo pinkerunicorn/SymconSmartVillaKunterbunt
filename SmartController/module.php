@@ -47,6 +47,16 @@ class SmartController extends IPSModuleStrict
         ], 4);
         $this->EnableAction('GlobalSimulationMode');
 
+        // Irrigation Status (set by SmartLawnAI)
+        $this->RegisterVariableBoolean('IrrigationActive', 'Bewaesserung aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Drops',
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Inaktiv', 'IconActive' => true, 'IconValue' => 'Tap', 'Color' => 0x808080],
+                ['Value' => true, 'Caption' => 'Bewaessert', 'IconActive' => true, 'IconValue' => 'Drops', 'Color' => 0x2196F3]
+            ])
+        ], 5);
+
         // === System Status ===
         $intervals = json_encode([
             [
@@ -224,7 +234,6 @@ class SmartController extends IPSModuleStrict
         // === Remove old legacy variables ===
         $this->UnregisterVariable('FireplaceActive');
         $this->UnregisterVariable('MediaPlaying');
-        $this->UnregisterVariable('IrrigationActive');
         $this->UnregisterVariable('AlarmLevel');
 
         // References for Monitors
