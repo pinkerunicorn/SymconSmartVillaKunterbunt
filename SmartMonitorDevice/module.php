@@ -19,6 +19,7 @@ class SmartMonitorDevice extends IPSModuleStrict
         $this->RegisterPropertyInteger('RegistryID', 0);
         $this->RegisterPropertyInteger('TargetNotifier', 0);
         $this->RegisterPropertyInteger('LowBatteryThreshold', 15);
+        $this->RegisterPropertyInteger('BackupVariableID', 0);
 
         // Legacy properties (kept to prevent errors on update, no longer used)
         $this->RegisterPropertyString('BatteryList', '[]');
@@ -81,6 +82,12 @@ class SmartMonitorDevice extends IPSModuleStrict
         // Subscribe to all Reachable_VarID and Battery_VarID from registry
         $this->RegisterRegistryMessages($registryID);
 
+        $backupVid = $this->ReadPropertyInteger('BackupVariableID');
+        if ($backupVid > 1 && @IPS_VariableExists($backupVid)) {
+            $this->RegisterMessage($backupVid, VM_UPDATE);
+            $this->RegisterReference($backupVid);
+        }
+
         // Enable timer
         $this->SetTimerInterval('HealthCheckTimer', 30 * 60 * 1000);
 
@@ -126,8 +133,10 @@ class SmartMonitorDevice extends IPSModuleStrict
     {
         $threshold = $this->ReadPropertyInteger('LowBatteryThreshold');
         $registryID = $this->ReadPropertyInteger('RegistryID');
+        $backupVid = $this->ReadPropertyInteger('BackupVariableID');
 
         $lowBatteries = [];
+        $systemWarnings = [];
         $offlineDevices = [];
         $orphanedVars = [];
         $htmlRowsBattery = [];
@@ -213,15 +222,27 @@ class SmartMonitorDevice extends IPSModuleStrict
             }
         }
 
+        // Backup Check
+        if ($backupVid > 1 && @IPS_VariableExists($backupVid)) {
+            $lastBackup = GetValue($backupVid);
+            if (is_int($lastBackup) && $lastBackup > 0) {
+                if (time() - $lastBackup > 48 * 3600) {
+                    $systemWarnings[] = 'Backup ist älter als 48h';
+                }
+            }
+        }
+
         $batCount   = count($lowBatteries);
         $offCount   = count($offlineDevices);
         $orphaCount = count($orphanedVars);
+        $warnCount  = count($systemWarnings);
 
         $this->SetValue('LowBatteryCount', $batCount);
         $this->SetValue('OfflineDeviceCount', $offCount);
         $this->SetValue('OrphanedVarCount', $orphaCount);
 
         $summary = [];
+        if ($warnCount > 0)  $summary[] = "System Warnungen: " . implode(', ', $systemWarnings);
         if ($batCount > 0)   $summary[] = "Batterien niedrig ($batCount): " . implode(', ', $lowBatteries);
         if ($offCount > 0)   $summary[] = "Offline ($offCount): " . implode(', ', $offlineDevices);
         if ($orphaCount > 0) $summary[] = "Fehlende Variablen ($orphaCount)";
@@ -263,17 +284,21 @@ class SmartMonitorDevice extends IPSModuleStrict
         $offCount   = $this->GetValue('OfflineDeviceCount');
         $orphaCount = $this->GetValue('OrphanedVarCount');
         $htmlList   = $this->GetValue('MonitoredListHTML');
+        $summary    = $this->GetValue('SummaryText');
+        $hasBackupWarning = strpos($summary, 'System Warnungen') !== false;
 
-        $hasIssue    = ($batCount > 0 || $offCount > 0 || $orphaCount > 0);
+        $hasIssue    = ($batCount > 0 || $offCount > 0 || $orphaCount > 0 || $hasBackupWarning);
         $statusStyle = $hasIssue ? 'color: #ff3333; font-weight: bold;' : 'color: #33cc33; font-weight: bold;';
-        $statusText  = $hasIssue ? 'Fehlerhafte Geraete gefunden!' : 'Alles in bester Ordnung.';
+        $statusText  = $hasIssue ? 'Warnungen/Fehler gefunden!' : 'Alles in bester Ordnung.';
+        
+        $warningRow = $hasBackupWarning ? "<br><span style='color:#FF9900'>$summary</span>" : "";
 
         return <<<HTML
 <div style="font-family: sans-serif; padding: 10px;">
     <h2>Smart Device Monitor</h2>
     <div style="background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
         <span style="{$statusStyle}">{$statusText}</span><br>
-        Schwache Batterien: <b>{$batCount}</b> | Offline: <b>{$offCount}</b> | Verwaiste Variablen: <b>{$orphaCount}</b>
+        Schwache Batterien: <b>{$batCount}</b> | Offline: <b>{$offCount}</b> | Verwaiste Variablen: <b>{$orphaCount}</b>{$warningRow}
     </div>
     <h3>Detail-Uebersicht</h3>
     <div style="background-color: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; overflow-x: auto; max-height: 400px; overflow-y: auto;">
@@ -361,6 +386,15 @@ HTML;
             "caption" => "Batterie Warnschwelle (%)",
             "minimum" => 1,
             "maximum" => 50
+        ];
+        $elements[] = [
+            "type" => "Label",
+            "caption" => " "
+        ];
+        $elements[] = [
+            "type"    => "SelectVariable",
+            "name"    => "BackupVariableID",
+            "caption" => "Zuletzt abgeschlossenes Backup (UnixTimestamp Variable)"
         ];
 
         return json_encode([
