@@ -564,7 +564,7 @@ class SmartLog extends IPSModuleStrict
             "type": "SelectModule",
             "name": "RegistryID",
             "caption": "Device Registry Instanz (für Sensoren)",
-            "moduleID": "{3F32039B-89BE-445B-A480-DAF48DF53229}"
+            "moduleID": "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
         },
         {
             "type": "CheckBox",
