@@ -75,18 +75,17 @@ class SmartEntrance extends IPSModuleStrict
         // --- Properties: Smart Locks (Tedee) ---
         $this->RegisterPropertyString('LockVariables', '[]');
 
-        // --- Properties: Auto-Lock Timers ---
-        $this->RegisterPropertyBoolean('AutoLockActive', false);
-        $this->RegisterPropertyString('AutoLockTime', '{"hour":22,"minute":0,"second":0}');
-        $this->RegisterPropertyBoolean('AutoUnlockActive', false);
-        $this->RegisterPropertyString('AutoUnlockTime', '{"hour":7,"minute":0,"second":0}');
-        $this->RegisterPropertyBoolean('AutoUnlockOnlyWhenPresent', true);
-
         // --- Timers ---
-        $this->RegisterTimer('TimerAutoLock', 0, 'SHE_TimerAutoLock($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('TimerAutoUnlock', 0, 'SHE_TimerAutoUnlock($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('TimerLock1Lock', 0, 'SHE_TimerLockAction($_IPS[\'TARGET\'], 0, true);');
+        $this->RegisterTimer('TimerLock1Unlock', 0, 'SHE_TimerLockAction($_IPS[\'TARGET\'], 0, false);');
+        $this->RegisterTimer('TimerLock2Lock', 0, 'SHE_TimerLockAction($_IPS[\'TARGET\'], 1, true);');
+        $this->RegisterTimer('TimerLock2Unlock', 0, 'SHE_TimerLockAction($_IPS[\'TARGET\'], 1, false);');
         $this->RegisterTimer('ResetDoorbell1', 0, 'SHE_ResetDoorbell($_IPS[\'TARGET\'], 1);');
         $this->RegisterTimer('ResetDoorbell2', 0, 'SHE_ResetDoorbell($_IPS[\'TARGET\'], 2);');
+
+        // --- Legacy Cleanup ---
+        $this->UnregisterTimer('TimerAutoLock');
+        $this->UnregisterTimer('TimerAutoUnlock');
 
         // --- Variables ---
         $vid = @IPS_GetObjectIDByIdent('MailboxState', $this->InstanceID);
@@ -382,16 +381,22 @@ class SmartEntrance extends IPSModuleStrict
     {
         // React to Activity/Presence to auto-lock/unlock
         $isAbsence = $this->IsAway() || $this->IsVacation();
-        $isSleep = $this->IsSleeping();
-        $isCinema = $this->IsCinema();
 
-        // Lock if Absence, Sleep, or Cinema
-        if ($isAbsence || $isSleep || $isCinema) {
+        // Lock if Absence
+        if ($isAbsence) {
             $this->LockDoor();
-            $this->SLogInfo('Türschloss', 'Zentrale Automatik: Verriegelung ausgelöst (Abwesenheit/Schlafen/Kino).');
-        } else {
-            $this->UnlockDoor();
-            $this->SLogInfo('Türschloss', 'Zentrale Automatik: Entriegelung ausgelöst (Zuhause & Normal).');
+            $this->SLogInfo('Türschloss', 'Zentrale Automatik: Verriegelung ausgelöst (Unterwegs/Urlaub).');
+        } else if ($this->IsHome()) {
+            // Unlock specific locks that are configured to unlock on presence
+            $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
+            if (!is_array($lockVars)) return;
+
+            foreach ($lockVars as $index => $lock) {
+                if (!empty($lock['UnlockOnPresence'])) {
+                    $this->UnlockSingleDoor($index);
+                }
+            }
+            $this->SLogInfo('Türschloss', 'Zentrale Automatik: Entriegelung ausgelöst (Zuhause) für konfigurierte Schlösser.');
         }
     }
 
@@ -401,22 +406,7 @@ class SmartEntrance extends IPSModuleStrict
         if (!is_array($lockVars)) return;
 
         foreach ($lockVars as $lock) {
-            $lockId = $lock['LockVariableID'] ?? 0;
-            if ($lockId <= 0 || !IPS_VariableExists($lockId)) continue;
-            
-            $name = isset($lock['Name']) && $lock['Name'] != '' ? $lock['Name'] : IPS_GetName($lockId);
-
-            if (!$this->IsDoorClosed($lock)) {
-                $this->SLogWarning('Türschloss', "Verriegelung übersprungen: Die Tür '$name' ist noch offen!");
-                continue;
-            }
-
-            $lockValue = $this->ParseTypedValue($lock['LockValue'] ?? '1');
-            if (!$this->safeRequestAction($lockId, $lockValue)) {
-                $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen für: $name");
-            } else {
-                $this->SLogInfo('Türschloss', "Erfolgreich verriegelt: $name");
-            }
+            $this->LockSpecificDoor($lock);
         }
     }
 
@@ -426,40 +416,69 @@ class SmartEntrance extends IPSModuleStrict
         if (!is_array($lockVars)) return;
 
         foreach ($lockVars as $lock) {
-            $lockId = $lock['LockVariableID'] ?? 0;
-            if ($lockId <= 0 || !IPS_VariableExists($lockId)) continue;
-
-            $name = isset($lock['Name']) && $lock['Name'] != '' ? $lock['Name'] : IPS_GetName($lockId);
-            $unlockValue = $this->ParseTypedValue($lock['UnlockValue'] ?? '0');
-            
-            if (!$this->safeRequestAction($lockId, $unlockValue)) {
-                $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen (Aufsperren) für: $name");
-            } else {
-                $this->SLogInfo('Türschloss', "Erfolgreich entriegelt: $name");
-            }
+            $this->UnlockSpecificDoor($lock);
         }
     }
 
-    public function TimerAutoLock(): void
+    private function LockSingleDoor(int $index): void
     {
-        $this->LockDoor();
-        $this->SLogInfo('Türschloss', 'Automatisches (zeitbasiertes) Verriegeln ausgeführt.');
-        $this->UpdateTimers();
+        $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
+        if (!is_array($lockVars) || !isset($lockVars[$index])) return;
+        $this->LockSpecificDoor($lockVars[$index]);
     }
 
-    public function TimerAutoUnlock(): void
+    private function UnlockSingleDoor(int $index): void
     {
-        $this->UpdateTimers();
+        $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
+        if (!is_array($lockVars) || !isset($lockVars[$index])) return;
+        $this->UnlockSpecificDoor($lockVars[$index]);
+    }
 
-        if ($this->ReadPropertyBoolean('AutoUnlockOnlyWhenPresent')) {
-            if ($this->IsAway() || $this->IsVacation()) {
-                $this->SLogInfo('Türschloss', 'Zeitbasiertes Aufsperren übersprungen, da Abwesenheit aktiv ist.');
-                return;
-            }
+    private function LockSpecificDoor(array $lock): void
+    {
+        $lockId = $lock['LockVariableID'] ?? 0;
+        if ($lockId <= 0 || !IPS_VariableExists($lockId)) return;
+        
+        $name = isset($lock['Name']) && $lock['Name'] != '' ? $lock['Name'] : IPS_GetName($lockId);
+
+        if (!$this->IsDoorClosed($lock)) {
+            $this->SLogWarning('Türschloss', "Verriegelung übersprungen: Die Tür '$name' ist noch offen!");
+            return;
         }
 
-        $this->UnlockDoor();
-        $this->SLogInfo('Türschloss', 'Automatisches (zeitbasiertes) Entriegeln ausgeführt.');
+        $lockValue = $this->ParseTypedValue($lock['LockValue'] ?? '1');
+        if (!$this->safeRequestAction($lockId, $lockValue)) {
+            $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen für: $name");
+        } else {
+            $this->SLogInfo('Türschloss', "Erfolgreich verriegelt: $name");
+        }
+    }
+
+    private function UnlockSpecificDoor(array $lock): void
+    {
+        $lockId = $lock['LockVariableID'] ?? 0;
+        if ($lockId <= 0 || !IPS_VariableExists($lockId)) return;
+
+        $name = isset($lock['Name']) && $lock['Name'] != '' ? $lock['Name'] : IPS_GetName($lockId);
+        $unlockValue = $this->ParseTypedValue($lock['UnlockValue'] ?? '0');
+        
+        if (!$this->safeRequestAction($lockId, $unlockValue)) {
+            $this->SLogWarning('Türschloss', "Aktor-Befehl fehlgeschlagen (Aufsperren) für: $name");
+        } else {
+            $this->SLogInfo('Türschloss', "Erfolgreich entriegelt: $name");
+        }
+    }
+
+    public function TimerLockAction(int $index, bool $lock): void
+    {
+        if ($lock) {
+            $this->LockSingleDoor($index);
+            $this->SLogInfo('Türschloss', "Automatisches (zeitbasiertes) Verriegeln für Schloss " . ($index + 1) . " ausgeführt.");
+        } else {
+            $this->UnlockSingleDoor($index);
+            $this->SLogInfo('Türschloss', "Automatisches (zeitbasiertes) Entriegeln für Schloss " . ($index + 1) . " ausgeführt.");
+        }
+        $this->UpdateTimers();
     }
 
     private function IsDoorClosed(array $lock): bool
@@ -480,22 +499,37 @@ class SmartEntrance extends IPSModuleStrict
 
     private function UpdateTimers(): void
     {
-        if ($this->ReadPropertyBoolean('AutoLockActive')) {
-            $this->SetTimerInterval('TimerAutoLock', $this->GetMillisecondsToTime($this->ReadPropertyString('AutoLockTime')));
-        } else {
-            $this->SetTimerInterval('TimerAutoLock', 0);
-        }
+        $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
+        if (!is_array($lockVars)) $lockVars = [];
 
-        if ($this->ReadPropertyBoolean('AutoUnlockActive')) {
-            $this->SetTimerInterval('TimerAutoUnlock', $this->GetMillisecondsToTime($this->ReadPropertyString('AutoUnlockTime')));
-        } else {
-            $this->SetTimerInterval('TimerAutoUnlock', 0);
+        $this->SetTimerInterval('TimerLock1Lock', 0);
+        $this->SetTimerInterval('TimerLock1Unlock', 0);
+        $this->SetTimerInterval('TimerLock2Lock', 0);
+        $this->SetTimerInterval('TimerLock2Unlock', 0);
+
+        foreach ($lockVars as $index => $lock) {
+            if ($index > 1) break; // We only support up to 2 locks with these fixed timers
+
+            $timerLockName = "TimerLock" . ($index + 1) . "Lock";
+            $timerUnlockName = "TimerLock" . ($index + 1) . "Unlock";
+
+            if (!empty($lock['AutoLockTime'])) {
+                $timeStr = is_string($lock['AutoLockTime']) ? $lock['AutoLockTime'] : json_encode($lock['AutoLockTime']);
+                $this->SetTimerInterval($timerLockName, $this->GetMillisecondsToTime($timeStr));
+            }
+
+            if (!empty($lock['AutoUnlockTime'])) {
+                $timeStr = is_string($lock['AutoUnlockTime']) ? $lock['AutoUnlockTime'] : json_encode($lock['AutoUnlockTime']);
+                $this->SetTimerInterval($timerUnlockName, $this->GetMillisecondsToTime($timeStr));
+            }
         }
     }
 
-    private function GetMillisecondsToTime(string $timeStr): int
+    private function GetMillisecondsToTime(mixed $time): int
     {
-        $time = $this->safeJsonDecode($timeStr, true);
+        if (is_string($time)) {
+            $time = $this->safeJsonDecode($time, true);
+        }
         if (!is_array($time)) return 0;
         
         $now = time();
@@ -731,18 +765,30 @@ class SmartEntrance extends IPSModuleStrict
                             "width": "80px",
                             "add": "0",
                             "edit": { "type": "ValidationTextBox" }
+                        },
+                        {
+                            "caption": "Auto-Sperren",
+                            "name": "AutoLockTime",
+                            "width": "120px",
+                            "add": "",
+                            "edit": { "type": "SelectTime" }
+                        },
+                        {
+                            "caption": "Auto-Aufsperren",
+                            "name": "AutoUnlockTime",
+                            "width": "120px",
+                            "add": "",
+                            "edit": { "type": "SelectTime" }
+                        },
+                        {
+                            "caption": "Aufsp. b. Anwesenh.",
+                            "name": "UnlockOnPresence",
+                            "width": "120px",
+                            "add": false,
+                            "edit": { "type": "CheckBox" }
                         }
                     ]
-                },
-                {
-                    "type": "Label",
-                    "label": "Zeitsteuerung"
-                },
-                { "type": "CheckBox", "name": "AutoLockActive", "caption": "Automatisch Verschließen" },
-                { "type": "SelectTime", "name": "AutoLockTime", "caption": "Uhrzeit zum Verschließen" },
-                { "type": "CheckBox", "name": "AutoUnlockActive", "caption": "Automatisch Aufsperren" },
-                { "type": "SelectTime", "name": "AutoUnlockTime", "caption": "Uhrzeit zum Aufsperren" },
-                { "type": "CheckBox", "name": "AutoUnlockOnlyWhenPresent", "caption": "Aufsperren nur bei Anwesenheit" }
+                }
             ]
         },
         {
