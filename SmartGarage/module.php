@@ -38,6 +38,11 @@ class SmartGarage extends IPSModuleStrict
         $this->RegisterPropertyInteger('AlarmDelayMinutes', 60);
         $this->RegisterPropertyBoolean('CloseOnAbsence', true);
 
+        // Properties: Außensirene Lichtzeichen bei Bewegung (ohne Ton)
+        $this->RegisterPropertyInteger('TargetSiren', 0);
+        $this->RegisterPropertyInteger('SirenOpticalMovingUp', 3);   // 3 = Gleichzeitig schnelles Blinken
+        $this->RegisterPropertyInteger('SirenOpticalMovingDown', 1); // 1 = Abwechselndes langsames Blinken
+
         // Attribute for tracking the last direction to guess the next move
         $this->RegisterAttributeInteger('LastDirection', self::STATE_MOVING_UP); // 2=Fährt Auf, 3=Fährt Zu
 
@@ -145,6 +150,10 @@ class SmartGarage extends IPSModuleStrict
         if ($ref_SensorOpenID > 1 && @IPS_ObjectExists($ref_SensorOpenID)) {
             $this->RegisterReference($ref_SensorOpenID);
         }
+        $targetSiren = $this->ReadPropertyInteger('TargetSiren');
+        if ($targetSiren > 1 && @IPS_ObjectExists($targetSiren)) {
+            $this->RegisterReference($targetSiren);
+        }
         $list_ButtonVariables = $this->safeJsonDecode($this->ReadPropertyString('ButtonVariables'), true);
         if (is_array($list_ButtonVariables)) {
             foreach ($list_ButtonVariables as $item) {
@@ -164,9 +173,6 @@ class SmartGarage extends IPSModuleStrict
             }
         }
         // ---------------------------------
-        
-        
-
 
         // Register messages for sensors
         $sensorClosed = $this->ReadPropertyInteger('SensorClosedID');
@@ -203,6 +209,7 @@ class SmartGarage extends IPSModuleStrict
         // Initialize status
         $this->CheckSensors();
         $this->DA_SetAvailable(true);
+        $this->SetStatus(102);
     }
 
     public function RequestAction(string $Ident, mixed $Value): void
@@ -323,10 +330,10 @@ class SmartGarage extends IPSModuleStrict
             // wissen wir, dass es jetzt per Hand bewegt wurde oder der Impuls losgeht.
             // Ist es aber z.B. schon auf "Fährt Auf"(2), belassen wir es dabei.
             if ($currentState === self::STATE_CLOSED) {
-                // Es hat "Zu"verlassen -> Es fährt wahrscheinlich auf.
+                // Es hat "Zu" verlassen -> Es fährt wahrscheinlich auf.
                 $newState = self::STATE_MOVING_UP; 
             } elseif ($currentState === self::STATE_OPEN) {
-                // Es hat "Auf"verlassen -> Es fährt wahrscheinlich zu.
+                // Es hat "Auf" verlassen -> Es fährt wahrscheinlich zu.
                 $newState = self::STATE_MOVING_DOWN;
             }
         }
@@ -341,6 +348,7 @@ class SmartGarage extends IPSModuleStrict
         if ($this->GetValue('DoorState') !== $state) {
             $this->SetValue('DoorState', $state);
             $this->UpdateLEDs($state);
+            $this->UpdateSirenLight($state);
             
             // Alarm Logic
             if ($state === self::STATE_OPEN || $state === self::STATE_STOPPED) { // 1 = Auf, 4 = Teiloffen
@@ -400,6 +408,57 @@ class SmartGarage extends IPSModuleStrict
                     $this->SLogInfo( 'HM-LED Zustand aktualisiert.', "Instanz: $instId | String: $string");
                 }
             }
+        }
+    }
+
+    private function UpdateSirenLight(int $state): void
+    {
+        $sirenId = $this->ReadPropertyInteger('TargetSiren');
+        if ($sirenId <= 0 || !@IPS_InstanceExists($sirenId)) return;
+
+        try {
+            if ($state === self::STATE_MOVING_UP) {
+                $optical = $this->ReadPropertyInteger('SirenOpticalMovingUp');
+                if ($optical > 0) {
+                    $this->SLogInfo('Außensirene', 'Starte Optik-Signal bei Garagentor Fährt Auf...');
+                    $this->TriggerSirenLight($sirenId, $optical, 60);
+                }
+            } elseif ($state === self::STATE_MOVING_DOWN) {
+                $optical = $this->ReadPropertyInteger('SirenOpticalMovingDown');
+                if ($optical > 0) {
+                    $this->SLogInfo('Außensirene', 'Starte Optik-Signal bei Garagentor Fährt Zu...');
+                    $this->TriggerSirenLight($sirenId, $optical, 60);
+                }
+            } elseif ($state === self::STATE_CLOSED || $state === self::STATE_OPEN || $state === self::STATE_STOPPED) {
+                $this->SLogInfo('Außensirene', 'Stoppe Optik-Signal (Tor gestoppt/angekommen).');
+                $this->StopSirenLight($sirenId);
+            }
+        } catch (\Throwable $e) {
+            $this->SLogError('Garagentor Sirenen-Licht Fehler: ' . $e->getMessage());
+        }
+    }
+
+    private function TriggerSirenLight(int $sirenId, int $optical, int $durationSeconds = 60): void
+    {
+        if (function_exists('ASIRO_Trigger')) {
+            @ASIRO_Trigger($sirenId, 0, $optical, $durationSeconds, 0); // 0 = ACOUSTIC_OFF (kein Ton!)
+        } else {
+            @HM_WriteValueInteger($sirenId, 'DURATION_UNIT', 0);
+            @HM_WriteValueInteger($sirenId, 'DURATION_VALUE', $durationSeconds);
+            @HM_WriteValueInteger($sirenId, 'OPTICAL_ALARM_SELECTION', $optical);
+            @HM_WriteValueInteger($sirenId, 'ACOUSTIC_ALARM_SELECTION', 0); // 0 = kein Ton!
+        }
+    }
+
+    private function StopSirenLight(int $sirenId): void
+    {
+        if (function_exists('ASIRO_Stop')) {
+            @ASIRO_Stop($sirenId);
+        } else {
+            @HM_WriteValueInteger($sirenId, 'DURATION_UNIT', 0);
+            @HM_WriteValueInteger($sirenId, 'DURATION_VALUE', 0);
+            @HM_WriteValueInteger($sirenId, 'OPTICAL_ALARM_SELECTION', 0);
+            @HM_WriteValueInteger($sirenId, 'ACOUSTIC_ALARM_SELECTION', 0);
         }
     }
 
@@ -482,7 +541,53 @@ class SmartGarage extends IPSModuleStrict
         },
         {
             "type": "ExpansionPanel",
-            "caption": "⚙ ",
+            "caption": "🚨 Außensirene Lichtzeichen (Tor-Bewegung)",
+            "items": [
+                {
+                    "type": "SelectInstance",
+                    "name": "TargetSiren",
+                    "caption": "Außensirene (HmIP_ASIRO Modul oder Kanal 3)"
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Select",
+                            "name": "SirenOpticalMovingUp",
+                            "caption": "Lichtzeichen beim Öffnen",
+                            "options": [
+                                { "caption": "Kein Licht",                        "value": 0 },
+                                { "caption": "Abwechselnd langsames Blinken",     "value": 1 },
+                                { "caption": "Gleichzeitig langsames Blinken",    "value": 2 },
+                                { "caption": "Gleichzeitig schnelles Blinken",    "value": 3 },
+                                { "caption": "Gleichzeitig kurzes Blinken",       "value": 4 },
+                                { "caption": "Bestätigung 0 (lang lang)",         "value": 5 },
+                                { "caption": "Bestätigung 1 (lang kurz)",         "value": 6 },
+                                { "caption": "Bestätigung 2 (lang kurz kurz)",    "value": 7 }
+                            ]
+                        },
+                        {
+                            "type": "Select",
+                            "name": "SirenOpticalMovingDown",
+                            "caption": "Lichtzeichen beim Schließen",
+                            "options": [
+                                { "caption": "Kein Licht",                        "value": 0 },
+                                { "caption": "Abwechselnd langsames Blinken",     "value": 1 },
+                                { "caption": "Gleichzeitig langsames Blinken",    "value": 2 },
+                                { "caption": "Gleichzeitig schnelles Blinken",    "value": 3 },
+                                { "caption": "Gleichzeitig kurzes Blinken",       "value": 4 },
+                                { "caption": "Bestätigung 0 (lang lang)",         "value": 5 },
+                                { "caption": "Bestätigung 1 (lang kurz)",         "value": 6 },
+                                { "caption": "Bestätigung 2 (lang kurz kurz)",    "value": 7 }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "⚙ Tor Konfiguration",
             "items": [
                 {
                     "type": "RowLayout",
@@ -493,10 +598,6 @@ class SmartGarage extends IPSModuleStrict
                             "caption": "Bei Abwesenheit automatisch schließen"
                         }
                     ]
-                },
-                {
-                    "type": "Label",
-                    "label": "Tor Konfiguration"
                 },
                 {
                     "type": "RowLayout",
@@ -543,10 +644,6 @@ class SmartGarage extends IPSModuleStrict
                     "caption": "Auslöse-Wert (z.B. true, CLOSED)"
                 }
             ]
-        },
-        {
-            "type": "Label",
-            "label": "Taster (Auslöser)"
         },
         {
             "type": "NumberSpinner",
@@ -614,8 +711,6 @@ class SmartGarage extends IPSModuleStrict
 EOT;
     }
 
-
-
     private function safeJsonDecode(string $json, bool $assoc = true) {
         try {
             if (trim($json) === '') return $assoc ? [] : null;
@@ -625,5 +720,4 @@ EOT;
             return $assoc ? [] : null;
         }
     }
-
 }
