@@ -84,8 +84,11 @@ class SmartEntrance extends IPSModuleStrict
         $this->RegisterTimer('ResetDoorbell2', 0, 'SHE_ResetDoorbell($_IPS[\'TARGET\'], 2);');
 
         // --- Legacy Cleanup ---
-        $this->UnregisterTimer('TimerAutoLock');
-        $this->UnregisterTimer('TimerAutoUnlock');
+        $tid1 = @IPS_GetObjectIDByIdent('TimerAutoLock', $this->InstanceID);
+        if ($tid1 !== false) { @IPS_DeleteEvent($tid1); }
+        
+        $tid2 = @IPS_GetObjectIDByIdent('TimerAutoUnlock', $this->InstanceID);
+        if ($tid2 !== false) { @IPS_DeleteEvent($tid2); }
 
         // --- Variables ---
         $vid = @IPS_GetObjectIDByIdent('MailboxState', $this->InstanceID);
