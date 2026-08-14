@@ -129,6 +129,22 @@ class SmartPresenceSimulation extends IPSModuleStrict
         if ($this->HandleCentralStateMessage($SenderID, $Message, $Data)) return;
         if ($Message == VM_UPDATE) {
             $this->CalculateActiveLights();
+            
+            $isAbsence = ($this->IsAway() || $this->IsVacation());
+            if ($isAbsence) {
+                $lastActionTime = (int)$this->GetBuffer('SPS_Action_' . $SenderID);
+                if (time() - $lastActionTime > 3) {
+                    $manualLightsStr = $this->GetBuffer('SPS_ManualLights');
+                    $manualLights = $this->safeJsonDecode($manualLightsStr, true);
+                    if (!is_array($manualLights)) $manualLights = [];
+                    if (!in_array($SenderID, $manualLights)) {
+                        $manualLights[] = $SenderID;
+                        $this->SetBuffer('SPS_ManualLights', json_encode($manualLights));
+                        $devName = IPS_GetName($SenderID);
+                        $this->SLogInfo('Manueller Eingriff erkannt', 'Licht ' . $devName . ' wurde während der Simulation manuell bedient und behält diesen Zustand bei Rückkehr.');
+                    }
+                }
+            }
         }
     }
 
@@ -205,6 +221,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
         $eid = $this->MaintainDailyEvent();
         
         if ($isAbsence) {
+            $this->SetBuffer('SPS_ManualLights', '[]');
             $this->GenerateAiSchedule();
             IPS_SetEventActive($eid, true);
             $this->SetTimerInterval('LightExecutionTimer', 60000);
@@ -445,6 +462,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 }
 
                 if (IPS_VariableExists($devId)) {
+                    $this->SetBuffer('SPS_Action_' . $devId, (string)time());
                     if (!$this->safeRequestAction($devId, $devState)) {
                         $this->SLogWarning( "Aktor-Befehl fehlgeschlagen: $devName", "ID: $devId | Ziel: $stateLabel | Zeit: {$action['time']}");
                     } else {
@@ -507,6 +525,16 @@ class SmartPresenceSimulation extends IPSModuleStrict
                     }
                 }
             }
+            
+            $manualLightsStr = $this->GetBuffer('SPS_ManualLights');
+            $manualLights = $this->safeJsonDecode($manualLightsStr, true);
+            if (is_array($manualLights)) {
+                foreach ($manualLights as $id) {
+                    if (!in_array($id, $keepIds)) {
+                        $keepIds[] = $id;
+                    }
+                }
+            }
         }
 
         $regId = $this->ReadPropertyInteger('RegistryID');
@@ -530,6 +558,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
                         if ($isDimmer) {
                             if (GetValue($vid) > 0) {
+                                $this->SetBuffer('SPS_Action_' . $vid, (string)time());
                                 if (!$this->safeRequestAction($vid, 0)) {
                                     $this->SLogWarning("Aktor-Befehl fehlgeschlagen: $devName (Dimmer)", "ID: $vid | Ziel: 0");
                                 } else {
@@ -539,6 +568,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                             }
                         } else {
                             if (GetValue($vid) === true) {
+                                $this->SetBuffer('SPS_Action_' . $vid, (string)time());
                                 if (!$this->safeRequestAction($vid, false)) {
                                     $this->SLogWarning("Aktor-Befehl fehlgeschlagen: $devName", "ID: $vid | Ziel: AUS");
                                 } else {
