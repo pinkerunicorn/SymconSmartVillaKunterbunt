@@ -185,6 +185,28 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->registerSensorMessages('DoorRules', 'DoorSensorID', 'ManualDoorVariableID');
         $this->registerSensorMessages('SyncRules', 'MasterVariableID');
 
+        // --- Reverse Triggers (Bidirectional Scenes) ---
+        $reverseTriggers = [];
+        $sceneDevices = $this->safeJsonDecode($this->GetBuffer('SceneDevicesCache'), true) ?: [];
+        foreach ($sceneDevices as $dev) {
+            if ($dev['ReverseTrigger'] ?? false) {
+                $targetId = $this->resolveDeviceId($dev['TargetID'] ?? 0);
+                $manualId = (int)($dev['ManualTargetID'] ?? 0);
+                if ($targetId <= 0 && $manualId > 0) {
+                    $targetId = $manualId;
+                }
+                if ($targetId > 0 && @IPS_VariableExists($targetId)) {
+                    $this->RegisterMessage($targetId, VM_UPDATE);
+                    $sceneName = $dev['SceneName'] ?? '';
+                    if ($sceneName !== '') {
+                        // Keep track of which variable triggers which scene
+                        $reverseTriggers[$targetId] = $sceneName;
+                    }
+                }
+            }
+        }
+        $this->SetBuffer('ReverseTriggersCache', json_encode($reverseTriggers));
+
         // --- Twilight Timers ---
         $this->CalculateTwilightTimers();
 
@@ -297,6 +319,23 @@ class SmartRoomLighting extends IPSModuleStrict
                 $this->processSyncRule($rule, $val);
             }
         }
+
+        // --- Reverse Triggers (Bidirectional Scenes) ---
+        $reverseTriggers = $this->safeJsonDecode($this->GetBuffer('ReverseTriggersCache'), true) ?: [];
+        if (isset($reverseTriggers[$SenderID])) {
+            // Only trigger on rising edge ("An" / true)
+            if ($isTrigger) {
+                // Check Debounce/Loop Prevention (2 seconds)
+                $lastActivation = (float)$this->GetBuffer('LastSceneActivation');
+                if ((microtime(true) - $lastActivation) > 2.0) {
+                    $sceneToActivate = $reverseTriggers[$SenderID];
+                    $this->SLogInfo('Reverse Trigger', "Lampe manuell eingeschaltet. Aktiviere Szene: $sceneToActivate");
+                    $this->activateScene($sceneToActivate, 'Reverse Trigger');
+                } else {
+                    $this->SendDebug('Reverse Trigger', 'Ignoriert (Loop Prevention aktiv)', 0);
+                }
+            }
+        }
     }
 
     // =====================================================================
@@ -312,6 +351,9 @@ class SmartRoomLighting extends IPSModuleStrict
         if ($sceneName === '') {
             return;
         }
+
+        // --- Loop Prevention: Track the time of activation ---
+        $this->SetBuffer('LastSceneActivation', (string)microtime(true));
 
         $sceneIdents = $this->safeJsonDecode($this->GetBuffer('SceneIdents'), true) ?: [];
         
@@ -1320,6 +1362,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $sceneDevicesColumns[] = ['caption' => 'Wert (AN)', 'name' => 'ActionValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']];
         $sceneDevicesColumns[] = ['caption' => 'Wert (AUS)', 'name' => 'DeactivateValue', 'width' => '100px', 'add' => 'false', 'edit' => ['type' => 'ValidationTextBox']];
+        $sceneDevicesColumns[] = ['caption' => 'Löst Szene aus', 'name' => 'ReverseTrigger', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']];
 
         // --- MotionTriggers columns (dynamic based on registry) ---
         $motionTriggersColumns = [];
