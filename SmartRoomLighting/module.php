@@ -57,8 +57,7 @@ class SmartRoomLighting extends IPSModuleStrict
     {
         parent::ApplyChanges();
 
-        // Subscribe to central house state
-        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode', 'IsDark']);
+        // SubscribeToCentralStates moved to the bottom to avoid being unregistered
 
         // --- References ---
         foreach ($this->GetReferenceList() as $refID) {
@@ -219,6 +218,9 @@ class SmartRoomLighting extends IPSModuleStrict
                 }
             }
         }
+        
+        // Subscribe to central house state AFTER unregistering all messages
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode', 'IsDark']);
     }
 
     // =====================================================================
