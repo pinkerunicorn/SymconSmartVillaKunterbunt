@@ -174,19 +174,10 @@ class SmartShading extends IPSModuleStrict
                         $profileName = $targetVar['VariableProfile'];
                     }
                     
-                    $min = 0; $max = 100;
-                    if ($profileName != '' && IPS_VariableProfileExists($profileName)) {
-                        $p = IPS_GetVariableProfile($profileName);
-                        $min = $p['MinValue'];
-                        $max = $p['MaxValue'];
-                    } elseif ($targetVar['VariableType'] == 2) {
-                        $min = 0; $max = 1;
-                    }
-                    
                     $presentation = defined('VARIABLE_PRESENTATION_SHUTTER') ? [
                         'PRESENTATION' => VARIABLE_PRESENTATION_SHUTTER,
-                        'MIN' => $min,
-                        'MAX' => $max
+                        'MIN' => 0,
+                        'MAX' => 100
                     ] : $profileName;
 
                     if ($targetVar['VariableType'] == 1) { // Integer
@@ -282,7 +273,18 @@ class SmartShading extends IPSModuleStrict
                 if ($SenderID == $varID) {
                     $posIdent = 'Pos_' . $varID;
                     if (@IPS_GetObjectIDByIdent($posIdent, $this->InstanceID) !== false) {
-                        $this->SetValue($posIdent, $Data[0]);
+                        $valTop = (float)($blind['ValueTop'] ?? $blind['ValueOpen'] ?? 0);
+                        $valClose = (float)($blind['ValueClose'] ?? 1);
+                        $hwVal = (float)$Data[0];
+                        
+                        $pos = 0;
+                        if ($valClose != $valTop) {
+                            $pos = ($hwVal - $valTop) / ($valClose - $valTop) * 100;
+                        }
+                        if ($pos < 0) $pos = 0;
+                        if ($pos > 100) $pos = 100;
+                        
+                        $this->SetValue($posIdent, $pos);
                     }
                 }
             }
@@ -339,7 +341,34 @@ class SmartShading extends IPSModuleStrict
         } elseif (strpos($Ident, 'Pos_') === 0) {
             $this->SetValue($Ident, $Value);
             $varId = (int)substr($Ident, 4);
-            $this->ExecuteAction($varId, (string)$Value);
+            
+            $blinds = json_decode($this->ReadPropertyString('BlindVariables'), true);
+            $matchedBlind = null;
+            if (is_array($blinds)) {
+                foreach ($blinds as $blind) {
+                    list($vid, $cid) = $this->ResolveBlindVariables($blind);
+                    if ($vid == $varId) {
+                        $matchedBlind = $blind;
+                        break;
+                    }
+                }
+            }
+            
+            $targetValueStr = (string)$Value;
+            if ($matchedBlind) {
+                $valTop = (float)($matchedBlind['ValueTop'] ?? $matchedBlind['ValueOpen'] ?? 0);
+                $valClose = (float)($matchedBlind['ValueClose'] ?? 1);
+                
+                $hwVal = $valTop + ((float)$Value / 100) * ($valClose - $valTop);
+                
+                $targetVar = IPS_GetVariable($varId);
+                if ($targetVar['VariableType'] == 1) { // Integer
+                    $hwVal = round($hwVal);
+                }
+                $targetValueStr = (string)$hwVal;
+            }
+            
+            $this->ExecuteAction($varId, $targetValueStr);
             
             $modeIdent = 'Mode_' . $varId;
             if (@IPS_GetObjectIDByIdent($modeIdent, $this->InstanceID) !== false) {
@@ -755,6 +784,13 @@ class SmartShading extends IPSModuleStrict
                     "width" => "120px",
                     "add" => 270,
                     "edit" => ["type" => "NumberSpinner", "minimum" => 0, "maximum" => 360]
+                ],
+                [
+                    "caption" => "Obere Pos (0%)",
+                    "name" => "ValueTop",
+                    "width" => "100px",
+                    "add" => "0",
+                    "edit" => ["type" => "ValidationTextBox"]
                 ],
                 [
                     "caption" => "Auf-Pos",
