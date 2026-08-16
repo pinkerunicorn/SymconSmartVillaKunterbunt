@@ -173,11 +173,27 @@ class SmartShading extends IPSModuleStrict
                     if ($profileName == '') {
                         $profileName = $targetVar['VariableProfile'];
                     }
+                    
+                    $min = 0; $max = 100;
+                    if ($profileName != '' && IPS_VariableProfileExists($profileName)) {
+                        $p = IPS_GetVariableProfile($profileName);
+                        $min = $p['MinValue'];
+                        $max = $p['MaxValue'];
+                    } elseif ($targetVar['VariableType'] == 2) {
+                        $min = 0; $max = 1;
+                    }
+                    
+                    $presentation = defined('VARIABLE_PRESENTATION_SHUTTER') ? [
+                        'PRESENTATION' => VARIABLE_PRESENTATION_SHUTTER,
+                        'MIN' => $min,
+                        'MAX' => $max
+                    ] : $profileName;
+
                     if ($targetVar['VariableType'] == 1) { // Integer
-                        $this->RegisterVariableInteger($posIdent, 'Pos: ' . IPS_GetName($vid), $profileName, 55);
+                        $this->RegisterVariableInteger($posIdent, 'Pos: ' . IPS_GetName($vid), $presentation, 55);
                         $this->EnableAction($posIdent);
                     } elseif ($targetVar['VariableType'] == 2) { // Float
-                        $this->RegisterVariableFloat($posIdent, 'Pos: ' . IPS_GetName($vid), $profileName, 55);
+                        $this->RegisterVariableFloat($posIdent, 'Pos: ' . IPS_GetName($vid), $presentation, 55);
                         $this->EnableAction($posIdent);
                     }
                 }
