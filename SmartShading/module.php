@@ -147,7 +147,7 @@ class SmartShading extends IPSModuleStrict
         $activeModeIdents = [];
         if (is_array($list_BlindVariables)) {
             foreach ($list_BlindVariables as $item) {
-                $vid = $item['VariableID'] ?? 0;
+                list($vid, $contactID) = $this->ResolveBlindVariables($item);
                 if ($vid > 1 && @IPS_ObjectExists($vid)) {
                     $this->RegisterReference($vid);
                     
@@ -197,9 +197,8 @@ class SmartShading extends IPSModuleStrict
                         $this->EnableAction($posIdent);
                     }
                 }
-                $vid = $item['ContactID'] ?? 0;
-                if ($vid > 1 && @IPS_ObjectExists($vid)) {
-                    $this->RegisterReference($vid);
+                if ($contactID > 1 && @IPS_ObjectExists($contactID)) {
+                    $this->RegisterReference($contactID);
                 }
             }
         }
