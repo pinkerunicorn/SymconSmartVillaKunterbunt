@@ -658,8 +658,8 @@ class SmartShading extends IPSModuleStrict
         ];
 
         // Baue die Optionen für Registry-Geräte
-        $blindOptions = [["caption" => "-", "value" => "0"]];
-        $contactOptions = [["caption" => "-", "value" => "0"]];
+        $blindOptions = [["caption" => "-", "value" => 0]];
+        $contactOptions = [["caption" => "-", "value" => 0]];
         
         $registryID = $this->ReadPropertyInteger('RegistryID');
         if ($registryID > 1 && @IPS_ObjectExists($registryID) && function_exists('SDR_GetDevicesByType')) {
@@ -691,7 +691,7 @@ class SmartShading extends IPSModuleStrict
                     "caption" => "Gerät (Registry)",
                     "name" => "DeviceID",
                     "width" => "250px",
-                    "add" => "0",
+                    "add" => 0,
                     "edit" => [
                         "type" => "Select",
                         "options" => $blindOptions
@@ -701,7 +701,7 @@ class SmartShading extends IPSModuleStrict
                     "caption" => "Fensterkontakt",
                     "name" => "ContactID",
                     "width" => "200px",
-                    "add" => "0",
+                    "add" => 0,
                     "edit" => [
                         "type" => "Select",
                         "options" => $contactOptions
