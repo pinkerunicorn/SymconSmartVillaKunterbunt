@@ -52,11 +52,13 @@ class SmartController extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Drops',
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Inaktiv', 'IconActive' => true, 'IconValue' => 'Tap', 'Color' => 0x808080],
-                ['Value' => true, 'Caption' => 'Bewaessert', 'IconActive' => true, 'IconValue' => 'Drops', 'Color' => 0x2196F3]
-            ]),
-            'INTERVALS_ACTIVE' => false,
-            'INTERVALS' => '[]'
+                ['Value' => false, 'Caption' => 'Inaktiv', 'IconValue' => 'Tap', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x808080, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x808080],
+                ['Value' => true, 'Caption' => 'Bewaessert', 'IconValue' => 'Drops', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x2196F3, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x2196F3]
+            ])
         ], 5);
 
         // Darkness Status
@@ -66,11 +68,13 @@ class SmartController extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Moon',
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Hell', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => 0xFFAA00],
-                ['Value' => true, 'Caption' => 'Dunkel', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388]
-            ]),
-            'INTERVALS_ACTIVE' => false,
-            'INTERVALS' => '[]'
+                ['Value' => false, 'Caption' => 'Hell', 'IconValue' => 'Sun', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0xFFAA00, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFAA00],
+                ['Value' => true, 'Caption' => 'Dunkel', 'IconValue' => 'Moon', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x003388, 'ContentColorActive' => false,
+                 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x003388]
+            ])
         ], 6);
 
         // === System Status ===
