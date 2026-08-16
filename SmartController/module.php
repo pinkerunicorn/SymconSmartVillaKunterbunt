@@ -52,23 +52,11 @@ class SmartController extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Drops',
             'OPTIONS' => json_encode([
-                [
-                    'Value' => false,
-                    'ConstantActive' => true, 'ConstantValue' => 'Inaktiv',
-                    'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Tap',
-                    'ColorActive' => true, 'ColorValue' => 0x808080,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ],
-                [
-                    'Value' => true,
-                    'ConstantActive' => true, 'ConstantValue' => 'Bewaessert',
-                    'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Drops',
-                    'ColorActive' => true, 'ColorValue' => 0x2196F3,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ]
-            ])
+                ['Value' => false, 'Caption' => 'Inaktiv', 'IconActive' => true, 'IconValue' => 'Tap', 'Color' => 0x808080],
+                ['Value' => true, 'Caption' => 'Bewaessert', 'IconActive' => true, 'IconValue' => 'Drops', 'Color' => 0x2196F3]
+            ]),
+            'INTERVALS_ACTIVE' => false,
+            'INTERVALS' => '[]'
         ], 5);
 
         // Darkness Status
@@ -78,23 +66,11 @@ class SmartController extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'Moon',
             'OPTIONS' => json_encode([
-                [
-                    'Value' => false,
-                    'ConstantActive' => true, 'ConstantValue' => 'Hell',
-                    'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Sun',
-                    'ColorActive' => true, 'ColorValue' => 0xFFAA00,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ],
-                [
-                    'Value' => true,
-                    'ConstantActive' => true, 'ConstantValue' => 'Dunkel',
-                    'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'Moon',
-                    'ColorActive' => true, 'ColorValue' => 0x003388,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ]
-            ])
+                ['Value' => false, 'Caption' => 'Hell', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => 0xFFAA00],
+                ['Value' => true, 'Caption' => 'Dunkel', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388]
+            ]),
+            'INTERVALS_ACTIVE' => false,
+            'INTERVALS' => '[]'
         ], 6);
 
         // === System Status ===
