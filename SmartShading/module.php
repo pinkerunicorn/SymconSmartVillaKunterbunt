@@ -44,6 +44,12 @@ class SmartShading extends IPSModuleStrict
         $this->RegisterAttributeString('CurrentState', '{}'); // Aktueller Beschattungs-Zustand pro Rollladen
         
         // Status Variablen
+        $this->RegisterVariableBoolean('Active', 'Automatik Aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
+            'ICON' => 'Power'
+        ], 0);
+        $this->EnableAction('Active');
+        
         $this->RegisterVariableBoolean('AlarmWindWarning', 'Alarm: Sturmschutz aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
             'ICON' => 'Warning'
@@ -275,7 +281,12 @@ class SmartShading extends IPSModuleStrict
     
     public function RequestAction(string $Ident, mixed $Value): void
     {
-        if ($Ident === 'AlarmWindWarning') {
+        if ($Ident === 'Active') {
+            $this->SetValue($Ident, $Value);
+            if ($Value) {
+                $this->EvaluateConditions();
+            }
+        } elseif ($Ident === 'AlarmWindWarning') {
             $this->SetValue($Ident, false);
         } elseif (strpos($Ident, 'Mode_') === 0) {
             $this->SetValue($Ident, $Value);
@@ -438,6 +449,10 @@ class SmartShading extends IPSModuleStrict
 
     public function EvaluateConditions(): void
     {
+        if (!$this->GetValue('Active')) {
+            return;
+        }
+        
         $blindsJson = $this->ReadPropertyString('BlindVariables');
         $blinds = json_decode($blindsJson, true);
         if (!is_array($blinds) || count($blinds) === 0) return;
