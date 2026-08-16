@@ -350,10 +350,9 @@ class SmartShading extends IPSModuleStrict
         }
     }
 
-    private function CalculateBlindState(array $blind, bool $isNight, bool $isHotAndBright, float $azimuth): ?float
+    private function CalculateBlindState(array $blind, bool $isNight, bool $isHotAndBright, float $azimuth, int $contactID = 0): ?float
     {
         // Fensterkontakt prüfen
-        $contactID = $blind['ContactID'] ?? 0;
         $isOpen = false;
         if ($contactID > 0 && IPS_VariableExists($contactID)) {
             $contactVal = GetValue($contactID);
@@ -520,7 +519,7 @@ class SmartShading extends IPSModuleStrict
                 $sunCount++;
             }
             
-            $targetValueFloat = $this->CalculateBlindState($blind, $isNight, $isHotAndBright, $azimuth);
+            $targetValueFloat = $this->CalculateBlindState($blind, $isNight, $isHotAndBright, $azimuth, $cid);
             
             // Re-resolve state for logging and target value (since int loses exact floats)
             // But actually we have to return int for the method signature
