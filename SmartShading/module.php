@@ -147,14 +147,14 @@ class SmartShading extends IPSModuleStrict
         $activeModeIdents = [];
         if (is_array($list_BlindVariables)) {
             foreach ($list_BlindVariables as $item) {
-                list($vid, $contactID) = $this->ResolveBlindVariables($item);
+                list($vid, $contactID, $name) = $this->ResolveBlindVariables($item);
                 if ($vid > 1 && @IPS_ObjectExists($vid)) {
                     $this->RegisterReference($vid);
                     
                     $ident = 'Mode_' . $vid;
                     $activeModeIdents[] = $ident;
-                    $name = 'Modus: ' . IPS_GetName($vid);
-                    $this->RegisterVariableInteger($ident, $name, [
+                    $modeName = 'Modus: ' . $name;
+                    $this->RegisterVariableInteger($ident, $modeName, [
                         'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
                         'OPTIONS' => json_encode([
                             ['Value' => 0, 'Caption' => 'Automatik', 'IconActive' => true, 'IconValue' => 'Robot', 'Color' => 0x00CC00],
@@ -190,10 +190,10 @@ class SmartShading extends IPSModuleStrict
                     ] : $profileName;
 
                     if ($targetVar['VariableType'] == 1) { // Integer
-                        $this->RegisterVariableInteger($posIdent, 'Pos: ' . IPS_GetName($vid), $presentation, 55);
+                        $this->RegisterVariableInteger($posIdent, 'Pos: ' . $name, $presentation, 55);
                         $this->EnableAction($posIdent);
                     } elseif ($targetVar['VariableType'] == 2) { // Float
-                        $this->RegisterVariableFloat($posIdent, 'Pos: ' . IPS_GetName($vid), $presentation, 55);
+                        $this->RegisterVariableFloat($posIdent, 'Pos: ' . $name, $presentation, 55);
                         $this->EnableAction($posIdent);
                     }
                 }
@@ -432,6 +432,7 @@ class SmartShading extends IPSModuleStrict
         $registryID = $this->ReadPropertyInteger('RegistryID');
         $vid = 0;
         $contactID = 0;
+        $name = '';
         
         if ($registryID > 1 && @IPS_ObjectExists($registryID) && function_exists('SDR_GetDevicesByType')) {
             if (isset($blind['DeviceID']) && $blind['DeviceID'] !== '' && $blind['DeviceID'] !== '0') {
@@ -439,6 +440,7 @@ class SmartShading extends IPSModuleStrict
                 foreach ($blindsMap as $b) {
                     if ($b['id'] === $blind['DeviceID']) {
                         $vid = (int)($b['OpenClose_VarID'] ?? 0);
+                        $name = (string)($b['name'] ?? '');
                         break;
                     }
                 }
@@ -458,7 +460,11 @@ class SmartShading extends IPSModuleStrict
         if ($vid === 0 && isset($blind['VariableID'])) $vid = (int)$blind['VariableID'];
         if ($contactID === 0 && isset($blind['ContactID']) && is_numeric($blind['ContactID'])) $contactID = (int)$blind['ContactID'];
         
-        return [$vid, $contactID];
+        if ($name === '' && $vid > 0 && @IPS_ObjectExists($vid)) {
+            $name = IPS_GetName($vid);
+        }
+        
+        return [$vid, $contactID, $name];
     }
 
     public function EvaluateConditions(): void
