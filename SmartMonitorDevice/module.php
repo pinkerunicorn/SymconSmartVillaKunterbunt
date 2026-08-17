@@ -171,7 +171,7 @@ class SmartMonitorDevice extends IPSModuleStrict
                             $orphanedVars[] = "$devName (Battery_VarID #$batVid fehlt)";
                         } else {
                             $val = GetValue($batVid);
-                            $statusText = 'OK';
+                            $statusText = GetValueFormatted($batVid);
                             $statusColor = '#00FF00';
                             $isLow = false;
 
@@ -179,12 +179,26 @@ class SmartMonitorDevice extends IPSModuleStrict
                                 $isLow = true;
                                 $statusText = 'SCHWACH';
                                 $statusColor = '#FF0000';
-                            } elseif (is_numeric($val) && (float)$val < $threshold) {
-                                $isLow = true;
-                                $statusText = round((float)$val) . '% (NIEDRIG)';
-                                $statusColor = '#FF0000';
                             } elseif (is_numeric($val)) {
-                                $statusText = round((float)$val) . '%';
+                                $varInfo = IPS_GetVariable($batVid);
+                                $profileName = $varInfo['VariableCustomProfile'] != '' ? $varInfo['VariableCustomProfile'] : $varInfo['VariableProfile'];
+                                $isPercent = false;
+                                
+                                if ($profileName != '') {
+                                    $profile = IPS_GetVariableProfile($profileName);
+                                    if (strpos($profile['Suffix'], '%') !== false) {
+                                        $isPercent = true;
+                                    }
+                                } elseif ($val >= 0 && $val <= 100) {
+                                    $isPercent = true;
+                                    $statusText = round((float)$val) . '%';
+                                }
+
+                                if ($isPercent && (float)$val < $threshold) {
+                                    $isLow = true;
+                                    $statusText .= ' (NIEDRIG)';
+                                    $statusColor = '#FF0000';
+                                }
                             }
 
                             if ($isLow) {
