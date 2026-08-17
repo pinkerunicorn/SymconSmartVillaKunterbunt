@@ -216,12 +216,23 @@ class SmartMonitorDevice extends IPSModuleStrict
                         } else {
                             $val = GetValue($reachVid);
                             $ident = strtoupper(IPS_GetObject($reachVid)['ObjectIdent']);
+                            $name = strtoupper(IPS_GetName($reachVid));
+                            $formatted = strtolower(GetValueFormatted($reachVid));
                             $isOffline = false;
 
-                            if ($ident === 'DEVICEAVAILABLE' && $val === false) {
+                            if (strpos($formatted, 'offline') !== false || strpos($formatted, 'nicht erreichbar') !== false || strpos($formatted, 'unreach') !== false || strpos($formatted, 'fehler') !== false) {
                                 $isOffline = true;
-                            } elseif ($ident !== 'DEVICEAVAILABLE' && $val === true) {
-                                $isOffline = true;
+                            } elseif (is_bool($val)) {
+                                $isPositiveLogic = (strpos($ident, 'AVAILABLE') !== false || strpos($ident, 'ONLINE') !== false || strpos($ident, 'CONNECTED') !== false || strpos($name, 'STATUS') !== false || strpos($ident, 'STATE') !== false || strpos($ident, 'STATUS') !== false);
+                                $isNegativeLogic = (strpos($ident, 'UNREACH') !== false || strpos($ident, 'OFFLINE') !== false || strpos($ident, 'ERROR') !== false || strpos($ident, 'FAILURE') !== false);
+                                
+                                if ($isPositiveLogic) {
+                                    $isOffline = ($val === false);
+                                } elseif ($isNegativeLogic) {
+                                    $isOffline = ($val === true);
+                                } else {
+                                    $isOffline = ($val === false);
+                                }
                             } elseif (is_string($val) && strtolower($val) === 'offline') {
                                 $isOffline = true;
                             }
