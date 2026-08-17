@@ -221,7 +221,9 @@ class SmartMonitorAlarm extends IPSModuleStrict
         $contactSensors = $this->GetRegistryContactSensors($registryId);
         foreach ($contactSensors as $sensor) {
             if (isset($sensor['Status_VarID']) && $sensor['Status_VarID'] == $SenderID) {
-                $this->CalculateOpenWindows();
+                if (empty($sensor['ExcludeFromAlarm'])) {
+                    $this->CalculateOpenWindows();
+                }
                 break;
             }
         }
@@ -265,6 +267,10 @@ class SmartMonitorAlarm extends IPSModuleStrict
         $openNames = [];
 
         foreach ($contactSensors as $sensor) {
+            if (!empty($sensor['ExcludeFromAlarm'])) {
+                continue;
+            }
+
             $id = $sensor['Status_VarID'] ?? 0;
             if ($id > 0 && IPS_VariableExists($id)) {
                 $currentVal = GetValue($id);
