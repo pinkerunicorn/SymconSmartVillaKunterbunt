@@ -243,6 +243,13 @@ class SmartLog extends IPSModuleStrict
         $this->aktualisiereVisualisierung();
     }
 
+    public function GetLatestLogs(int $count): string
+    {
+        $logs = $this->leseLogDaten();
+        $sliced = array_slice($logs, 0, $count);
+        return json_encode($sliced);
+    }
+
     public function FindInstance(): int
     {
         return $this->InstanceID;

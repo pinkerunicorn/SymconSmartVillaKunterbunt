@@ -8,7 +8,9 @@
     ],
     "parentRequirements": [],
     "childRequirements": [],
-    "implemented": [],
+    "implemented": [
+        "GetLatestLogs"
+    ],
     "prefix": "SLOG",
     "author": "Florian Gra\u00dfinger",
     "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartLog"
