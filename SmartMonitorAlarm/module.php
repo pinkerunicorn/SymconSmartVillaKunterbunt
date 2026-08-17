@@ -17,7 +17,6 @@ class SmartMonitorAlarm extends IPSModuleStrict
     // Auto-alarm sensor types from registry and their default alarm level
     private const REGISTRY_ALARM_TYPES = [
         'DevicesSmokeSensor'  => ['level' => 2, 'label' => 'Rauchmelder'],
-        'DevicesWaterSensor'  => ['level' => 2, 'label' => 'Wassermelder'],
         'DevicesAlarmSensor'  => ['level' => 2, 'label' => 'Alarmmelder'],
         'DevicesCoSensor'     => ['level' => 2, 'label' => 'CO-Melder'],
     ];
