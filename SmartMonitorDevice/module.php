@@ -265,6 +265,14 @@ class SmartMonitorDevice extends IPSModuleStrict
         $html .= $buildTable('Fehlende / Verwaiste Variablen', $htmlRowsOrphaned);
         $this->SetValue('MonitoredListHTML', $html);
 
+        $payload = [
+            'lowBatteries' => $lowBatteries,
+            'offlineDevices' => $offlineDevices,
+            'orphanedVars' => $orphanedVars,
+            'warnings' => $systemWarnings
+        ];
+        $this->UpdateVisualizationValue(json_encode($payload));
+
         if ($triggerNotification && $hasChanged && ($batCount > 0 || $offCount > 0 || $orphaCount > 0)) {
             $notifierId = $this->ReadPropertyInteger('TargetNotifier');
             if ($notifierId > 0 && @IPS_InstanceExists($notifierId)) {
@@ -280,32 +288,14 @@ class SmartMonitorDevice extends IPSModuleStrict
 
     public function GetVisualizationTile(): string
     {
-        $batCount   = $this->GetValue('LowBatteryCount');
-        $offCount   = $this->GetValue('OfflineDeviceCount');
-        $orphaCount = $this->GetValue('OrphanedVarCount');
-        $htmlList   = $this->GetValue('MonitoredListHTML');
-        $summary    = $this->GetValue('SummaryText');
-        $hasBackupWarning = strpos($summary, 'System Warnungen') !== false;
+        return file_get_contents(__DIR__ . '/module.html');
+    }
 
-        $hasIssue    = ($batCount > 0 || $offCount > 0 || $orphaCount > 0 || $hasBackupWarning);
-        $statusStyle = $hasIssue ? 'color: #ff3333; font-weight: bold;' : 'color: #33cc33; font-weight: bold;';
-        $statusText  = $hasIssue ? 'Warnungen/Fehler gefunden!' : 'Alles in bester Ordnung.';
-        
-        $warningRow = $hasBackupWarning ? "<br><span style='color:#FF9900'>$summary</span>" : "";
-
-        return <<<HTML
-<div style="font-family: sans-serif; padding: 10px;">
-    <h2>Smart Device Monitor</h2>
-    <div style="background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-        <span style="{$statusStyle}">{$statusText}</span><br>
-        Schwache Batterien: <b>{$batCount}</b> | Offline: <b>{$offCount}</b> | Verwaiste Variablen: <b>{$orphaCount}</b>{$warningRow}
-    </div>
-    <h3>Detail-Uebersicht</h3>
-    <div style="background-color: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; overflow-x: auto; max-height: 400px; overflow-y: auto;">
-        {$htmlList}
-    </div>
-</div>
-HTML;
+    public function RequestAction(string $Ident, $Value): void
+    {
+        if ($Ident === 'Init') {
+            $this->CheckHealth(false);
+        }
     }
 
     public function GetConfigurationForm(): string
