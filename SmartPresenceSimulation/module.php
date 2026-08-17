@@ -24,40 +24,40 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
         $this->RegisterVariableString('LightScheduleStatus', 'Aktueller KI-Schaltplan', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Clock'
+            'ICON'        => 'clock'
         ], 1);
         $this->RegisterVariableBoolean('GeminiError', 'Fehler aufgetreten', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Alert',
+            'ICON' => 'triangle-exclamation',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
             'SHOW_PREVIEW' => true,
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'OK', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
-                ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
+                ['Value' => false, 'Caption' => 'OK', 'IconValue' => 'bell', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
+                ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'triangle-exclamation', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
             ])
         ], 2);
         
         $this->RegisterVariableInteger('ActiveLightsCount', 'Aktive Lampen (Zähler)', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Bulb',
+            'ICON'        => 'lightbulb',
             'SUFFIX'      => ' an'
         ], 3);
         $this->RegisterVariableString('ActiveLightsList', 'Aktive Lampen (Namen)', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Bulb'
+            'ICON'        => 'lightbulb'
         ], 4);
         $this->RegisterVariableBoolean('AlarmLightsOnDuringAbsence', 'Alarm: Licht brennt bei Abwesenheit', [
             'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
-            'ICON'          => 'Warning'
+            'ICON'          => 'triangle-exclamation'
         ], 5);
         $this->EnableAction('AlarmLightsOnDuringAbsence');
 
         $this->RegisterVariableBoolean('TurnOffAllLights', 'Alle aktiven Lichter ausschalten', [
             'PRESENTATION'  => VARIABLE_PRESENTATION_SWITCH,
-            'ICON'          => 'Power'
+            'ICON'          => 'power-off'
         ], 6);
         $this->EnableAction('TurnOffAllLights');
 

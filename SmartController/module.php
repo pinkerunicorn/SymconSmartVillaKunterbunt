@@ -36,26 +36,26 @@ class SmartController extends IPSModuleStrict
         // Google Home / Alexa Interface (Boolean Toggle)
         $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Information'
+            'ICON' => 'info'
         ], 3);
         $this->EnableAction('PresenceStatus');
 
         // Global Simulation Mode (Dry Run)
         $this->RegisterVariableBoolean('GlobalSimulationMode', 'Simulationsmodus (Dry Run)', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Database'
+            'ICON' => 'flask'
         ], 4);
         $this->EnableAction('GlobalSimulationMode');
 
         // Irrigation Status (set by SmartLawnAI)
         $this->RegisterVariableBoolean('IrrigationActive', 'Bewaesserung aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Drops',
+            'ICON' => 'droplet',
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Inaktiv', 'IconValue' => 'Tap', 'IconActive' => true,
+                ['Value' => false, 'Caption' => 'Inaktiv', 'IconValue' => 'faucet', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => 0x808080, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x808080],
-                ['Value' => true, 'Caption' => 'Bewaessert', 'IconValue' => 'Drops', 'IconActive' => true,
+                ['Value' => true, 'Caption' => 'Bewaessert', 'IconValue' => 'droplet', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => 0x2196F3, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x2196F3]
             ])
@@ -66,12 +66,12 @@ class SmartController extends IPSModuleStrict
         $this->RegisterPropertyInteger('DarknessThreshold', 50);
         $this->RegisterVariableBoolean('IsDark', 'Dunkelheit', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Moon',
+            'ICON' => 'moon',
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Hell', 'IconValue' => 'Sun', 'IconActive' => true,
+                ['Value' => false, 'Caption' => 'Hell', 'IconValue' => 'sun', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => 0xFFAA00, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFAA00],
-                ['Value' => true, 'Caption' => 'Dunkel', 'IconValue' => 'Moon', 'IconActive' => true,
+                ['Value' => true, 'Caption' => 'Dunkel', 'IconValue' => 'moon', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => 0x003388, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x003388]
             ])
@@ -83,7 +83,7 @@ class SmartController extends IPSModuleStrict
                 'IntervalMinValue' => 0, 'IntervalMaxValue' => 0,
                 'ConstantActive' => true, 'ConstantValue' => 'Alles OK',
                 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                'IconActive' => true, 'IconValue' => 'Ok',
+                'IconActive' => true, 'IconValue' => 'circle-check',
                 'ColorActive' => true, 'ColorValue' => 0x00CC00,
                 'ContentColorActive' => false, 'ContentColorValue' => 0
             ],
@@ -91,7 +91,7 @@ class SmartController extends IPSModuleStrict
                 'IntervalMinValue' => 1, 'IntervalMaxValue' => 1,
                 'ConstantActive' => true, 'ConstantValue' => 'Info',
                 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                'IconActive' => true, 'IconValue' => 'Information',
+                'IconActive' => true, 'IconValue' => 'circle-info',
                 'ColorActive' => true, 'ColorValue' => 0x0088FF,
                 'ContentColorActive' => false, 'ContentColorValue' => 0
             ],
@@ -99,7 +99,7 @@ class SmartController extends IPSModuleStrict
                 'IntervalMinValue' => 2, 'IntervalMaxValue' => 2,
                 'ConstantActive' => true, 'ConstantValue' => 'Warnung',
                 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                'IconActive' => true, 'IconValue' => 'Warning',
+                'IconActive' => true, 'IconValue' => 'triangle-exclamation',
                 'ColorActive' => true, 'ColorValue' => 0xFFAA00,
                 'ContentColorActive' => false, 'ContentColorValue' => 0
             ],
@@ -107,7 +107,7 @@ class SmartController extends IPSModuleStrict
                 'IntervalMinValue' => 3, 'IntervalMaxValue' => 3,
                 'ConstantActive' => true, 'ConstantValue' => 'Alarm',
                 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0,
-                'IconActive' => true, 'IconValue' => 'Alert',
+                'IconActive' => true, 'IconValue' => 'bell',
                 'ColorActive' => true, 'ColorValue' => 0xFF0000,
                 'ContentColorActive' => false, 'ContentColorValue' => 0
             ]
@@ -121,7 +121,7 @@ class SmartController extends IPSModuleStrict
 
         $this->RegisterVariableString("SystemMessage", "Aktuelle Meldung", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information'
+            'ICON' => 'circle-info'
         ], 11);
 
         // Monitor Links
@@ -584,7 +584,7 @@ class SmartController extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
             'OPTIONS' => json_encode([
                 ['Value' => self::PRESENCE_HOME, 'Caption' => 'Zuhause', 'IconActive' => true, 'IconValue' => 'House', 'Color' => 0x00CC00],
-                ['Value' => self::PRESENCE_AWAY, 'Caption' => 'Kurz weg', 'IconActive' => true, 'IconValue' => 'Motion', 'Color' => 0xFFAA00],
+                ['Value' => self::PRESENCE_AWAY, 'Caption' => 'Kurz weg', 'IconActive' => true, 'IconValue' => 'person-running', 'Color' => 0xFFAA00],
                 ['Value' => self::PRESENCE_VACATION, 'Caption' => 'Urlaub', 'IconActive' => true, 'IconValue' => 'Suitcase', 'Color' => 0xFF4400]
             ])
         ], 1);
@@ -593,10 +593,10 @@ class SmartController extends IPSModuleStrict
         $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
             'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
             'OPTIONS' => json_encode([
-                ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => -1],
+                ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'sun', 'Color' => -1],
                 ['Value' => self::ACTIVITY_CINEMA, 'Caption' => 'Heimkino', 'IconActive' => true, 'IconValue' => 'Movie', 'Color' => 0x6644CC],
-                ['Value' => self::ACTIVITY_SLEEP, 'Caption' => 'Schlafen', 'IconActive' => true, 'IconValue' => 'Moon', 'Color' => 0x003388],
-                ['Value' => self::ACTIVITY_PARTY, 'Caption' => 'Party', 'IconActive' => true, 'IconValue' => 'Party', 'Color' => 0xFF00AA]
+                ['Value' => self::ACTIVITY_SLEEP, 'Caption' => 'Schlafen', 'IconActive' => true, 'IconValue' => 'moon', 'Color' => 0x003388],
+                ['Value' => self::ACTIVITY_PARTY, 'Caption' => 'Party', 'IconActive' => true, 'IconValue' => 'martini-glass', 'Color' => 0xFF00AA]
             ])
         ], 2);
         $this->EnableAction('ActivityMode');

@@ -31,23 +31,23 @@ class SmartMonitorDevice extends IPSModuleStrict
         // Status variables
         $this->RegisterVariableInteger('LowBatteryCount', 'Schwache Batterien', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Battery'
+            'ICON' => 'battery-quarter'
         ], 1);
         $this->RegisterVariableInteger('OfflineDeviceCount', 'Offline Geraete', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Warning'
+            'ICON' => 'link-slash'
         ], 2);
         $this->RegisterVariableInteger('OrphanedVarCount', 'Verwaiste Variablen', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Alert'
+            'ICON' => 'bell'
         ], 3);
         $this->RegisterVariableString('SummaryText', 'Status Zusammenfassung', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information'
+            'ICON' => 'info'
         ], 4);
         $this->RegisterVariableString('MonitoredListHTML', 'Ueberwachte Geraete (Uebersicht)', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Database'
+            'ICON' => 'database'
         ], 10);
 
         // Health-check timer (every 30 minutes)

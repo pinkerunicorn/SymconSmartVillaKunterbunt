@@ -43,35 +43,35 @@ class SmartMonitorAlarm extends IPSModuleStrict
         // UI Variables
         $this->RegisterVariableInteger("SystemStatus", "System Status", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Information'
+            'ICON'         => 'info'
         ], 1);
         $this->RegisterVariableInteger("ActiveAlarmsCount", "Aktive Alarme", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Warning'
+            'ICON'         => 'triangle-exclamation'
         ], 2);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('ActiveAlarmsCount'), '');
 
         $this->RegisterVariableString("LastEvent", "Letztes Ereignis", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Flag'
+            'ICON'         => 'flag'
         ], 3);
         IPS_SetVariableCustomProfile($this->GetIDForIdent('LastEvent'), '');
 
         $this->RegisterVariableBoolean("AcknowledgeAll", "Alle Alarme quittieren", [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON'         => 'Ok'
+            'ICON'         => 'circle-check'
         ], 4);
         $this->EnableAction("AcknowledgeAll");
 
         // Windows/Doors count variables
         $this->RegisterVariableInteger('OpenWindowsCount', 'Offene Fenster / Tueren (Zaehler)', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Window',
+            'ICON'         => 'window-maximize',
             'SUFFIX'       => ' offen'
         ], 5);
         $this->RegisterVariableString('OpenWindowsList', 'Offene Fenster / Tueren (Namen)', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'Information'
+            'ICON'         => 'window-maximize'
         ], 6);
     }
 
@@ -81,13 +81,13 @@ class SmartMonitorAlarm extends IPSModuleStrict
 
         // SystemStatus (Ampel)
         $intervals = json_encode([
-            ['IntervalMinValue' => 0, 'IntervalMaxValue' => 1, 'ConstantActive' => true, 'ConstantValue' => 'Alles OK', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'Ok', 'ColorActive' => true, 'ColorValue' => 0x00CC00, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
-            ['IntervalMinValue' => 1, 'IntervalMaxValue' => 2, 'ConstantActive' => true, 'ConstantValue' => 'Info / Hinweis', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'Warning', 'ColorActive' => true, 'ColorValue' => 0xFFFF00, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
-            ['IntervalMinValue' => 2, 'IntervalMaxValue' => 3, 'ConstantActive' => true, 'ConstantValue' => 'ALARM!', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'Alert', 'ColorActive' => true, 'ColorValue' => 0xFF0000, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
-            ['IntervalMinValue' => 3, 'IntervalMaxValue' => 4, 'ConstantActive' => true, 'ConstantValue' => 'ESKALATION', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'Alert', 'ColorActive' => true, 'ColorValue' => 0xFF0000, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
-            ['IntervalMinValue' => 4, 'IntervalMaxValue' => 5, 'ConstantActive' => true, 'ConstantValue' => 'VOLLALARM', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'Alert', 'ColorActive' => true, 'ColorValue' => 0xFF0000, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF]
+            ['IntervalMinValue' => 0, 'IntervalMaxValue' => 1, 'ConstantActive' => true, 'ConstantValue' => 'Alles OK', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'circle-check', 'ColorActive' => true, 'ColorValue' => 0x00CC00, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
+            ['IntervalMinValue' => 1, 'IntervalMaxValue' => 2, 'ConstantActive' => true, 'ConstantValue' => 'Info / Hinweis', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'triangle-exclamation', 'ColorActive' => true, 'ColorValue' => 0xFFFF00, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
+            ['IntervalMinValue' => 2, 'IntervalMaxValue' => 3, 'ConstantActive' => true, 'ConstantValue' => 'ALARM!', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'bell', 'ColorActive' => true, 'ColorValue' => 0xFF0000, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
+            ['IntervalMinValue' => 3, 'IntervalMaxValue' => 4, 'ConstantActive' => true, 'ConstantValue' => 'ESKALATION', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'bell', 'ColorActive' => true, 'ColorValue' => 0xFF0000, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF],
+            ['IntervalMinValue' => 4, 'IntervalMaxValue' => 5, 'ConstantActive' => true, 'ConstantValue' => 'VOLLALARM', 'ConversionFactor' => 1, 'PrefixActive' => false, 'PrefixValue' => '', 'SuffixActive' => false, 'SuffixValue' => '', 'DigitsActive' => false, 'DigitsValue' => 0, 'IconActive' => true, 'IconValue' => 'bell', 'ColorActive' => true, 'ColorValue' => 0xFF0000, 'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF]
         ]);
-        $this->RegisterVariableInteger("SystemStatus", "System Status", ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'ICON' => 'Information', 'INTERVALS_ACTIVE' => true, 'INTERVALS' => $intervals], 1);
+        $this->RegisterVariableInteger("SystemStatus", "System Status", ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'ICON' => 'info', 'INTERVALS_ACTIVE' => true, 'INTERVALS' => $intervals], 1);
 
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
@@ -124,7 +124,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
                 if (($item['AlarmLevel'] ?? 1) > 0) {
                     $ident = "Alarm_" . $vid;
                     $activeIdents[] = $ident;
-                    $this->RegisterVariableBoolean($ident, "Status: " . ($item['Message'] ?? 'Alarm'), ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
+                    $this->RegisterVariableBoolean($ident, "Status: " . ($item['Message'] ?? 'Alarm'), ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'bell'], 0);
                     $this->EnableAction($ident);
                     $varID = $this->GetIDForIdent($ident);
                     $isAlarmActive = (bool)$this->GetValue($ident);
@@ -136,7 +136,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         // Absence alarm ident
         $absenceIdent = "Alarm_" . $this->GetIDForIdent('OpenWindowsCount');
         $activeIdents[] = $absenceIdent;
-        $this->RegisterVariableBoolean($absenceIdent, "Status: Fenster/Tuer offen bei Abwesenheit", ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
+        $this->RegisterVariableBoolean($absenceIdent, "Status: Fenster/Tuer offen bei Abwesenheit", ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'bell'], 0);
         $this->EnableAction($absenceIdent);
         $varID = $this->GetIDForIdent($absenceIdent);
         IPS_SetHidden($varID, !(bool)$this->GetValue($absenceIdent));
@@ -153,7 +153,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
             $name  = ($sensor['room'] ?? '') . ': ' . ($sensor['name'] ?? '');
             $ident = "Alarm_" . $vid;
             $activeIdents[] = $ident;
-            $this->RegisterVariableBoolean($ident, "Status: $name", ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'Alert'], 0);
+            $this->RegisterVariableBoolean($ident, "Status: $name", ['PRESENTATION' => VARIABLE_PRESENTATION_SWITCH, 'ICON' => 'bell'], 0);
             $this->EnableAction($ident);
             $varID = $this->GetIDForIdent($ident);
             IPS_SetHidden($varID, !(bool)$this->GetValue($ident));

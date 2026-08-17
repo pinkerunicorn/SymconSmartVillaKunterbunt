@@ -97,7 +97,7 @@ class SmartEntrance extends IPSModuleStrict
         }
         $this->RegisterVariableBoolean('MailboxState', 'Briefkasten', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Mailbox',
+            'ICON' => 'mailbox',
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
             'SHOW_PREVIEW' => true,
@@ -113,15 +113,15 @@ class SmartEntrance extends IPSModuleStrict
         
         $this->RegisterVariableBoolean('Doorbell1', 'Klingel 1', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Bell',
+            'ICON' => 'bell',
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
             'SHOW_PREVIEW' => true,
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Ruhe', 'IconValue' => 'Bell', 'IconActive' => true,
+                ['Value' => false, 'Caption' => 'Ruhe', 'IconValue' => 'bell', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => -1, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-                ['Value' => true, 'Caption' => 'Klingelt', 'IconValue' => 'Bell', 'IconActive' => true,
+                ['Value' => true, 'Caption' => 'Klingelt', 'IconValue' => 'bell', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
             ])
@@ -129,15 +129,15 @@ class SmartEntrance extends IPSModuleStrict
         
         $this->RegisterVariableBoolean('Doorbell2', 'Klingel 2', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Bell',
+            'ICON' => 'bell',
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
             'SHOW_PREVIEW' => true,
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Ruhe', 'IconValue' => 'Bell', 'IconActive' => true,
+                ['Value' => false, 'Caption' => 'Ruhe', 'IconValue' => 'bell', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => -1, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-                ['Value' => true, 'Caption' => 'Klingelt', 'IconValue' => 'Bell', 'IconActive' => true,
+                ['Value' => true, 'Caption' => 'Klingelt', 'IconValue' => 'bell', 'IconActive' => true,
                  'ColorActive' => true, 'ColorDisplay' => 0xFF4400, 'ContentColorActive' => false,
                  'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF4400]
             ])

@@ -103,7 +103,7 @@ class SmartGarage extends IPSModuleStrict
                 'PrefixActive' => false, 'PrefixValue' => '',
                 'SuffixActive' => false, 'SuffixValue' => '',
                 'DigitsActive' => false, 'DigitsValue' => 0,
-                'IconActive' => true, 'IconValue' => 'Warning',
+                'IconActive' => true, 'IconValue' => 'triangle-exclamation',
                 'ColorActive' => true, 'ColorValue' => 0xFF8000,
                 'ContentColorActive' => false, 'ContentColorValue' => 0
             ]
@@ -111,17 +111,17 @@ class SmartGarage extends IPSModuleStrict
 
         $this->RegisterVariableInteger('DoorState', 'Torstatus', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Garage',
+            'ICON' => 'warehouse',
             'INTERVALS_ACTIVE' => true,
             'INTERVALS' => $doorIntervals
         ], 1);
         $this->RegisterVariableBoolean('DoorControl', 'Tor Steuerung', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Window'
+            'ICON' => 'window-maximize'
         ], 2);
         $this->RegisterVariableBoolean('AlarmOpenTooLong', 'Alarm: Tor zu lange offen', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Warning'
+            'ICON' => 'triangle-exclamation'
         ], 3);
         
         $this->EnableAction('DoorControl');

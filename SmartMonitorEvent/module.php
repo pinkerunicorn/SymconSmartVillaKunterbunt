@@ -28,11 +28,11 @@ class SmartMonitorEvent extends IPSModuleStrict
         // Variables
         $this->RegisterVariableInteger("ActiveEventsCount", "Aktive Ereignisse", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information'
+            'ICON' => 'bell'
         ], 1);
         $this->RegisterVariableString("LastEvent", "Letztes Ereignis", [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Mail'
+            'ICON' => 'envelope'
         ], 2);
     }
 

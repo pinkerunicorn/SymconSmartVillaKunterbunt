@@ -30,31 +30,31 @@ class SmartBriefing extends IPSModuleStrict
         // Variablen (UI)
         $this->RegisterVariableBoolean('GenerateBriefing', 'Briefing jetzt generieren', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Script'
+            'ICON' => 'envelope-open-text'
         ], 1);
         $this->EnableAction('GenerateBriefing');
 
         $this->RegisterVariableString('BriefingText', 'Aktuelles Briefing', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Information'
+            'ICON' => 'sparkles'
         ], 2);
 
         $this->RegisterVariableString('LastPrompt', 'Zuletzt gesendeter Prompt', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Script'
+            'ICON' => 'envelope-open-text'
         ], 3);
 
         $this->RegisterVariableBoolean('GeminiError', 'Fehler aufgetreten', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Alert',
+            'ICON' => 'triangle-exclamation',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
             'SHOW_PREVIEW' => true,
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'OK', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
-                ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'Alert', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
+                ['Value' => false, 'Caption' => 'OK', 'IconValue' => 'bell', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x00CC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x00CC00],
+                ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'triangle-exclamation', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
             ])
         ], 3);
     }

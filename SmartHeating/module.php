@@ -66,52 +66,52 @@ class SmartHeating extends IPSModuleStrict
         // GUI Variables
         $this->RegisterVariableString('HeatingStatus', 'Status', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Information'
+            'ICON'        => 'info'
         ], 1);
         
         $this->RegisterVariableFloat('AverageTemperature', 'Durchschnitt Haus-Temperatur', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Temperature',
+            'ICON'        => 'temperature-half',
             'SUFFIX'      => '°C'
         ], 2);
         
         $this->RegisterVariableFloat('OutdoorTempAvg', 'Durchschnitt Aussen-Temperatur', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Temperature',
+            'ICON'        => 'temperature-half',
             'SUFFIX'      => '°C'
         ], 3);
 
         $this->RegisterVariableString('ActiveOverrides', 'Aktive Ueberschreibungen', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Information'
+            'ICON'        => 'circle-info'
         ], 4);
         
         $this->RegisterVariableFloat('BoilerFlowTemp', 'Kessel Vorlauftemperatur', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Temperature',
+            'ICON'        => 'temperature-half',
             'SUFFIX'      => '°C'
         ], 5);
         
         $this->RegisterVariableFloat('BoilerReturnTemp', 'Kessel Ruecklauftemperatur', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Temperature',
+            'ICON'        => 'temperature-half',
             'SUFFIX'      => '°C'
         ], 6);
         
         $this->RegisterVariableBoolean('BoilerActive', 'Brenner aktiv', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Flame'
+            'ICON'        => 'fire-flame-curved'
         ], 7);
 
         $this->RegisterVariableBoolean('HeatingSeason', 'Heizperiode aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Snowflake'
+            'ICON' => 'snowflake'
         ], 10);
         $this->EnableAction('HeatingSeason');
         
         $this->RegisterVariableBoolean('IsAbsenkbetrieb', 'Absenkbetrieb', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Temperature',
+            'ICON' => 'temperature-arrow-down',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0,
@@ -125,13 +125,13 @@ class SmartHeating extends IPSModuleStrict
         
         $this->RegisterVariableBoolean('AlarmFrostWarning', 'Alarm Frostgefahr', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Warning'
+            'ICON' => 'icicles'
         ], 20);
         $this->EnableAction('AlarmFrostWarning');
         
         $this->RegisterVariableBoolean('BoostActive', 'Global Boost', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Flame'
+            'ICON' => 'fire'
         ], 25);
         $this->EnableAction('BoostActive');
 

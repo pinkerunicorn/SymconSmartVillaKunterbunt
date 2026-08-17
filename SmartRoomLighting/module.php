@@ -39,7 +39,7 @@ class SmartRoomLighting extends IPSModuleStrict
         // === State ===
         $this->RegisterVariableBoolean('MasterSwitch', 'Raum Ein/Aus', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Light'
+            'ICON' => 'lightbulb'
         ], 1);
         $this->EnableAction('MasterSwitch');
 
@@ -224,7 +224,7 @@ class SmartRoomLighting extends IPSModuleStrict
             
             $this->RegisterVariableBoolean($ident, 'Szene: ' . $sceneName, [
                 'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-                'ICON' => 'Script'
+                'ICON' => 'file-code'
             ], 10);
             $this->EnableAction($ident);
         }

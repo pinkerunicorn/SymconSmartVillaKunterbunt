@@ -46,54 +46,54 @@ class SmartShading extends IPSModuleStrict
         // Status Variablen
         $this->RegisterVariableBoolean('Active', 'Automatik Aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Power'
+            'ICON' => 'power-off'
         ], 0);
         $this->EnableAction('Active');
         
         $this->RegisterVariableBoolean('AlarmWindWarning', 'Alarm: Sturmschutz aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_SWITCH,
-            'ICON' => 'Warning'
+            'ICON' => 'wind'
         ], 1);
         $this->EnableAction('AlarmWindWarning');
         
         $this->RegisterVariableInteger('ActiveShadingCount', 'Schatten aktiv (Anzahl)', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'WindowBlind'
+            'ICON'        => 'blinds'
         ], 2);
         
         $this->RegisterVariableBoolean('StatusIsNight', 'Status: Es ist Nacht', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Moon',
+            'ICON' => 'moon',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
             'SHOW_PREVIEW' => true,
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Tag', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFFCC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFCC00],
-                ['Value' => true, 'Caption' => 'Nacht', 'IconValue' => 'Moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x003399, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x003399]
+                ['Value' => false, 'Caption' => 'Tag', 'IconValue' => 'moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFFCC00, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFFCC00],
+                ['Value' => true, 'Caption' => 'Nacht', 'IconValue' => 'moon', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0x003399, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0x003399]
             ])
         ], 10);
         $this->RegisterVariableBoolean('StatusIsHotAndBright', 'Status: Hitze & Helligkeit erreicht', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'Sun',
+            'ICON' => 'sun',
             'COLOR' => -1,
             'CONTENT_COLOR' => -1,
             'DISPLAY_TYPE' => 0,
             'PREVIEW_STYLE' => 1,
             'SHOW_PREVIEW' => true,
             'OPTIONS' => json_encode([
-                ['Value' => false, 'Caption' => 'Normal', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
-                ['Value' => true, 'Caption' => 'Heiss & hell!', 'IconValue' => 'Sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF6600, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF6600]
+                ['Value' => false, 'Caption' => 'Normal', 'IconValue' => 'sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => -1, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => -1],
+                ['Value' => true, 'Caption' => 'Heiss & hell!', 'IconValue' => 'sun', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF6600, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF6600]
             ])
         ], 11);
         $this->RegisterVariableInteger('StatusSunInSectorCount', 'Status: Rollläden in der Sonne (Anzahl)', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'        => 'Count'
+            'ICON'        => 'hashtag'
         ], 12);
         $this->RegisterVariableInteger('StatusLastEvaluation', 'Status: Letzte Berechnung', [
             'PRESENTATION'=> VARIABLE_PRESENTATION_DATE_TIME,
-            'ICON'        => 'Clock'
+            'ICON'        => 'clock'
         ], 13);
         
         // Timer für Evaluierung (alle 3 Minuten)
@@ -157,11 +157,11 @@ class SmartShading extends IPSModuleStrict
                     $this->RegisterVariableInteger($ident, $modeName, [
                         'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
                         'OPTIONS' => json_encode([
-                            ['Value' => 0, 'Caption' => 'Automatik', 'IconActive' => true, 'IconValue' => 'Robot', 'Color' => 0x00CC00],
+                            ['Value' => 0, 'Caption' => 'Automatik', 'IconActive' => true, 'IconValue' => 'robot', 'Color' => 0x00CC00],
                             ['Value' => 1, 'Caption' => 'Manuell: Auf', 'IconActive' => true, 'IconValue' => 'ArrowUp', 'Color' => 0x3366FF],
                             ['Value' => 2, 'Caption' => 'Manuell: Zu', 'IconActive' => true, 'IconValue' => 'ArrowDown', 'Color' => 0x3366FF],
-                            ['Value' => 3, 'Caption' => 'Manuell: Schatten', 'IconActive' => true, 'IconValue' => 'Sun', 'Color' => 0x3366FF],
-                            ['Value' => 4, 'Caption' => 'Manuell: Position', 'IconActive' => true, 'IconValue' => 'Menu', 'Color' => 0x3366FF]
+                            ['Value' => 3, 'Caption' => 'Manuell: Schatten', 'IconActive' => true, 'IconValue' => 'sun', 'Color' => 0x3366FF],
+                            ['Value' => 4, 'Caption' => 'Manuell: Position', 'IconActive' => true, 'IconValue' => 'bars', 'Color' => 0x3366FF]
                         ])
                     ], 50);
                     $this->EnableAction($ident);
