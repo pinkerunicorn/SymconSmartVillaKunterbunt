@@ -53,8 +53,6 @@ class SmartRoomLighting extends IPSModuleStrict
             $this->RegisterTimer("DoorOffTimer_$i", 0, 'SRL_ProcessDoorOff($_IPS[\'TARGET\'], ' . $i . ');');
             $this->RegisterTimer("TwilightTimer_$i", 0, 'SRL_ProcessTwilightTrigger($_IPS[\'TARGET\'], ' . $i . ');');
         }
-
-        $this->DR_Register('DevicesGenericSensor');
     }
 
     public function Destroy(): void
@@ -72,6 +70,7 @@ class SmartRoomLighting extends IPSModuleStrict
         // --- References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
+        $this->DR_Register('DevicesGenericSensor');
         }
 
         $this->registerPropertyReference('RegistryID');

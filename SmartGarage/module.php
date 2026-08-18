@@ -131,8 +131,6 @@ class SmartGarage extends IPSModuleStrict
         
         $this->EnableAction('DoorControl');
         $this->EnableAction('AlarmOpenTooLong'); // Allow acknowledging
-        
-        $this->DR_Register('DevicesContactSensor');
     }
 
     public function Destroy(): void
@@ -150,6 +148,7 @@ class SmartGarage extends IPSModuleStrict
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
+        $this->DR_Register('DevicesContactSensor');
         }
         $ref_MotorVariableID = $this->ReadPropertyInteger('MotorVariableID');
         if ($ref_MotorVariableID > 1 && @IPS_ObjectExists($ref_MotorVariableID)) {

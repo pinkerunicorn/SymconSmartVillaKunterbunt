@@ -65,8 +65,6 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
         $this->RegisterTimer('LightExecutionTimer', 0, 'SPS_CheckAndExecuteLightSchedule($_IPS[\'TARGET\']);');
         $this->RegisterTimer('GeminiRetryTimer', 0, 'SPS_GenerateAiSchedule($_IPS[\'TARGET\'], true);');
-
-        $this->DR_Register('DevicesGenericSensor');
     }
 
     public function Destroy(): void
@@ -82,6 +80,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
+        $this->DR_Register('DevicesGenericSensor');
         }
         $ref_SunsetVariableID = $this->ReadPropertyInteger('SunsetVariableID');
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {

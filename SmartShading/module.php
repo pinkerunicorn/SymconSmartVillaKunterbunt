@@ -103,8 +103,6 @@ class SmartShading extends IPSModuleStrict
         
         // Timer für Evaluierung (alle 3 Minuten)
         $this->RegisterTimer('ShadingEvaluator', 0, 'SHSH_EvaluateConditions($_IPS[\'TARGET\']);');
-        
-        $this->DR_Register('DevicesBlind');
     }
 
     public function Destroy(): void
@@ -123,6 +121,7 @@ class SmartShading extends IPSModuleStrict
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
+        $this->DR_Register('DevicesBlind');
         }
         $ref_AzimuthVariableID = $this->ReadPropertyInteger('AzimuthVariableID');
         if ($ref_AzimuthVariableID > 1 && @IPS_ObjectExists($ref_AzimuthVariableID)) {

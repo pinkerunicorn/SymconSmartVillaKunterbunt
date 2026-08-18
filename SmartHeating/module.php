@@ -143,8 +143,6 @@ class SmartHeating extends IPSModuleStrict
         $this->RegisterTimer('SeasonCheckTimer', 0, 'SHH_CheckSeason($_IPS["TARGET"]);');
         $this->RegisterTimer('WindowCheckTimer', 0, 'SHH_CheckWindowDebounce($_IPS["TARGET"]);');
         $this->RegisterTimer('BoostEndTimer', 0, 'SHH_EndBoost($_IPS["TARGET"]);');
-        
-        $this->DR_Register('DevicesThermostat');
     }
 
     public function Destroy(): void
@@ -162,6 +160,7 @@ class SmartHeating extends IPSModuleStrict
         
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
+        $this->DR_Register('DevicesThermostat');
         }
         
         $regId = $this->ReadPropertyInteger('RegistryID');

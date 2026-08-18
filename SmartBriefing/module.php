@@ -14,8 +14,11 @@ require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
  * @author Florian Graßinger
  * @url https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartBriefing
  */
+require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
+
 class SmartBriefing extends IPSModuleStrict
 {
+    use DeviceAvailability_Trait;
     use DeviceRegistration_Trait;
     use SmartLog_Trait;
     use CentralStateAware_Trait;
@@ -24,6 +27,7 @@ class SmartBriefing extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
+        $this->DA_RegisterAvailability(900);
         $this->RegisterPropertyInteger('RegistryID', 0);
 
         // Konfiguration
@@ -62,8 +66,6 @@ class SmartBriefing extends IPSModuleStrict
                 ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'triangle-exclamation', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
             ])
         ], 3);
-
-        $this->DR_Register('DevicesGenericSensor');
     }
 
     public function Destroy(): void
@@ -75,11 +77,14 @@ class SmartBriefing extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->DA_ApplyPresentation();
+        $this->DA_SetAvailable(true);
 
         $this->SubscribeToCentralStates(['ActivityMode']);
 
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
+        $this->DR_Register('DevicesGenericSensor');
         }
 
         $notifierId = $this->DR_GetNotifierID();

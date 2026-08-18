@@ -30,8 +30,6 @@ class SmartSequencer extends IPSModuleStrict
         
         // Timer für die Ausführung der Warteschlange
         $this->RegisterTimer('QueueTimer', 0, 'SHSQ_ProcessQueue($_IPS[\'TARGET\']);');
-
-        $this->DR_Register('DevicesGenericSensor');
     }
 
     public function Destroy(): void
@@ -44,6 +42,7 @@ class SmartSequencer extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->ProcessQueue();
+        $this->DR_Register('DevicesGenericSensor');
     }
 
     public function RunSequence(): void

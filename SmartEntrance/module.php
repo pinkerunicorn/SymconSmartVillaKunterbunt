@@ -149,8 +149,6 @@ class SmartEntrance extends IPSModuleStrict
         ], 3);
         
         // No EnableAction on Doorbells - Read Only for Visu/History
-        
-        $this->DR_Register('DevicesContactSensor');
     }
 
     public function Destroy(): void
@@ -169,6 +167,7 @@ class SmartEntrance extends IPSModuleStrict
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
+        $this->DR_Register('DevicesContactSensor');
         }
         $properties = [
             'SourceMailboxFlap', 'SourceMailboxDoor', 
