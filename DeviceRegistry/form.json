@@ -1430,6 +1430,28 @@
           ]
         }
       ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Automatisch registrierte Geräte (Leseansicht)",
+      "items": [
+        {
+          "type": "List",
+          "name": "AutoRegisteredList",
+          "caption": "Geräte aus Auto-Discovery und autarken Modulen",
+          "add": false,
+          "delete": false,
+          "edit": false,
+          "rowCount": 20,
+          "columns": [
+            { "name": "source", "caption": "Quelle", "width": "100px" },
+            { "name": "type", "caption": "Erkannter Typ", "width": "200px" },
+            { "name": "name", "caption": "Name", "width": "300px" },
+            { "name": "room", "caption": "Raum", "width": "150px" },
+            { "name": "variablesSummary", "caption": "Zugeordnete Variablen (IDs)", "width": "800px" }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -250,6 +250,24 @@ class SymconDeviceRegistry extends IPSModuleStrict
                                     }
                                     unset($col);
                                 }
+                            } elseif ($item['name'] === 'AutoRegisteredList') {
+                                $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
+                                if ($autoJson === false || $autoJson === '') $autoJson = '[]';
+                                $autoDevices = json_decode((string)$autoJson, true);
+                                if (is_array($autoDevices)) {
+                                    $values = [];
+                                    foreach ($autoDevices as $dev) {
+                                        $varStrs = [];
+                                        if (isset($dev['variables']) && is_array($dev['variables'])) {
+                                            foreach ($dev['variables'] as $k => $v) {
+                                                if ($v > 0) $varStrs[] = str_replace('_VarID', '', $k) . ': ' . $v;
+                                            }
+                                        }
+                                        $dev['variablesSummary'] = implode(', ', $varStrs);
+                                        $values[] = $dev;
+                                    }
+                                    $item['values'] = $values;
+                                }
                             } elseif (str_starts_with($item['name'], 'Devices')) {
                                 // Inject Room Options
                                 if (isset($item['columns'])) {
