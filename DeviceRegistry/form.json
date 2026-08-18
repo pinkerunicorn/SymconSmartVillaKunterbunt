@@ -6,6 +6,23 @@
     },
     {
       "type": "ExpansionPanel",
+      "caption": "Haus-Konfiguration",
+      "items": [
+        {
+          "type": "SelectModule",
+          "name": "ControllerID",
+          "caption": "SmartController dieses Hauses",
+          "moduleID": "{460D7C60-0766-4534-BFD8-5920737B1845}",
+          "width": "400px"
+        },
+        {
+          "type": "Label",
+          "caption": "Bei nur einem Haus wird der Controller automatisch erkannt."
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
       "caption": "Räume & Gebäude",
       "items": [
         {

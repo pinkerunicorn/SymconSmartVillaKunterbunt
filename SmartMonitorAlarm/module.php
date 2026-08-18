@@ -6,6 +6,7 @@ require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 class SmartMonitorAlarm extends IPSModuleStrict
 {
@@ -13,6 +14,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
+    use RegistryAware_Trait;
 
     // Auto-alarm sensor types from registry and their default alarm level
     private const REGISTRY_ALARM_TYPES = [
@@ -91,7 +93,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
         }
-        $notifier = $this->ReadPropertyInteger('TargetNotifier');
+        $notifier = $this->DR_GetNotifierID();
         if ($notifier > 1 && @IPS_ObjectExists($notifier)) {
             $this->RegisterReference($notifier);
         }
@@ -314,7 +316,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
 
     private function dispatchNotification(string $title, string $msg, int $priority): void
     {
-        $notifier = $this->ReadPropertyInteger('TargetNotifier');
+        $notifier = $this->DR_GetNotifierID();
         if ($notifier > 0 && @IPS_InstanceExists($notifier)) {
             $payload = json_encode(['Title' => $title, 'Message' => $msg, 'Priority' => $priority]);
             @NOTIFY_SendEvent($notifier, $payload);
@@ -580,7 +582,7 @@ $monitoredMap = [];
         
         $elements[] = [
             "type" => "ExpansionPanel",
-            "caption" => "🛡️ Automatisch überwachte Sensoren (Aus der Registry)",
+            "caption" => "Automatisch ueberwachte Sensoren (Aus der Registry)",
             "items" => [
                 [
                     "type" => "Label",
@@ -606,17 +608,11 @@ $monitoredMap = [];
         
         $elements[] = [
             "type" => "ExpansionPanel",
-            "caption" => "📢 Notifier & Eskalation",
+            "caption" => "Notifier & Eskalation",
             "items" => [
                 [
                     "type" => "Label",
-                    "caption" => "Wähle hier die Ziele für die Alarmierung aus."
-                ],
-                [ 
-                    "type" => "SelectModule", 
-                    "name" => "TargetNotifier", 
-                    "caption" => "SmartNotifier Instanz", 
-                    "moduleID" => "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}" 
+                    "caption" => "Eskalationszeiten konfigurieren:"
                 ],
                 [
                     "type" => "Label",

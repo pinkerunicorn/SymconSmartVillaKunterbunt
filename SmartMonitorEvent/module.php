@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 /**
  * SmartMonitorEvent
@@ -14,6 +15,7 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 class SmartMonitorEvent extends IPSModuleStrict
 {
     use SmartLog_Trait;
+    use RegistryAware_Trait;
 
     public function Create(): void
     {
@@ -50,12 +52,6 @@ class SmartMonitorEvent extends IPSModuleStrict
                     'name' => 'RegistryID',
                     'caption' => 'Device Registry',
                     'moduleID' => '{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}'
-                ],
-                [
-                    'type' => 'SelectModule',
-                    'name' => 'TargetNotifier',
-                    'caption' => 'SmartNotifier Instanz',
-                    'moduleID' => '{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}'
                 ]
             ]
         ];
@@ -85,7 +81,7 @@ class SmartMonitorEvent extends IPSModuleStrict
 
         $form['elements'][] = [
             'type' => 'ExpansionPanel',
-            'caption' => '📅 Haus-Ereignisse & Komfort',
+            'caption' => 'Haus-Ereignisse & Komfort',
             'items' => [
                 [
                     'type' => 'Label',
@@ -198,7 +194,7 @@ class SmartMonitorEvent extends IPSModuleStrict
         }
 
         // TargetNotifier Reference
-        $notifierId = $this->ReadPropertyInteger('TargetNotifier');
+        $notifierId = $this->DR_GetNotifierID();
         if ($notifierId > 1 && IPS_InstanceExists($notifierId)) {
             $this->RegisterReference($notifierId);
         }
@@ -298,7 +294,7 @@ class SmartMonitorEvent extends IPSModuleStrict
             $this->SetValue('LastEvent', $messageText);
 
             if ($eventVarID === false) {
-                $eventVarID = $this->RegisterVariableBoolean($ident, "🔔 " . $messageText, "~Switch", 10);
+                $eventVarID = $this->RegisterVariableBoolean($ident, $messageText, "", 10);
                 $this->EnableAction($ident);
             }
             $this->SetValue($ident, true);
@@ -349,7 +345,7 @@ class SmartMonitorEvent extends IPSModuleStrict
 
     private function SendToNotifier(array $event, string $message, int $level): void
     {
-        $notifierId = $this->ReadPropertyInteger('TargetNotifier');
+        $notifierId = $this->DR_GetNotifierID();
         if ($notifierId <= 1 || !IPS_InstanceExists($notifierId)) return;
 
         $targetPush = (bool)($event['TargetPush'] ?? false);

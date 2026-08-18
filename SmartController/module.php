@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 class SmartController extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
+    use RegistryAware_Trait;
 
     // PresenceMode constants
     private const PRESENCE_HOME     = 0;
@@ -29,6 +31,7 @@ class SmartController extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
+        $this->RegisterPropertyInteger('RegistryID', 0);
 
         // === Main Axes ===
         $this->registerModeVariables();
@@ -204,8 +207,17 @@ class SmartController extends IPSModuleStrict
         $this->UnregisterVariable('AlarmLevel');
 
         // References for Monitors
-        foreach (['MonitorAlarmID', 'MonitorDeviceID', 'MonitorEventID', 'MonitorPresenceID'] as $prop) {
-            $id = $this->ReadPropertyInteger($prop);
+        $monitorGuids = [
+            'MonitorAlarmID' => '{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}',
+            'MonitorDeviceID' => '{4574D58D-2DC0-4E16-92DC-16D9CD27D014}',
+            'MonitorEventID' => '{72F8B3A1-C994-4E60-A54D-B591D8E72C42}',
+            'MonitorPresenceID' => '{E3405EEF-3ECA-4105-9658-47103378E206}'
+        ];
+        foreach ($monitorGuids as $prop => $guid) {
+            $id = $this->discoverMonitorID($guid);
+            if ($id === 0) {
+                $id = $this->ReadPropertyInteger($prop);
+            }
             if ($id > 1 && @IPS_InstanceExists($id)) {
                 $this->RegisterReference($id);
                 // Subscribe to all variables of the monitor instance
@@ -274,7 +286,8 @@ class SmartController extends IPSModuleStrict
         $messages = [];
 
         // 1. Check Alarms (Prio 3 - Red)
-        $alarmId = $this->ReadPropertyInteger('MonitorAlarmID');
+        $alarmId = $this->discoverMonitorID('{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}');
+        if ($alarmId === 0) $alarmId = $this->ReadPropertyInteger('MonitorAlarmID');
         if ($alarmId > 1 && @IPS_InstanceExists($alarmId)) {
             $vid = @IPS_GetObjectIDByIdent('ActiveAlarmsCount', $alarmId);
             if ($vid !== false && GetValue($vid) > 0) {
@@ -285,7 +298,8 @@ class SmartController extends IPSModuleStrict
         }
 
         // 2. Check Events (Prio 2 - Yellow)
-        $eventId = $this->ReadPropertyInteger('MonitorEventID');
+        $eventId = $this->discoverMonitorID('{72F8B3A1-C994-4E60-A54D-B591D8E72C42}');
+        if ($eventId === 0) $eventId = $this->ReadPropertyInteger('MonitorEventID');
         if ($eventId > 1 && @IPS_InstanceExists($eventId)) {
             $vid = @IPS_GetObjectIDByIdent('ActiveEventsCount', $eventId);
             if ($vid !== false && GetValue($vid) > 0) {
@@ -296,7 +310,8 @@ class SmartController extends IPSModuleStrict
         }
 
         // 3. Check Devices (Prio 1 - Blue)
-        $deviceId = $this->ReadPropertyInteger('MonitorDeviceID');
+        $deviceId = $this->discoverMonitorID('{4574D58D-2DC0-4E16-92DC-16D9CD27D014}');
+        if ($deviceId === 0) $deviceId = $this->ReadPropertyInteger('MonitorDeviceID');
         if ($deviceId > 1 && @IPS_InstanceExists($deviceId)) {
             $offlineVid = @IPS_GetObjectIDByIdent('OfflineDeviceCount', $deviceId);
             $batteryVid = @IPS_GetObjectIDByIdent('LowBatteryCount', $deviceId);
@@ -310,7 +325,8 @@ class SmartController extends IPSModuleStrict
         }
 
         // 4. Check Presence Simulation (Prio 2 - Yellow)
-        $presenceId = $this->ReadPropertyInteger('MonitorPresenceID');
+        $presenceId = $this->discoverMonitorID('{E3405EEF-3ECA-4105-9658-47103378E206}');
+        if ($presenceId === 0) $presenceId = $this->ReadPropertyInteger('MonitorPresenceID');
         if ($presenceId > 1 && @IPS_InstanceExists($presenceId)) {
             $errId = @IPS_GetObjectIDByIdent('GeminiError', $presenceId);
             if ($errId !== false && GetValue($errId)) {
@@ -578,6 +594,27 @@ class SmartController extends IPSModuleStrict
     // =========================================================================
     // Private Helpers
 
+    private function discoverMonitorID(string $moduleGUID): int {
+        $myRegistryID = $this->DR_GetRegistryID();
+        $all = @IPS_GetInstanceListByModuleID($moduleGUID);
+        if (!is_array($all)) return 0;
+        
+        // Bei nur 1 Instanz: direkt verwenden
+        if (count($all) === 1) return $all[0];
+        
+        // Multi-House: Filtere auf gleiche RegistryID
+        if ($myRegistryID > 0) {
+            foreach ($all as $id) {
+                try {
+                    if (@IPS_GetProperty($id, 'RegistryID') === $myRegistryID) return $id;
+                } catch (\Throwable $e) {}
+            }
+        }
+        
+        // Fallback: Alte Property
+        return 0;
+    }
+
     private function registerModeVariables(): void
     {
         $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
@@ -692,30 +729,6 @@ class SmartController extends IPSModuleStrict
                 {
                     "type": "Label",
                     "caption": "Verknüpfe hier die drei Monitore. Daraus wird automatisch die System-Ampel und die aktuelle Status-Meldung generiert."
-                },
-                {
-                    "type": "SelectModule",
-                    "name": "MonitorAlarmID",
-                    "caption": "Smart Monitor Alarm",
-                    "moduleID": "{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}"
-                },
-                {
-                    "type": "SelectModule",
-                    "name": "MonitorDeviceID",
-                    "caption": "Smart Monitor Device",
-                    "moduleID": "{4574D58D-2DC0-4E16-92DC-16D9CD27D014}"
-                },
-                {
-                    "type": "SelectModule",
-                    "name": "MonitorEventID",
-                    "caption": "Smart Monitor Event",
-                    "moduleID": "{72F8B3A1-C994-4E60-A54D-B591D8E72C42}"
-                },
-                {
-                    "type": "SelectModule",
-                    "name": "MonitorPresenceID",
-                    "caption": "Smart Presence Simulation",
-                    "moduleID": "{E3405EEF-3ECA-4105-9658-47103378E206}"
                 }
             ]
         },

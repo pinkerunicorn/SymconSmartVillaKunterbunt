@@ -29,9 +29,22 @@ if (!trait_exists('HardwareControl_Trait')) {
         {
             // 1. Prüfe globalen Simulationsmodus im SmartController
             $globalSimulation = false;
-            $ctrlInstances = @IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
-            if (is_array($ctrlInstances) && count($ctrlInstances) > 0) {
-                $ctrlId = $ctrlInstances[0];
+            
+            // Multi-House-Discovery: Nutze RegistryAware_Trait wenn verfügbar
+            $ctrlId = 0;
+            if (method_exists($this, 'DR_GetControllerID')) {
+                $ctrlId = $this->DR_GetControllerID();
+            }
+            
+            // Fallback: GUID-Lookup
+            if ($ctrlId === 0) {
+                $ctrlInstances = @IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
+                if (is_array($ctrlInstances) && count($ctrlInstances) > 0) {
+                    $ctrlId = $ctrlInstances[0];
+                }
+            }
+            
+            if ($ctrlId > 0) {
                 $varId = @IPS_GetObjectIDByIdent('GlobalSimulationMode', $ctrlId);
                 if ($varId !== false) {
                     $globalSimulation = (bool)GetValue($varId);

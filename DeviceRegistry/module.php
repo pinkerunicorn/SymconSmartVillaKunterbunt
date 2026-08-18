@@ -22,6 +22,9 @@ class SymconDeviceRegistry extends IPSModuleStrict
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
         $this->RegisterPropertyInteger('SunriseVariableID', 0);
 
+        // Haus-Konfiguration (Multi-House Service-Locator)
+        $this->RegisterPropertyInteger('ControllerID', 0);
+
         // Aktorik
         $this->RegisterPropertyString('DevicesSwitch', '[]');
         
@@ -613,5 +616,27 @@ class SymconDeviceRegistry extends IPSModuleStrict
             'hasPower'       => ($variables['Power_VarID'] ?? 0) > 0,
             'hasStatus'      => ($variables['Status_VarID'] ?? 0) > 0,
         ];
+    }
+
+    /**
+     * Gibt die SmartController-InstanceID dieses Hauses zurück.
+     * Wird von RegistryAware_Trait über SDR_GetControllerID() aufgerufen.
+     *
+     * @return int ControllerID oder 0
+     */
+    public function GetControllerID(): int
+    {
+        $id = $this->ReadPropertyInteger('ControllerID');
+        if ($id > 0 && @IPS_InstanceExists($id)) {
+            return $id;
+        }
+
+        // Fallback: Wenn nur 1 Controller existiert, diesen verwenden
+        $ids = @IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
+        if (is_array($ids) && count($ids) === 1) {
+            return $ids[0];
+        }
+
+        return 0;
     }
 }

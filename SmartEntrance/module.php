@@ -6,6 +6,7 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 /**
  * SmartHomeEntrance
@@ -20,10 +21,12 @@ class SmartEntrance extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
+    use RegistryAware_Trait;
 
     public function Create(): void
     {
         parent::Create();
+        $this->RegisterPropertyInteger('RegistryID', 0);
         
         $this->DA_RegisterAvailability(900);
 
@@ -160,16 +163,21 @@ class SmartEntrance extends IPSModuleStrict
         $properties = [
             'SourceMailboxFlap', 'SourceMailboxDoor', 
             'SourceDoorbell1', 'SourceDoorbell2', 
-            'SourceAbsenceButton', 'TargetNotifier', 'TargetMP3P'
+            'SourceAbsenceButton', 'TargetMP3P'
         ];
         foreach ($properties as $prop) {
             $id = $this->ReadPropertyInteger($prop);
             if ($id > 1 && @IPS_ObjectExists($id)) {
                 $this->RegisterReference($id);
-                if ($prop !== 'TargetNotifier' && $prop !== 'TargetMP3P') {
+                if ($prop !== 'TargetMP3P') {
                     $this->RegisterMessage($id, VM_UPDATE);
                 }
             }
+        }
+
+        $notifierId = $this->DR_GetNotifierID();
+        if ($notifierId > 1 && @IPS_ObjectExists($notifierId)) {
+            $this->RegisterReference($notifierId);
         }
         
         $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
@@ -357,7 +365,7 @@ class SmartEntrance extends IPSModuleStrict
 
     private function SendToNotifier(string $title, string $message, int $priority): void
     {
-        $notifierId = $this->ReadPropertyInteger('TargetNotifier');
+        $notifierId = $this->DR_GetNotifierID();
         if ($notifierId > 0 && @IPS_InstanceExists($notifierId)) {
             $payload = json_encode([
                 'Title' => $title,
@@ -791,17 +799,6 @@ class SmartEntrance extends IPSModuleStrict
                             "edit": { "type": "CheckBox" }
                         }
                     ]
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "📢 Notifier (Push & Sprachausgabe)",
-            "items": [
-                {
-                    "type": "SelectInstance",
-                    "name": "TargetNotifier",
-                    "caption": "SmartNotifier Instanz"
                 }
             ]
         }

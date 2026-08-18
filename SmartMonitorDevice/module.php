@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 class SmartMonitorDevice extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use DeviceAvailability_Trait;
+    use RegistryAware_Trait;
 
     public function Create(): void
     {
@@ -299,7 +301,7 @@ class SmartMonitorDevice extends IPSModuleStrict
         $this->UpdateVisualizationValue(json_encode($payload));
 
         if ($triggerNotification && $hasChanged && ($batCount > 0 || $offCount > 0 || $orphaCount > 0)) {
-            $notifierId = $this->ReadPropertyInteger('TargetNotifier');
+            $notifierId = $this->DR_GetNotifierID();
             if ($notifierId > 0 && @IPS_InstanceExists($notifierId)) {
                 $payload = json_encode([
                     'Title'    => 'Geraeteueberwachung',
@@ -362,7 +364,7 @@ class SmartMonitorDevice extends IPSModuleStrict
         
         $elements[] = [
             "type" => "ExpansionPanel",
-            "caption" => "🔋 Automatisch überwachte Geräte (Aus der Registry)",
+            "caption" => "Automatisch ueberwachte Geraete (Aus der Registry)",
             "items" => [
                 [
                     "type" => "Label",
@@ -388,12 +390,6 @@ class SmartMonitorDevice extends IPSModuleStrict
         $elements[] = [
             "type" => "Label",
             "caption" => " "
-        ];
-        $elements[] = [
-            "type"     => "SelectModule",
-            "name"     => "TargetNotifier",
-            "caption"  => "SmartNotifier Instanz (fuer Push-Benachrichtigungen)",
-            "moduleID" => "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}"
         ];
         $elements[] = [
             "type"    => "NumberSpinner",

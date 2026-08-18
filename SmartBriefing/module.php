@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 /**
  * SmartBriefing
@@ -16,10 +17,12 @@ class SmartBriefing extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use CentralStateAware_Trait;
+    use RegistryAware_Trait;
 
     public function Create(): void
     {
         parent::Create();
+        $this->RegisterPropertyInteger('RegistryID', 0);
 
         // Konfiguration
         $this->RegisterPropertyString('VariablesList', '[]');
@@ -69,7 +72,7 @@ class SmartBriefing extends IPSModuleStrict
             $this->UnregisterReference($refID);
         }
 
-        $notifierId = $this->ReadPropertyInteger('TargetNotifier');
+        $notifierId = $this->DR_GetNotifierID();
         if ($notifierId > 1 && @IPS_InstanceExists($notifierId)) {
             $this->RegisterReference($notifierId);
         }
@@ -185,7 +188,7 @@ class SmartBriefing extends IPSModuleStrict
         
         $this->SLogInfo('Briefing generiert', 'Text wurde erfolgreich generiert und an Notifier gesendet.');
 
-        $notifierId = $this->ReadPropertyInteger('TargetNotifier');
+        $notifierId = $this->DR_GetNotifierID();
         if ($notifierId > 1 && IPS_InstanceExists($notifierId)) {
             $payload = [
                 'Title' => 'Briefing',
@@ -205,11 +208,6 @@ class SmartBriefing extends IPSModuleStrict
             "type": "ExpansionPanel",
             "caption": "⚙️ Grundeinstellungen",
             "items": [
-                {
-                    "type": "SelectInstance",
-                    "name": "TargetNotifier",
-                    "caption": "SmartNotifier Instanz (für Sprachausgabe)"
-                },
                 {
                     "type": "CheckBox",
                     "name": "AutoTrigger",
