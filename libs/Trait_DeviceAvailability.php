@@ -81,8 +81,8 @@ if (!trait_exists('DeviceAvailability_Trait')) {
             // Set initial state to true (Online) on creation so newly created variables don't falsely trigger offline alarms
             $varId = @IPS_GetObjectIDByIdent('DeviceAvailable', $this->InstanceID);
             if ($varId !== false && IPS_VariableExists($varId)) {
-                if (GetValue($varId) === false && time() - IPS_GetVariable($varId)['VariableUpdated'] > 31536000) {
-                    SetValue($varId, true);
+                if ($this->GetValue('DeviceAvailable') === false && time() - IPS_GetVariable($varId)['VariableUpdated'] > 31536000) {
+                    $this->SetValue('DeviceAvailable', true);
                 }
             }
         }
@@ -117,14 +117,14 @@ if (!trait_exists('DeviceAvailability_Trait')) {
                 }
             }
 
-            $wasAvailable = (bool)GetValue($varId);
+            $wasAvailable = (bool)$this->GetValue('DeviceAvailable');
 
             // Nur reagieren wenn sich der Status ändert
             if ($wasAvailable === $available) {
                 return;
             }
 
-            SetValue($varId, $available);
+            $this->SetValue('DeviceAvailable', $available);
 
             $instanceName = IPS_GetName($this->InstanceID);
 
@@ -164,7 +164,7 @@ if (!trait_exists('DeviceAvailability_Trait')) {
             if ($varId === false || !IPS_VariableExists($varId)) {
                 return true;
             }
-            return (bool)GetValue($varId);
+            return (bool)$this->GetValue('DeviceAvailable');
         }
 
         // -------------------------------------------------------------------
