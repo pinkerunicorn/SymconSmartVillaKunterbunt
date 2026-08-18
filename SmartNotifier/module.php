@@ -50,6 +50,14 @@ class SmartNotifier extends IPSModuleStrict
 
         // Buffers for Queuing
         $this->SetBuffer('MessageQueue', json_encode([]));
+
+        // Routing Rules Matrix
+        $defaultRouting = [
+            ['Level' => 0, 'Push' => true,  'TTS' => true,  'MP3' => true,  'Vesta' => false, 'Mail' => false],
+            ['Level' => 1, 'Push' => true,  'TTS' => true,  'MP3' => true,  'Vesta' => true,  'Mail' => false],
+            ['Level' => 2, 'Push' => true,  'TTS' => true,  'MP3' => true,  'Vesta' => true,  'Mail' => true]
+        ];
+        $this->RegisterPropertyString('RoutingRules', json_encode($defaultRouting));
     }
 
     public function ApplyChanges(): void
@@ -267,6 +275,58 @@ class SmartNotifier extends IPSModuleStrict
             "type": "CheckBox",
             "name": "EnableSMTP",
             "caption": "E-Mail Benachrichtigungen aktivieren"
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Routing-Regeln (Nach Priorität)",
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Definiert, welche Nachrichten-Priorität über welche Kanäle gesendet wird. (Voraussetzung: Kanal oben aktiviert)."
+                },
+                {
+                    "type": "List",
+                    "name": "RoutingRules",
+                    "caption": "Aktions-Matrix",
+                    "add": false,
+                    "delete": false,
+                    "columns": [
+                        {
+                            "caption": "Priorität",
+                            "name": "Level",
+                            "width": "150px",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    { "caption": "0 (Info)", "value": 0 },
+                                    { "caption": "1 (Hinweis)", "value": 1 },
+                                    { "caption": "2 (Alarm)", "value": 2 }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Push", "name": "Push", "width": "80px",
+                            "edit": { "type": "CheckBox" }
+                        },
+                        {
+                            "caption": "Sprache", "name": "TTS", "width": "80px",
+                            "edit": { "type": "CheckBox" }
+                        },
+                        {
+                            "caption": "MP3", "name": "MP3", "width": "80px",
+                            "edit": { "type": "CheckBox" }
+                        },
+                        {
+                            "caption": "Vestaboard", "name": "Vesta", "width": "80px",
+                            "edit": { "type": "CheckBox" }
+                        },
+                        {
+                            "caption": "E-Mail", "name": "Mail", "width": "80px",
+                            "edit": { "type": "CheckBox" }
+                        }
+                    ]
+                }
+            ]
         }
     ],
     "actions": [
@@ -337,74 +397,60 @@ EOT;
         $isCinema = $this->IsCinema();
 
         // --------------------------------------------------------
-        // Absoluter Schlaf-Modus (DND): Keine Ausgabe, alles in die Queue
+        // Absoluter Schlaf-Modus (DND): Keine Ausgabe, alles in die Queue (nur für Prio 0 und 1)
         // --------------------------------------------------------
-        if ($isSleeping) {
+        if ($isSleeping && $priority < 2) {
             $this->QueueMessage($title, $message);
             $this->SLogInfo("Schlafmodus aktiv: Nachricht in die Morgen-Warteschlange verschoben.");
             return;
         }
 
-        // --------------------------------------------------------
-        // High Priority (2) -> Immer volle Eskalation
-        // --------------------------------------------------------
-        if ($priority >= 2) {
-            $this->TriggerPush($title, $message, 'alarm', $actions);
-            $this->TriggerEmail($title, $message);
-            $this->TriggerVestaboard("$title: $message");
-            if ($isHome) {
-                $this->TriggerTTS("Achtung! $title: $message");
-                
-                $track = $this->ReadPropertyString('MP3P_Track_High');
-                $vol = $this->ReadPropertyInteger('MP3P_Volume_High');
-                $trackDuration = $this->ReadPropertyInteger('MP3P_Track_Duration_High');
-                $color = $this->ReadPropertyInteger('MP3P_LED_Color_High');
-                $ledDuration = $this->ReadPropertyInteger('MP3P_LED_Duration_High');
-                $this->TriggerMP3P($track, $vol, $trackDuration, $color, $ledDuration);
+        // Get routing rule for this priority
+        $rules = json_decode($this->ReadPropertyString('RoutingRules'), true) ?: [];
+        $rule = ['Push' => false, 'TTS' => false, 'MP3' => false, 'Vesta' => false, 'Mail' => false];
+        foreach ($rules as $r) {
+            if ((int)($r['Level'] ?? 0) === $priority) {
+                $rule = $r;
+                break;
             }
-            return;
         }
 
-        // --------------------------------------------------------
-        // Medium Priority (1) -> Push + lokales Feedback
-        // --------------------------------------------------------
-        if ($priority === 1) {
-            $this->TriggerPush($title, $message, 'warning', $actions);
+        // Execute Routing
+        if (!empty($rule['Push'])) {
+            $sound = ($priority === 2) ? 'alarm' : (($priority === 1) ? 'warning' : '');
+            $this->TriggerPush($title, $message, $sound, $actions);
+        }
+
+        if (!empty($rule['Mail'])) {
             $this->TriggerEmail($title, $message);
+        }
+
+        if (!empty($rule['Vesta'])) {
             $this->TriggerVestaboard("$title: $message");
-            
-            if ($isHome) {
-                if ($isCinema) {
-                    // Stumm, wenn man schläft oder Film schaut, aber sofort Push
-                } else {
-                    $this->TriggerTTS("$title: $message");
-                    
-                    $track = $this->ReadPropertyString('MP3P_Track_Low');
-                    $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
-                    $trackDuration = $this->ReadPropertyInteger('MP3P_Track_Duration_Low');
-                    $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
-                    $ledDuration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
-                    $this->TriggerMP3P($track, $vol, $trackDuration, $color, $ledDuration);
+        }
+
+        if ($isHome) {
+            // Audio rules
+            $canSpeak = true;
+            if ($isCinema && $priority < 2) $canSpeak = false; // Kino-Modus stumm für Info/Hinweis
+            if ($isSleeping && $priority === 2) $canSpeak = true; // Alarm weckt auf
+
+            if ($canSpeak) {
+                if (!empty($rule['TTS'])) {
+                    $prefix = ($priority === 2) ? "Achtung! " : "";
+                    $this->TriggerTTS($prefix . $title . ": " . $message);
                 }
-            }
-            return;
-        }
 
-        // --------------------------------------------------------
-        // Low Priority (0) -> Queueing nachts, sonst normales Feedback
-        // --------------------------------------------------------
-        if ($priority === 0) {
-            $this->TriggerPush($title, $message, '', $actions);
-            if ($isHome && !$isCinema) {
-                $this->TriggerTTS($message);
-                
-                $track = $this->ReadPropertyString('MP3P_Track_Low');
-                $vol = $this->ReadPropertyInteger('MP3P_Volume_Low');
-                $trackDuration = $this->ReadPropertyInteger('MP3P_Track_Duration_Low');
-                $color = $this->ReadPropertyInteger('MP3P_LED_Color_Low');
-                $ledDuration = $this->ReadPropertyInteger('MP3P_LED_Duration_Low');
-                if ($track !== '') {
-                    $this->TriggerMP3P($track, $vol, $trackDuration, $color, $ledDuration);
+                if (!empty($rule['MP3'])) {
+                    $high = ($priority === 2);
+                    $track = $this->ReadPropertyString($high ? 'MP3P_Track_High' : 'MP3P_Track_Low');
+                    $vol = $this->ReadPropertyInteger($high ? 'MP3P_Volume_High' : 'MP3P_Volume_Low');
+                    $trackDuration = $this->ReadPropertyInteger($high ? 'MP3P_Track_Duration_High' : 'MP3P_Track_Duration_Low');
+                    $color = $this->ReadPropertyInteger($high ? 'MP3P_LED_Color_High' : 'MP3P_LED_Color_Low');
+                    $ledDuration = $this->ReadPropertyInteger($high ? 'MP3P_LED_Duration_High' : 'MP3P_LED_Duration_Low');
+                    if ($track !== '') {
+                        $this->TriggerMP3P($track, $vol, $trackDuration, $color, $ledDuration);
+                    }
                 }
             }
         }
