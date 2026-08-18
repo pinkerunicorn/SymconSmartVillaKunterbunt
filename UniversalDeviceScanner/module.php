@@ -412,6 +412,26 @@ class UniversalDeviceScanner extends IPSModuleStrict
             }
         }
         
+        // HCU (Beta) spezifischer Fallback (Idents enden z.B. auf "_unreach" oder "_lowBat")
+        if (!isset($vars['Reachable_VarID'])) {
+            foreach ($idents as $ident => $vid) {
+                $lIdent = strtolower($ident);
+                if (str_ends_with($lIdent, '_unreach') || $lIdent === 'unreach') {
+                    $vars['Reachable_VarID'] = $vid;
+                    break;
+                }
+            }
+        }
+        if (!isset($vars['Battery_VarID'])) {
+            foreach ($idents as $ident => $vid) {
+                $lIdent = strtolower($ident);
+                if (str_ends_with($lIdent, '_lowbat') || $lIdent === 'lowbat') {
+                    $vars['Battery_VarID'] = $vid;
+                    break;
+                }
+            }
+        }
+        
         if (isset($vars['Reachable_VarID'])) {
             $vars['reachableInverted'] = true;
         }
