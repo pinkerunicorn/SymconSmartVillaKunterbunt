@@ -26,8 +26,11 @@
       "caption": "Räume & Gebäude",
       "items": [
         {
-          "type": "List",
-          "name": "Floors",
+          "type": "RowLayout",
+          "items": [
+            {
+              "type": "List",
+              "name": "Floors",
           "caption": "Etagen & Bereiche",
           "add": true,
           "delete": true,
@@ -89,6 +92,8 @@
               "caption": "ID",
               "add": ""
             }
+          ]
+        }
           ]
         }
       ]
