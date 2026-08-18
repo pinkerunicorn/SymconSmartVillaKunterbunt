@@ -498,7 +498,18 @@ class SmartEntrance extends IPSModuleStrict
             $this->UnlockSingleDoor($index);
             $this->SLogInfo('Türschloss', "Automatisches (zeitbasiertes) Entriegeln für Schloss " . ($index + 1) . " ausgeführt.");
         }
-        $this->UpdateTimers();
+        
+        // Update ONLY the timer that just fired to prevent a race condition 
+        // where updating all timers resets others that are scheduled for the exact same second.
+        $lockVars = $this->safeJsonDecode($this->ReadPropertyString('LockVariables'), true);
+        if (is_array($lockVars) && isset($lockVars[$index])) {
+            $timeField = $lock ? 'AutoLockTime' : 'AutoUnlockTime';
+            if (!empty($lockVars[$index][$timeField])) {
+                $timeStr = is_string($lockVars[$index][$timeField]) ? $lockVars[$index][$timeField] : json_encode($lockVars[$index][$timeField]);
+                $timerName = "TimerLock" . ($index + 1) . ($lock ? "Lock" : "Unlock");
+                $this->SetTimerInterval($timerName, $this->GetMillisecondsToTime($timeStr));
+            }
+        }
     }
 
     private function IsDoorClosed(array $lock): bool
@@ -563,7 +574,14 @@ class SmartEntrance extends IPSModuleStrict
         );
 
         if ($target <= $now) {
-            $target += 86400;
+            $target = mktime(
+                (int)($time['hour'] ?? 0),
+                (int)($time['minute'] ?? 0),
+                (int)($time['second'] ?? 0),
+                (int)date('n', $now),
+                (int)date('j', $now) + 1,
+                (int)date('Y', $now)
+            );
         }
 
         return ($target - $now) * 1000;
