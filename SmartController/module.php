@@ -728,7 +728,27 @@ class SmartController extends IPSModuleStrict
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Verknüpfe hier die drei Monitore. Daraus wird automatisch die System-Ampel und die aktuelle Status-Meldung generiert."
+                    "caption": "Verknüpfe hier die Monitore. Daraus wird automatisch die System-Ampel und die aktuelle Status-Meldung generiert."
+                },
+                {
+                    "type": "SelectInstance",
+                    "name": "MonitorAlarmID",
+                    "caption": "Alarm-Monitor"
+                },
+                {
+                    "type": "SelectInstance",
+                    "name": "MonitorDeviceID",
+                    "caption": "Geräte-Monitor"
+                },
+                {
+                    "type": "SelectInstance",
+                    "name": "MonitorEventID",
+                    "caption": "Ereignis-Monitor"
+                },
+                {
+                    "type": "SelectInstance",
+                    "name": "MonitorPresenceID",
+                    "caption": "Anwesenheits-Monitor"
                 }
             ]
         },
@@ -748,7 +768,8 @@ class SmartController extends IPSModuleStrict
                         {
                             "caption": "Modus",
                             "name": "ModeName",
-                            "width": "150px"
+                            "width": "150px",
+                            "edit": { "type": "Label" }
                         },
                         {
                             "caption": "ID",
@@ -794,7 +815,8 @@ class SmartController extends IPSModuleStrict
                         {
                             "caption": "Modus",
                             "name": "ModeName",
-                            "width": "150px"
+                            "width": "150px",
+                            "edit": { "type": "Label" }
                         },
                         {
                             "caption": "ID",
