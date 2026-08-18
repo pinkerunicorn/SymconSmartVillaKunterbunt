@@ -290,8 +290,8 @@ class SmartMonitorEvent extends IPSModuleStrict
         $priority = 0; // Normal Info
         if ($level > 0) $priority = 1; // Warning
 
-        if (function_exists('NOTIFY_SendEvent')) {
-            @NOTIFY_SendEvent($notifierId, $message, $priority);
+        if (function_exists('NOTIFY_SendMessage')) {
+            @NOTIFY_SendMessage($notifierId, 'Haus-Ereignis', $message, $priority);
         }
     }
 }
