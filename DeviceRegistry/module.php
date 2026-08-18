@@ -696,3 +696,39 @@ class SymconDeviceRegistry extends IPSModuleStrict
         return 0;
     }
 }
+
+if (!function_exists('SDR_AutoRegister')) {
+    function SDR_AutoRegister(int $registryID, string $payload): bool {
+        return (bool)IPS_RequestAction($registryID, 'AutoRegister', $payload);
+    }
+}
+if (!function_exists('SDR_AutoUnregister')) {
+    function SDR_AutoUnregister(int $registryID, int $instanceID): bool {
+        return (bool)IPS_RequestAction($registryID, 'AutoUnregister', (string)$instanceID);
+    }
+}
+if (!function_exists('SDR_GetDevices')) {
+    function SDR_GetDevices(int $registryID): string {
+        return IPS_RequestAction($registryID, 'GetDevices', '');
+    }
+}
+if (!function_exists('SDR_GetDevicesByType')) {
+    function SDR_GetDevicesByType(int $registryID, string $type): string {
+        return IPS_RequestAction($registryID, 'GetDevicesByType', $type);
+    }
+}
+if (!function_exists('SDR_GetAutoRegistered')) {
+    function SDR_GetAutoRegistered(int $registryID): string {
+        return IPS_RequestAction($registryID, 'GetAutoRegistered', '');
+    }
+}
+if (!function_exists('SDR_ResolveLocation')) {
+    function SDR_ResolveLocation(int $registryID, string $location): string {
+        return IPS_RequestAction($registryID, 'ResolveLocation', $location);
+    }
+}
+if (!function_exists('SDR_GetControllerID')) {
+    function SDR_GetControllerID(int $registryID): int {
+        return (int)IPS_RequestAction($registryID, 'GetControllerID', '');
+    }
+}
