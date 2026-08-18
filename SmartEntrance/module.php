@@ -167,8 +167,8 @@ class SmartEntrance extends IPSModuleStrict
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
-        $this->DR_Register('DevicesContactSensor');
         }
+        $this->DR_Register('DevicesContactSensor');
         $properties = [
             'SourceMailboxFlap', 'SourceMailboxDoor', 
             'SourceDoorbell1', 'SourceDoorbell2', 
@@ -399,7 +399,9 @@ class SmartEntrance extends IPSModuleStrict
 
     protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
     {
-        // React to Activity/Presence to auto-lock/unlock
+        // Only react to PresenceMode changes for auto-lock/unlock
+        if ($stateName !== 'PresenceMode') return;
+
         $isAbsence = $this->IsAway() || $this->IsVacation();
 
         // Lock if Absence
