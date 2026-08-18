@@ -313,7 +313,7 @@ class SymconDeviceRegistry extends IPSModuleStrict
                                                 }
                                             }
                                         }
-                                        if (!$primaryFieldFound && !$hasError) {
+                                        if (!$primaryFieldFound && !$hasError && !$isGeneric && !$isHealth) {
                                              $status   = 'Unvollstaendig';
                                              $rowColor = '#FF8000'; 
                                         }
