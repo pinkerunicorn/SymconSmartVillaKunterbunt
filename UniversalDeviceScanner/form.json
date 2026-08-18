@@ -21,6 +21,7 @@
                             "name": "instanceID",
                             "caption": "Instanz",
                             "width": "auto",
+                            "add": 0,
                             "edit": {
                                 "type": "SelectInstance"
                             }
