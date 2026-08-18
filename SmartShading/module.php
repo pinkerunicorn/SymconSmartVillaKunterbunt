@@ -34,7 +34,7 @@ class SmartShading extends IPSModuleStrict
         $this->RegisterPropertyInteger('WindVariableID', 0);
         $this->RegisterPropertyFloat('WindThreshold', 50.0);
         
-        $this->RegisterPropertyInteger('SunriseVariableID', 0);
+        $this->RegisterPropertyString('TimeOpen', '{"hour":10,"minute":0,"second":0}');
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
 
         // 2. Rollläden Liste
@@ -130,10 +130,6 @@ class SmartShading extends IPSModuleStrict
         $ref_WindVariableID = $this->ReadPropertyInteger('WindVariableID');
         if ($ref_WindVariableID > 1 && @IPS_ObjectExists($ref_WindVariableID)) {
             $this->RegisterReference($ref_WindVariableID);
-        }
-        $ref_SunriseVariableID = $this->ReadPropertyInteger('SunriseVariableID');
-        if ($ref_SunriseVariableID > 1 && @IPS_ObjectExists($ref_SunriseVariableID)) {
-            $this->RegisterReference($ref_SunriseVariableID);
         }
         $ref_SunsetVariableID = $this->ReadPropertyInteger('SunsetVariableID');
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
@@ -522,7 +518,13 @@ class SmartShading extends IPSModuleStrict
         $isHotAndBright = ($temp >= $tempThreshold && $brightness >= $brightnessThreshold);
         $this->SetValue('StatusIsHotAndBright', $isHotAndBright);
         
-        $sunriseTime = $this->GetFloatVal('SunriseVariableID');
+        $timeOpenStr = $this->ReadPropertyString('TimeOpen');
+        $timeOpenArr = json_decode($timeOpenStr, true);
+        if (is_array($timeOpenArr)) {
+            $sunriseTime = mktime($timeOpenArr['hour'] ?? 7, $timeOpenArr['minute'] ?? 0, $timeOpenArr['second'] ?? 0);
+        } else {
+            $sunriseTime = mktime(10, 0, 0); // fallback
+        }
         $sunsetTime = $this->GetFloatVal('SunsetVariableID');
         $now = time();
         $isNight = false;
@@ -700,11 +702,11 @@ class SmartShading extends IPSModuleStrict
                                 ["type" => "NumberSpinner", "name" => "WindThreshold", "caption" => "Sturm-Schutz ab (km/h)", "minimum" => 0, "maximum" => 150, "digits" => 1]
                             ]
                         ],
-                        ["type" => "Label", "caption" => "Damit die Rollläden abends automatisch schließen und morgens öffnen, wähle hier die Astro-Variablen:"],
+                        ["type" => "Label", "caption" => "Damit die Rollläden abends automatisch schließen und morgens öffnen, wähle hier die Zeiten / Variablen:"],
                         [
                             "type" => "RowLayout",
                             "items" => [
-                                ["type" => "SelectVariable", "name" => "SunriseVariableID", "caption" => "Sonnenaufgang Variable (Astro)"],
+                                ["type" => "SelectTime", "name" => "TimeOpen", "caption" => "Feste Öffnungszeit"],
                                 ["type" => "SelectVariable", "name" => "SunsetVariableID", "caption" => "Sonnenuntergang Variable (Astro)"]
                             ]
                         ]
