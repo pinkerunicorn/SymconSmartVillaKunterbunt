@@ -421,9 +421,14 @@ class UniversalDeviceScanner extends IPSModuleStrict
     
     private function findMaintenanceChannel(int $instanceID): ?int
     {
-        $hmDeviceGUID = '{EE4A81C6-5C90-4DB7-AD2F-F6BBD521412E}';
-        $modInfo = @IPS_GetInstance($instanceID)['ModuleInfo']['ModuleID'] ?? '';
-        if ($modInfo !== $hmDeviceGUID) return null;
+        $modInfo = @IPS_GetInstance($instanceID)['ModuleInfo'] ?? [];
+        $modID = $modInfo['ModuleID'] ?? '';
+        $modName = $modInfo['ModuleName'] ?? '';
+        
+        // Prüfen ob es ein Homematic Gerät ist (CCU oder HCU)
+        if (stripos($modName, 'HomeMatic') === false && stripos($modName, 'HmIP') === false) {
+            return null;
+        }
 
         $address = @IPS_GetProperty($instanceID, 'Address');
         if (!is_string($address) || !str_contains($address, ':')) return null;
@@ -431,7 +436,7 @@ class UniversalDeviceScanner extends IPSModuleStrict
         $baseAddress = explode(':', $address)[0];
         $maintenanceAddress = $baseAddress . ':0';
         
-        $instances = @IPS_GetInstanceListByModuleID($hmDeviceGUID);
+        $instances = @IPS_GetInstanceListByModuleID($modID);
         if (!is_array($instances)) return null;
         
         foreach ($instances as $instID) {
