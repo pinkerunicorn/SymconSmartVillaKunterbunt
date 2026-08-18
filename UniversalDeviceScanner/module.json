@@ -1,0 +1,13 @@
+{
+    "id": "{A1E8C3D5-7F9B-4E2A-B6D0-3C8F5E7A9B1D}",
+    "name": "Universal Device Scanner",
+    "type": 3,
+    "vendor": "Florian Graßinger",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/UniversalDeviceScanner",
+    "aliases": ["Device Scanner", "Auto Discovery"],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "UDS",
+    "author": "Florian Graßinger"
+}

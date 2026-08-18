@@ -1,0 +1,1382 @@
+{
+  "elements": [
+    {
+      "type": "Label",
+      "caption": "Single Source of Truth - Zentrale Verwaltung für alle Geräte im Haus."
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Räume & Gebäude",
+      "items": [
+        {
+          "type": "List",
+          "name": "Floors",
+          "caption": "Etagen & Bereiche",
+          "add": true,
+          "delete": true,
+          "changeOrder": true,
+          "rowCount": 30,
+          "columns": [
+            {
+              "caption": "Name (z.B. Erdgeschoss)",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ]
+        },
+        {
+          "type": "List",
+          "name": "Rooms",
+          "caption": "Verfügbare Räume",
+          "add": true,
+          "delete": true,
+          "changeOrder": true,
+          "rowCount": 60,
+          "columns": [
+            {
+              "caption": "Raum Name",
+              "name": "name",
+              "width": "250px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Etage / Bereich",
+              "name": "floor",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Energie & Kosten",
+      "items": [
+        {
+          "type": "RowLayout",
+          "items": [
+            {
+              "type": "NumberSpinner",
+              "name": "PriceElectricity",
+              "caption": "Strompreis (€/kWh)",
+              "digits": 4
+            },
+            {
+              "type": "NumberSpinner",
+              "name": "BasePriceElectricity",
+              "caption": "Strom Grundpreis (€/Jahr)",
+              "digits": 2
+            }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            {
+              "type": "NumberSpinner",
+              "name": "PriceWater",
+              "caption": "Wasserpreis (€/m³)",
+              "digits": 4
+            },
+            {
+              "type": "NumberSpinner",
+              "name": "BasePriceWater",
+              "caption": "Wasser Grundpreis (€/Jahr)",
+              "digits": 2
+            }
+          ]
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            {
+              "type": "NumberSpinner",
+              "name": "PriceGas",
+              "caption": "Gaspreis (€/kWh)",
+              "digits": 4
+            },
+            {
+              "type": "NumberSpinner",
+              "name": "BasePriceGas",
+              "caption": "Gas Grundpreis (€/Jahr)",
+              "digits": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Zeiten & Astro",
+      "items": [
+        {
+          "type": "SelectVariable",
+          "name": "SunriseVariableID",
+          "caption": "Sonnenaufgang (Unix Timestamp)"
+        },
+        {
+          "type": "SelectVariable",
+          "name": "SunsetVariableID",
+          "caption": "Sonnenuntergang (Unix Timestamp)"
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Aktorik (Schalter, Dimmer, Jalousien)",
+      "items": [
+        {
+          "type": "List",
+          "name": "DevicesSwitch",
+          "caption": "Schalter",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "OnOff Variable",
+              "name": "OnOff_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesSocket",
+          "caption": "Steckdosen",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "OnOff Variable",
+              "name": "OnOff_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Leistung Variable (W)",
+              "name": "Power_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Energie Variable (kWh)",
+              "name": "Energy_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesLight",
+          "caption": "Licht (Schalter)",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "OnOff Variable",
+              "name": "OnOff_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesLightDimmer",
+          "caption": "Licht (Dimmer)",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "edit": {
+                "type": "SelectVariable"
+              },
+              "width": "200px",
+              "caption": "OnOff Variable",
+              "name": "OnOff_VarID",
+              "add": 0
+            },
+            {
+              "caption": "Brightness Variable",
+              "name": "Brightness_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesLightColor",
+          "caption": "Licht (Farbe)",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "edit": {
+                "type": "SelectVariable"
+              },
+              "width": "200px",
+              "caption": "OnOff Variable",
+              "name": "OnOff_VarID",
+              "add": 0
+            },
+            {
+              "caption": "Brightness Variable",
+              "name": "Brightness_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "RGB Variable",
+              "name": "ColorRGB_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Kelvin Variable",
+              "name": "ColorTemp_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesBlind",
+          "caption": "Jalousie / Rolllade",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "OpenClose Variable",
+              "name": "OpenClose_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesThermostat",
+          "caption": "Thermostate",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "TempSet Variable",
+              "name": "TempSet_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Ist-Temp VarID",
+              "name": "ActualTemp_VarID",
+              "width": "150px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Luftfeuchte VarID",
+              "name": "Humidity_VarID",
+              "width": "150px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Modus VarID",
+              "name": "ControlMode_VarID",
+              "width": "150px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Boost VarID",
+              "name": "BoostMode_VarID",
+              "width": "150px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Sensorik (Bewegung, Melder)",
+      "items": [
+        {
+          "type": "List",
+          "name": "DevicesWallSwitch",
+          "caption": "Wandschalter / Taster",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "OnOff Variable",
+              "name": "OnOff_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Schaltwert (Closed)",
+              "name": "ClosedValue",
+              "width": "150px",
+              "add": "CLOSED",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesMotionSensor",
+          "caption": "Bewegungsmelder",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "Status Variable",
+              "name": "Status_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Helligkeit Variable",
+              "name": "Lux_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesContactSensor",
+          "caption": "Fenster- / Türkontakte",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "Status Variable",
+              "name": "Status_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Wert = geschlossen",
+              "name": "ClosedValue",
+              "width": "130px",
+              "add": "CLOSED",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "caption": "Alarm ignorieren",
+              "name": "ExcludeFromAlarm",
+              "width": "120px",
+              "add": false,
+              "edit": {
+                "type": "CheckBox"
+              }
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesSmokeSensor",
+          "caption": "Rauchmelder",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "Status Variable",
+              "name": "Status_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Ereignisse, Status & Sonstiges",
+      "items": [
+        {
+          "type": "List",
+          "name": "DevicesAlarmSensor",
+          "caption": "Sonstige Alarmmelder (Sabotage, Glasbruch, etc.)",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "Status Variable",
+              "name": "Status_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        },
+        {
+          "type": "List",
+          "name": "DevicesEvent",
+          "caption": "Haus-Ereignisse (Sensoren)",
+          "add": true,
+          "delete": true,
+          "changeOrder": true,
+          "rowCount": 15,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "Status Variable",
+              "name": "Status_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Normalzustand",
+              "name": "NormalState",
+              "width": "150px",
+              "add": "false",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ]
+        },
+        {
+          "type": "List",
+          "name": "DevicesHealth",
+          "caption": "Gerätestatus / Offline-Module",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "Status Variable",
+              "name": "Status_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Weitere Sensoren & Regler",
+      "items": [
+        {
+          "type": "List",
+          "name": "DevicesGenericSensor",
+          "caption": "Allgemeine Sensoren / Regler",
+          "add": true,
+          "delete": true,
+          "columns": [
+            {
+              "caption": "Name",
+              "name": "name",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Raum",
+              "name": "room",
+              "width": "150px",
+              "add": "",
+              "edit": {
+                "type": "Select",
+                "options": []
+              }
+            },
+            {
+              "caption": "Status/Wert Variable (Optional)",
+              "name": "Value_VarID",
+              "width": "200px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Erreichbarkeit Variable (Optional)",
+              "name": "Reachable_VarID",
+              "width": "190px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Batterie Variable (Optional)",
+              "name": "Battery_VarID",
+              "width": "160px",
+              "add": 0,
+              "edit": {
+                "type": "SelectVariable"
+              }
+            },
+            {
+              "caption": "Status",
+              "name": "Status",
+              "width": "150px",
+              "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "id",
+              "caption": "ID",
+              "add": ""
+            }
+          ],
+          "rowCount": 15,
+          "changeOrder": true
+        }
+      ]
+    },
+    {
+      "type": "ExpansionPanel",
+      "caption": "Standort-Zuordnung (Auto-Registration)",
+      "items": [
+        {
+          "type": "Label",
+          "caption": "Definiert, welche Ebene im Symcon-Objektbaum als Etage bzw. Raum interpretiert wird. Ebene 0 = Root, 1 = erste Kategorie, usw."
+        },
+        {
+          "type": "RowLayout",
+          "items": [
+            {
+              "type": "NumberSpinner",
+              "name": "LocationFloorLevel",
+              "caption": "Pfad-Ebene fuer Etage",
+              "minimum": 0,
+              "maximum": 10
+            },
+            {
+              "type": "NumberSpinner",
+              "name": "LocationRoomLevel",
+              "caption": "Pfad-Ebene fuer Raum",
+              "minimum": 0,
+              "maximum": 10
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
