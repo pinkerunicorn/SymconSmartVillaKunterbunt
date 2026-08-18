@@ -93,12 +93,6 @@ class SymconDeviceRegistry extends IPSModuleStrict
             'DIGITS' => 2
         ], 205);
         
-        // Auto-Registration
-        $this->RegisterAttributeString('AutoRegisteredDevices', '[]');
-
-        // Standort-Mapping (welche Pfad-Ebene = Raum / Etage)
-        $this->RegisterPropertyInteger('LocationFloorLevel', 2);
-        $this->RegisterPropertyInteger('LocationRoomLevel', 3);
 
         $captions = [
             'DevicesSwitch' => 'Schalter',
