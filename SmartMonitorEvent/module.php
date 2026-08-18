@@ -297,14 +297,12 @@ class SmartMonitorEvent extends IPSModuleStrict
             $this->LogMessage("Ereignis ausgeloest: {$messageText}", KL_NOTIFY);
             $this->SetValue('LastEvent', $messageText);
 
-            if (!$autoReset) {
-                if ($eventVarID === false) {
-                    $eventVarID = $this->RegisterVariableBoolean($ident, "🔔 " . $messageText, "~Switch", 10);
-                    $this->EnableAction($ident);
-                }
-                $this->SetValue($ident, true);
-                IPS_SetHidden($eventVarID, false);
+            if ($eventVarID === false) {
+                $eventVarID = $this->RegisterVariableBoolean($ident, "🔔 " . $messageText, "~Switch", 10);
+                $this->EnableAction($ident);
             }
+            $this->SetValue($ident, true);
+            IPS_SetHidden($eventVarID, false);
 
             // Route to Notifier
             $this->SendToNotifier($event, $messageText, $alarmLevel);
