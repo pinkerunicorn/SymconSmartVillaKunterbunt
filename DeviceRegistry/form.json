@@ -1191,7 +1191,7 @@
             {
               "caption": "Status Variable",
               "name": "Status_VarID",
-              "width": "200px",
+              "width": "150px",
               "add": 0,
               "edit": {
                 "type": "SelectVariable"
@@ -1200,10 +1200,41 @@
             {
               "caption": "Normalzustand",
               "name": "NormalState",
-              "width": "150px",
+              "width": "120px",
               "add": "false",
               "edit": {
                 "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Stufe",
+              "name": "AlarmLevel",
+              "width": "100px",
+              "add": 0,
+              "edit": {
+                "type": "Select",
+                "options": [
+                  { "caption": "0 (Info)", "value": 0 },
+                  { "caption": "1 (Hinweis)", "value": 1 }
+                ]
+              }
+            },
+            {
+              "caption": "Meldung",
+              "name": "Message",
+              "width": "200px",
+              "add": "",
+              "edit": {
+                "type": "ValidationTextBox"
+              }
+            },
+            {
+              "caption": "Auto-Reset",
+              "name": "AutoReset",
+              "width": "80px",
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
               }
             },
             {

@@ -56,7 +56,7 @@ class SmartMonitorEvent extends IPSModuleStrict
             ]
         ];
         
-        $options = [];
+        $values = [];
         $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId > 1 && @IPS_InstanceExists($regId)) {
             if (function_exists('SDR_GetDevicesByType')) {
@@ -67,111 +67,43 @@ class SmartMonitorEvent extends IPSModuleStrict
                         if ($vid > 0) {
                             $name = $dev['name'] ?? 'Unbekannt';
                             $room = $dev['room'] ?? '';
-                            $caption = $name . ($room !== '' ? " ($room)" : "");
-                            $options[] = ['caption' => $caption, 'value' => (string)$vid];
+                            $level = (int)($dev['AlarmLevel'] ?? 0) === 1 ? '1 (Hinweis)' : '0 (Info)';
+                            $msg = $dev['Message'] ?? '';
+                            if ($msg === '') $msg = $name;
+                            
+                            $values[] = [
+                                'name' => $name,
+                                'room' => $room,
+                                'level' => $level,
+                                'msg' => $msg
+                            ];
                         }
                     }
                 }
             }
         }
 
-        if (empty($options)) {
-            $options[] = ['caption' => 'Keine Ereignisse in Registry', 'value' => '0'];
-        }
-
         $form['elements'][] = [
             'type' => 'ExpansionPanel',
-            'caption' => 'Haus-Ereignisse & Komfort',
+            'caption' => 'Haus-Ereignisse (Auto-Sync)',
             'items' => [
                 [
                     'type' => 'Label',
-                    'caption' => 'Verknüpfe hier deine Ereignisse aus der Device Registry.'
+                    'caption' => 'Alle Ereignisse werden automatisch aus der Device Registry ausgelesen. Benachrichtigungen werden zentral über den SmartNotifier geroutet.'
                 ],
                 [
                     'type' => 'List',
-                    'name' => 'MonitoredEvents',
-                    'caption' => 'Ereignisse',
-                    'add' => true,
-                    'delete' => true,
+                    'name' => 'ReadOnlyEvents',
+                    'caption' => 'Überwachte Ereignisse',
+                    'add' => false,
+                    'delete' => false,
                     'columns' => [
-                        [
-                            'name' => 'VariableID',
-                            'caption' => 'Ereignis (aus Registry)',
-                            'width' => '250px',
-                            'add' => '0',
-                            'edit' => [
-                                'type' => 'Select',
-                                'options' => $options
-                            ]
-                        ],
-                        [
-                            'name' => 'AlarmLevel',
-                            'caption' => 'Stufe',
-                            'width' => '100px',
-                            'add' => 0,
-                            'edit' => [
-                                'type' => 'Select',
-                                'options' => [
-                                    [ "caption" => "0 (Info)", "value" => 0 ],
-                                    [ "caption" => "1 (Hinweis)", "value" => 1 ]
-                                ]
-                            ]
-                        ],
-                        [
-                            'name' => 'Message',
-                            'caption' => 'Meldung (TTS/Push)',
-                            'width' => '200px',
-                            'add' => '',
-                            'edit' => [
-                                'type' => 'ValidationTextBox'
-                            ]
-                        ],
-                        [
-                            'name' => 'AutoReset',
-                            'caption' => 'Auto-Reset',
-                            'width' => '100px',
-                            'add' => false,
-                            'edit' => [
-                                'type' => 'CheckBox'
-                            ]
-                        ],
-                        [
-                            'name' => 'TargetPush',
-                            'caption' => 'Push',
-                            'width' => '60px',
-                            'add' => true,
-                            'edit' => [
-                                'type' => 'CheckBox'
-                            ]
-                        ],
-                        [
-                            'name' => 'TargetSonos',
-                            'caption' => 'Sonos',
-                            'width' => '60px',
-                            'add' => false,
-                            'edit' => [
-                                'type' => 'CheckBox'
-                            ]
-                        ],
-                        [
-                            'name' => 'TargetVestaboard',
-                            'caption' => 'Vesta',
-                            'width' => '60px',
-                            'add' => false,
-                            'edit' => [
-                                'type' => 'CheckBox'
-                            ]
-                        ],
-                        [
-                            'name' => 'TargetMP3',
-                            'caption' => 'MP3',
-                            'width' => '60px',
-                            'add' => false,
-                            'edit' => [
-                                'type' => 'CheckBox'
-                            ]
-                        ]
-                    ]
+                        ['name' => 'name', 'caption' => 'Name', 'width' => '200px'],
+                        ['name' => 'room', 'caption' => 'Raum', 'width' => '150px'],
+                        ['name' => 'level', 'caption' => 'Stufe', 'width' => '100px'],
+                        ['name' => 'msg', 'caption' => 'Meldung', 'width' => 'auto']
+                    ],
+                    'values' => $values
                 ]
             ]
         ];
@@ -203,15 +135,19 @@ class SmartMonitorEvent extends IPSModuleStrict
         $registryId = $this->ReadPropertyInteger('RegistryID');
         if ($registryId > 1 && IPS_InstanceExists($registryId)) {
             $this->RegisterReference($registryId);
-        }
-
-        // Subscribe to events
-        $events = json_decode($this->ReadPropertyString("MonitoredEvents"), true) ?: [];
-        foreach ($events as $event) {
-            $vid = (int)($event['VariableID'] ?? 0);
-            if ($vid > 0 && IPS_VariableExists($vid)) {
-                $this->RegisterMessage($vid, VM_UPDATE);
-                $this->RegisterReference($vid);
+            
+            // Subscribe to ALL events from Registry
+            if (function_exists('SDR_GetDevicesByType')) {
+                $devices = @SDR_GetDevicesByType($registryId, 'DevicesEvent');
+                if (is_array($devices)) {
+                    foreach ($devices as $dev) {
+                        $vid = (int)($dev['Status_VarID'] ?? 0);
+                        if ($vid > 0 && IPS_VariableExists($vid)) {
+                            $this->RegisterMessage($vid, VM_UPDATE);
+                            $this->RegisterReference($vid);
+                        }
+                    }
+                }
             }
         }
 
@@ -226,45 +162,40 @@ class SmartMonitorEvent extends IPSModuleStrict
         
         if (!$changed) return; // Only process on change
 
-        $events = json_decode($this->ReadPropertyString("MonitoredEvents"), true) ?: [];
-        foreach ($events as $event) {
-            $vid = (int)($event['VariableID'] ?? 0);
-            if ($vid === $SenderID) {
-                $this->HandleEventTrigger($event, $val);
-            }
-        }
-    }
-
-    private function HandleEventTrigger(array $event, $currentValue): void
-    {
-        $vid = (int)($event['VariableID'] ?? 0);
-        if ($vid === 0) return;
-
-        // Fallback NormalState
-        $triggerValueStr = 'true'; // If normal is false, trigger is true
-
-        // Read NormalState from Registry
         $registryId = $this->ReadPropertyInteger('RegistryID');
         if ($registryId > 1 && @IPS_InstanceExists($registryId) && function_exists('SDR_GetDevicesByType')) {
             $devices = @SDR_GetDevicesByType($registryId, 'DevicesEvent');
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
-                    if ((int)($dev['Status_VarID'] ?? 0) === $vid) {
-                        $normalState = strtolower(trim((string)($dev['NormalState'] ?? '')));
-                        if ($normalState === '') $normalState = 'false';
-                        
-                        // Invert normal state to get trigger value
-                        if ($normalState === 'true' || $normalState === '1') {
-                            $triggerValueStr = 'false';
-                        } elseif ($normalState === 'false' || $normalState === '0') {
-                            $triggerValueStr = 'true';
-                        } else {
-                            $triggerValueStr = $normalState; // fallback if it's a string state, though event variables are usually bool
-                        }
-                        break;
+                    $vid = (int)($dev['Status_VarID'] ?? 0);
+                    if ($vid === $SenderID) {
+                        $this->HandleEventTrigger($dev, $val);
+                        return; // Done
                     }
                 }
             }
+        }
+    }
+
+    private function HandleEventTrigger(array $eventDev, $currentValue): void
+    {
+        $vid = (int)($eventDev['Status_VarID'] ?? 0);
+        if ($vid === 0) return;
+
+        // Fallback NormalState
+        $triggerValueStr = 'true'; // If normal is false, trigger is true
+
+        // Read NormalState from Registry Device
+        $normalState = strtolower(trim((string)($eventDev['NormalState'] ?? '')));
+        if ($normalState === '') $normalState = 'false';
+        
+        // Invert normal state to get trigger value
+        if ($normalState === 'true' || $normalState === '1') {
+            $triggerValueStr = 'false';
+        } elseif ($normalState === 'false' || $normalState === '0') {
+            $triggerValueStr = 'true';
+        } else {
+            $triggerValueStr = $normalState; 
         }
 
         $currentValueStr = strtolower(trim((string)$currentValue));
@@ -276,16 +207,17 @@ class SmartMonitorEvent extends IPSModuleStrict
         } elseif ($triggerValueStr === 'false' || $triggerValueStr === '0') {
             $isTriggered = (bool)$currentValue === false;
         } else {
-            // String/Int check (if NormalState was string, trigger means they don't match)
+            // String/Int check
             $isTriggered = ($currentValueStr !== $triggerValueStr);
         }
 
-        $messageText = $event['Message'] ?? 'Unbekanntes Ereignis';
-        $alarmLevel = (int)($event['AlarmLevel'] ?? 0);
-        $autoReset = (bool)($event['AutoReset'] ?? false);
-        $vid = (int)($event['VariableID'] ?? 0);
+        $messageText = $eventDev['Message'] ?? '';
+        if ($messageText === '') $messageText = $eventDev['name'] ?? 'Unbekanntes Ereignis';
+        
+        $alarmLevel = (int)($eventDev['AlarmLevel'] ?? 0);
+        $autoReset = (bool)($eventDev['AutoReset'] ?? true); // Default to true if not set
 
-        // Acknowledge Variable (Alarm_XXX)
+        // Acknowledge Variable (Event_XXX)
         $ident = 'Event_' . $vid;
         $eventVarID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
 
@@ -294,14 +226,15 @@ class SmartMonitorEvent extends IPSModuleStrict
             $this->SetValue('LastEvent', $messageText);
 
             if ($eventVarID === false) {
+                // Ensure ~Switch is NOT used
                 $eventVarID = $this->RegisterVariableBoolean($ident, $messageText, "", 10);
                 $this->EnableAction($ident);
             }
             $this->SetValue($ident, true);
             IPS_SetHidden($eventVarID, false);
 
-            // Route to Notifier
-            $this->SendToNotifier($event, $messageText, $alarmLevel);
+            // Route to Notifier (Phase B: No target checkboxes, all routed through Notifier)
+            $this->SendToNotifier($messageText, $alarmLevel);
         } else {
             // Reset condition met
             if ($autoReset) {
@@ -343,18 +276,13 @@ class SmartMonitorEvent extends IPSModuleStrict
         $this->SetValue('ActiveEventsCount', $count);
     }
 
-    private function SendToNotifier(array $event, string $message, int $level): void
+    private function SendToNotifier(string $message, int $level): void
     {
         $notifierId = $this->DR_GetNotifierID();
         if ($notifierId <= 1 || !IPS_InstanceExists($notifierId)) return;
 
-        $targetPush = (bool)($event['TargetPush'] ?? false);
-        $targetSonos = (bool)($event['TargetSonos'] ?? false);
-        $targetVesta = (bool)($event['TargetVestaboard'] ?? false);
-        $targetMP3 = (bool)($event['TargetMP3'] ?? false);
-
         if ($this->ReadPropertyBoolean('SimulationMode')) {
-            $this->LogMessage("SIMULATION: Sende '{$message}' an Notifier ({$notifierId}). Ziele: Push:".(int)$targetPush." Sonos:".(int)$targetSonos." Vesta:".(int)$targetVesta." MP3:".(int)$targetMP3, KL_NOTIFY);
+            $this->LogMessage("SIMULATION: Sende '{$message}' an Notifier ({$notifierId}). Level: {$level}", KL_NOTIFY);
             return;
         }
 
@@ -362,15 +290,7 @@ class SmartMonitorEvent extends IPSModuleStrict
         $priority = 0; // Normal Info
         if ($level > 0) $priority = 1; // Warning
 
-        // Instead of overriding the Notifier's global Enable flags (which we can't easily do via a simple interface),
-        // we can call a custom function or use standard NOTIFY_SendEvent if we extend it.
-        // For now, we call the standard Notification endpoint and prepend target info or use generic push.
-        // Wait, SmartNotifier currently accepts NOTIFY_SendEvent(ID, Message, Priority).
-        // Let's pass a JSON structure if we want routing, or just call it directly.
-        // Let's implement NOTIFY_RouteEvent in SmartNotifier later, or just do simple SendEvent for now.
-        
         if (function_exists('NOTIFY_SendEvent')) {
-            // As a simple fallback before extending Notifier
             @NOTIFY_SendEvent($notifierId, $message, $priority);
         }
     }
