@@ -135,6 +135,19 @@ class UniversalDeviceScanner extends IPSModuleStrict
                 
                 // Typ erkennen
                 $deviceName = $device['name'] ?? IPS_GetName($instanceID);
+                
+                // User Filter: Gruppenschaltung, Sicherheit, Heizen, oder ALLES_GROSS
+                if (
+                    stripos($deviceName, 'Gruppenschaltung') !== false ||
+                    stripos($deviceName, 'Sicherheit') !== false ||
+                    stripos($deviceName, 'Heizen') !== false ||
+                    (strtoupper($deviceName) === $deviceName && preg_match('/[A-ZÄÖÜ]/', $deviceName))
+                ) {
+                    $skipped++;
+                    $log[] = '  SKIP (User-Filter): ' . $deviceName;
+                    continue;
+                }
+
                 $deviceType = $this->detectDeviceType($idents, $deviceName);
                 $variables = $this->mapVariablesByType($idents, $deviceType);
                 
