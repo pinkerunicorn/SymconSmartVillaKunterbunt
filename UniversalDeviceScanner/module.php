@@ -133,26 +133,28 @@ class UniversalDeviceScanner extends IPSModuleStrict
                     }
                 }
                 
-                // Typ erkennen
-                $deviceName = $device['name'] ?? IPS_GetName($instanceID);
-                
-                // User Filter: Gruppenschaltung, Sicherheit, Heizen, oder ALLES_GROSS
-                if (
-                    stripos($deviceName, 'Gruppenschaltung') !== false ||
-                    stripos($deviceName, 'Sicherheit') !== false ||
-                    stripos($deviceName, 'Heizen') !== false ||
-                    (strtoupper($deviceName) === $deviceName && preg_match('/[A-ZÄÖÜ]/', $deviceName))
-                ) {
+                // Bestimmte Kategorien vom Scan ausschließen
+                $location = IPS_GetLocation($instanceID);
+                $excludeWords = ['Gruppenschaltung', 'INDOOR_CLIMATE', 'ENVIRONEMENT', 'ACCESS_CONTROL', 'Sicherheit', 'Heizen'];
+                $skip = false;
+                foreach ($excludeWords as $word) {
+                    if (stripos($location, $word) !== false) {
+                        $skip = true;
+                        break;
+                    }
+                }
+                if ($skip) {
                     $skipped++;
-                    $log[] = '  SKIP (User-Filter): ' . $deviceName;
+                    $log[] = '  SKIP (Kategorie): ' . ($device['name'] ?? IPS_GetName($instanceID));
                     continue;
                 }
 
+                // Typ erkennen
+                $deviceName = $device['name'] ?? IPS_GetName($instanceID);
                 $deviceType = $this->detectDeviceType($idents, $deviceName);
                 $variables = $this->mapVariablesByType($idents, $deviceType);
                 
                 // Standort auflösen
-                $location = IPS_GetLocation($instanceID);
                 $resolved = [];
                 if (function_exists('SDR_ResolveLocation')) {
                     $resolved = json_decode(@SDR_ResolveLocation($registryID, $location), true) ?: [];
