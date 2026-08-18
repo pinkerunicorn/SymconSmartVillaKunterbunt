@@ -769,7 +769,7 @@ class SmartController extends IPSModuleStrict
                             "caption": "Modus",
                             "name": "ModeName",
                             "width": "150px",
-                            "edit": { "type": "Label" }
+                            "add": ""
                         },
                         {
                             "caption": "ID",
@@ -816,7 +816,7 @@ class SmartController extends IPSModuleStrict
                             "caption": "Modus",
                             "name": "ModeName",
                             "width": "150px",
-                            "edit": { "type": "Label" }
+                            "add": ""
                         },
                         {
                             "caption": "ID",
@@ -901,7 +901,36 @@ class SmartController extends IPSModuleStrict
 }
 EOT;
 
-        return $json;
+        $form = json_decode($json, true);
+
+        // Dynamically inject the mode names so they always display properly
+        $presenceDef = [0 => 'Zuhause', 1 => 'Kurz weg', 2 => 'Urlaub'];
+        $presenceProp = json_decode($this->ReadPropertyString('PresenceSequencers'), true) ?: [];
+        $pValues = [];
+        foreach ($presenceDef as $id => $name) {
+            $pValues[] = [
+                'ModeID' => $id,
+                'ModeName' => $name,
+                'EntrySequencer' => $presenceProp[$id]['EntrySequencer'] ?? 0,
+                'ExitSequencer' => $presenceProp[$id]['ExitSequencer'] ?? 0
+            ];
+        }
+        $form['elements'][1]['items'][0]['values'] = $pValues;
+
+        $activityDef = [0 => 'Normal', 1 => 'Heimkino', 2 => 'Schlafen', 3 => 'Party'];
+        $activityProp = json_decode($this->ReadPropertyString('ActivitySequencers'), true) ?: [];
+        $aValues = [];
+        foreach ($activityDef as $id => $name) {
+            $aValues[] = [
+                'ModeID' => $id,
+                'ModeName' => $name,
+                'EntrySequencer' => $activityProp[$id]['EntrySequencer'] ?? 0,
+                'ExitSequencer' => $activityProp[$id]['ExitSequencer'] ?? 0
+            ];
+        }
+        $form['elements'][2]['items'][0]['values'] = $aValues;
+
+        return json_encode($form);
     }
 
     private function safeJsonDecode(string $json, bool $assoc = true) {
