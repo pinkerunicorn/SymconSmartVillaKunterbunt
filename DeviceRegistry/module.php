@@ -172,8 +172,9 @@ class SymconDeviceRegistry extends IPSModuleStrict
         }
 
         // Include auto-registered devices in total count
-        $autoJson = $this->ReadAttributeString('AutoRegisteredDevices');
-        $autoDevices = json_decode($autoJson, true);
+        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
+        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
+        $autoDevices = json_decode((string)$autoJson, true);
         $autoCount = is_array($autoDevices) ? count($autoDevices) : 0;
         $this->SetValue('RegisteredDevices', $totalDevices + $autoCount);
         
@@ -374,8 +375,9 @@ class SymconDeviceRegistry extends IPSModuleStrict
         }
 
         // Merge auto-registered devices
-        $autoJson = $this->ReadAttributeString('AutoRegisteredDevices');
-        $autoDevices = json_decode($autoJson, true);
+        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
+        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
+        $autoDevices = json_decode((string)$autoJson, true);
         if (is_array($autoDevices)) {
             foreach ($autoDevices as $autoDev) {
                 // Prüfe ob dieses Gerät schon manuell vorhanden ist (gleiche instanceID)
@@ -533,8 +535,9 @@ class SymconDeviceRegistry extends IPSModuleStrict
             return false;
         }
         
-        $autoJson = $this->ReadAttributeString('AutoRegisteredDevices');
-        $autoDevices = json_decode($autoJson, true);
+        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
+        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
+        $autoDevices = json_decode((string)$autoJson, true);
         if (!is_array($autoDevices)) {
             $autoDevices = [];
         }
@@ -561,8 +564,9 @@ class SymconDeviceRegistry extends IPSModuleStrict
 
     public function AutoUnregister(int $instanceID): bool
     {
-        $autoJson = $this->ReadAttributeString('AutoRegisteredDevices');
-        $autoDevices = json_decode($autoJson, true);
+        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
+        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
+        $autoDevices = json_decode((string)$autoJson, true);
         if (!is_array($autoDevices)) {
             return false;
         }
