@@ -259,12 +259,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -372,12 +375,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -467,12 +473,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -571,12 +580,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -693,12 +705,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -788,12 +803,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -919,12 +937,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -1029,12 +1050,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -1133,12 +1157,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -1246,12 +1273,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -1341,12 +1371,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -1442,12 +1475,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -1561,12 +1597,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ]
         },
@@ -1654,12 +1693,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
@@ -1755,12 +1797,15 @@
               "add": 0
             },
             {
-              "visible": false,
+              "visible": true,
               "save": true,
-              "width": "0px",
+              "width": "50px",
               "name": "enabled",
               "caption": "Aktiv",
-              "add": true
+              "add": true,
+              "edit": {
+                "type": "CheckBox"
+              }
             }
           ],
           "rowCount": 15,
