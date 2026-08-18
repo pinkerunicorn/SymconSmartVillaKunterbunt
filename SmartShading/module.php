@@ -104,7 +104,7 @@ class SmartShading extends IPSModuleStrict
         // Timer für Evaluierung (alle 3 Minuten)
         $this->RegisterTimer('ShadingEvaluator', 0, 'SHSH_EvaluateConditions($_IPS[\'TARGET\']);');
         
-        $this->DR_Register();
+        $this->DR_Register('DevicesBlind');
     }
 
     public function Destroy(): void

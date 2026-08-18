@@ -144,7 +144,7 @@ class SmartHeating extends IPSModuleStrict
         $this->RegisterTimer('WindowCheckTimer', 0, 'SHH_CheckWindowDebounce($_IPS["TARGET"]);');
         $this->RegisterTimer('BoostEndTimer', 0, 'SHH_EndBoost($_IPS["TARGET"]);');
         
-        $this->DR_Register();
+        $this->DR_Register('DevicesThermostat');
     }
 
     public function Destroy(): void

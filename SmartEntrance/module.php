@@ -150,7 +150,7 @@ class SmartEntrance extends IPSModuleStrict
         
         // No EnableAction on Doorbells - Read Only for Visu/History
         
-        $this->DR_Register();
+        $this->DR_Register('DevicesContactSensor');
     }
 
     public function Destroy(): void

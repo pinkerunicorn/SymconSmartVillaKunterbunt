@@ -132,7 +132,7 @@ class SmartGarage extends IPSModuleStrict
         $this->EnableAction('DoorControl');
         $this->EnableAction('AlarmOpenTooLong'); // Allow acknowledging
         
-        $this->DR_Register();
+        $this->DR_Register('DevicesContactSensor');
     }
 
     public function Destroy(): void
