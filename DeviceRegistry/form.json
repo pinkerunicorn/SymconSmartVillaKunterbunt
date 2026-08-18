@@ -35,7 +35,7 @@
           "add": true,
           "delete": true,
           "changeOrder": true,
-          "rowCount": 30,
+          "rowCount": 15,
           "columns": [
             {
               "caption": "Name (z.B. Erdgeschoss)",
@@ -63,7 +63,7 @@
           "add": true,
           "delete": true,
           "changeOrder": true,
-          "rowCount": 60,
+          "rowCount": 30,
           "columns": [
             {
               "caption": "Raum Name",
