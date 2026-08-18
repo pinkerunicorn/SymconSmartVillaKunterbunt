@@ -6,6 +6,8 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
+require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartGarage extends IPSModuleStrict
 {
@@ -13,6 +15,8 @@ class SmartGarage extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
+    use RegistryAware_Trait;
+    use DeviceRegistration_Trait;
 
     private const STATE_CLOSED = 0;
     private const STATE_OPEN = 1;
@@ -24,6 +28,7 @@ class SmartGarage extends IPSModuleStrict
     {
         parent::Create();
         
+        $this->RegisterPropertyInteger('RegistryID', 0);
         $this->DA_RegisterAvailability(900);
 
         // Properties
@@ -126,6 +131,14 @@ class SmartGarage extends IPSModuleStrict
         
         $this->EnableAction('DoorControl');
         $this->EnableAction('AlarmOpenTooLong'); // Allow acknowledging
+        
+        $this->DR_Register();
+    }
+
+    public function Destroy(): void
+    {
+        $this->DR_Unregister();
+        parent::Destroy();
     }
 
     public function ApplyChanges(): void

@@ -6,6 +6,8 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
+require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartHeating extends IPSModuleStrict
 {
@@ -13,6 +15,8 @@ class SmartHeating extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
+    use RegistryAware_Trait;
+    use DeviceRegistration_Trait;
 
     public function Create(): void
     {
@@ -139,6 +143,14 @@ class SmartHeating extends IPSModuleStrict
         $this->RegisterTimer('SeasonCheckTimer', 0, 'SHH_CheckSeason($_IPS["TARGET"]);');
         $this->RegisterTimer('WindowCheckTimer', 0, 'SHH_CheckWindowDebounce($_IPS["TARGET"]);');
         $this->RegisterTimer('BoostEndTimer', 0, 'SHH_EndBoost($_IPS["TARGET"]);');
+        
+        $this->DR_Register();
+    }
+
+    public function Destroy(): void
+    {
+        $this->DR_Unregister();
+        parent::Destroy();
     }
 
     public function ApplyChanges(): void

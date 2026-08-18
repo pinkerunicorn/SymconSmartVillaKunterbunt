@@ -12,8 +12,14 @@ declare(strict_types=1);
  *   $logId = IPS_GetInstanceListByModuleID('{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}')[0];
  *   SLOG_Info($logId, 'MeinModul', 'Etwas ist passiert', 'Optionale Details');
  */
+require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
+require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
+
 class SmartLog extends IPSModuleStrict
 {
+    use CentralStateAware_Trait;
+    use RegistryAware_Trait;
+
     private const ATTR_LOG_DATA = 'LogData';
     private const ATTR_STATUS = 'VisualisierungsStatus';
 
@@ -73,6 +79,8 @@ class SmartLog extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+
+        $this->SubscribeToCentralStates(['ActivityMode', 'PresenceMode']);
 
         // Tile View aktivieren
         $this->SetVisualizationType(1);
@@ -140,6 +148,25 @@ class SmartLog extends IPSModuleStrict
         $this->WriteAttributeString('SecurityDeviceMap', json_encode($securityMap));
 
         $this->SetStatus(102);
+    }
+
+    protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
+    {
+        $valueStr = (string)$newValue;
+        // Map common values to readable text if possible, e.g. ActivityMode 0=Normal, 1=Sleeping, 2=Cinema
+        if ($stateName === 'ActivityMode') {
+            $mode = 'Normal';
+            if ($newValue === 1) $mode = 'Schlafen';
+            if ($newValue === 2) $mode = 'Kino';
+            $valueStr = $mode;
+        } elseif ($stateName === 'PresenceMode') {
+            $mode = 'Zuhause';
+            if ($newValue === 1) $mode = 'Kurz weg';
+            if ($newValue === 2) $mode = 'Urlaub';
+            $valueStr = $mode;
+        }
+        
+        $this->Info('Haus-Modus', "Haus-Modus gewechselt: $stateName -> $valueStr");
     }
 
     // ─────────────────────────────────────────────────────────────────

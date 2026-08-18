@@ -7,6 +7,7 @@ require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
+require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 /**
  * SmartHomeEntrance
@@ -22,6 +23,7 @@ class SmartEntrance extends IPSModuleStrict
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
     use RegistryAware_Trait;
+    use DeviceRegistration_Trait;
 
     public function Create(): void
     {
@@ -147,6 +149,14 @@ class SmartEntrance extends IPSModuleStrict
         ], 3);
         
         // No EnableAction on Doorbells - Read Only for Visu/History
+        
+        $this->DR_Register();
+    }
+
+    public function Destroy(): void
+    {
+        $this->DR_Unregister();
+        parent::Destroy();
     }
 
     public function ApplyChanges(): void
