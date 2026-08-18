@@ -107,6 +107,7 @@ class SmartMonitorDevice extends IPSModuleStrict
         if (!is_array($allDevices)) return;
 
         foreach ($allDevices as $dev) {
+            if (!($dev['enabled'] ?? true)) continue;
             $vid = (int)($dev['Reachable_VarID'] ?? 0);
             if ($vid > 0 && IPS_VariableExists($vid)) {
                 $this->RegisterMessage($vid, VM_UPDATE);
@@ -149,6 +150,7 @@ class SmartMonitorDevice extends IPSModuleStrict
             $allDevices = @SDR_GetDevices($registryID);
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
+                    if (!($dev['enabled'] ?? true)) continue;
                     $devName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '?');
                     $devType = $dev['Type'] ?? '?';
 
@@ -343,6 +345,7 @@ class SmartMonitorDevice extends IPSModuleStrict
             $allDevices = @SDR_GetDevices($registryId);
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
+                    if (!($dev['enabled'] ?? true)) continue;
                     $hasBattery = (isset($dev['Battery_VarID']) && (int)$dev['Battery_VarID'] > 0);
                     $hasReachable = (isset($dev['Reachable_VarID']) && (int)$dev['Reachable_VarID'] > 0);
                     

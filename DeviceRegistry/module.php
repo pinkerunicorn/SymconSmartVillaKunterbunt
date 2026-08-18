@@ -174,12 +174,14 @@ class SymconDeviceRegistry extends IPSModuleStrict
             return;
         }
 
-        // Include auto-registered devices in total count
-        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
-        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
-        $autoDevices = json_decode((string)$autoJson, true);
-        $autoCount = is_array($autoDevices) ? count($autoDevices) : 0;
-        $this->SetValue('RegisteredDevices', $totalDevices + $autoCount);
+        // Einmalige Migration: Altes Attribut leeren (Geräte registrieren sich beim nächsten ApplyChanges neu)
+        $oldAutoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
+        if ($oldAutoJson !== false && $oldAutoJson !== '' && $oldAutoJson !== '[]') {
+            $this->WriteAttributeString('AutoRegisteredDevices', '[]');
+            $this->SendDebug('Migration', 'AutoRegisteredDevices-Attribut geleert. Module re-registrieren sich selbst.', 0);
+        }
+
+        $this->SetValue('RegisteredDevices', $totalDevices);
         
         $this->notifyDependentModules();
     }
@@ -250,24 +252,6 @@ class SymconDeviceRegistry extends IPSModuleStrict
                                     }
                                     unset($col);
                                 }
-                            } elseif ($item['name'] === 'AutoRegisteredList') {
-                                $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
-                                if ($autoJson === false || $autoJson === '') $autoJson = '[]';
-                                $autoDevices = json_decode((string)$autoJson, true);
-                                if (is_array($autoDevices)) {
-                                    $values = [];
-                                    foreach ($autoDevices as $dev) {
-                                        $varStrs = [];
-                                        if (isset($dev['variables']) && is_array($dev['variables'])) {
-                                            foreach ($dev['variables'] as $k => $v) {
-                                                if ($v > 0) $varStrs[] = str_replace('_VarID', '', $k) . ': ' . $v;
-                                            }
-                                        }
-                                        $dev['variablesSummary'] = implode(', ', $varStrs);
-                                        $values[] = $dev;
-                                    }
-                                    $item['values'] = $values;
-                                }
                             } elseif (str_starts_with($item['name'], 'Devices')) {
                                 // Inject Room Options
                                 if (isset($item['columns'])) {
@@ -285,15 +269,24 @@ class SymconDeviceRegistry extends IPSModuleStrict
                             $devices     = json_decode((string)$devicesJson, true);
                             if (is_array($devices)) {
                                 foreach ($devices as &$dev) {
+                                    // Deaktiviert?
+                                    if (!($dev['enabled'] ?? true)) {
+                                        $dev['Status'] = 'Deaktiviert';
+                                        $dev['rowColor'] = '#808080';
+                                        continue;
+                                    }
+
                                     $status   = 'OK';
                                     $rowColor = ''; 
                                     $hasError = false;
+                                    $isAuto = in_array($dev['source'] ?? 'manual', ['trait', 'scan', 'auto']);
 
                                         $varFields = ['OnOff_VarID', 'Brightness_VarID', 'ColorRGB_VarID', 'ColorTemp_VarID', 'OpenClose_VarID', 'TempSet_VarID', 'Status_VarID', 'Lux_VarID', 'Value_VarID', 'ActualTemp_VarID', 'BoostMode_VarID', 'ControlMode_VarID', 'Humidity_VarID', 'Power_VarID', 'Energy_VarID', 'Battery_VarID', 'Reachable_VarID'];
                                         $primaryFieldFound = false;
                                         
                                         $isDimmer = in_array($propName, ['DevicesLightDimmer', 'DevicesLightColor']);
                                         $isGeneric = ($propName === 'DevicesGenericSensor');
+                                        $isHealth = ($propName === 'DevicesHealth');
                                         $hasBrightness = (isset($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0 && IPS_VariableExists((int)$dev['Brightness_VarID']));
 
                                         foreach ($varFields as $varField) {
@@ -310,8 +303,8 @@ class SymconDeviceRegistry extends IPSModuleStrict
                                                 } else {
                                                     if ($varField === 'OnOff_VarID' && $isDimmer && $hasBrightness) {
                                                         // OK: Dimmer darf nur Brightness haben
-                                                    } elseif ($isGeneric && in_array($varField, ['Value_VarID', 'Status_VarID'])) {
-                                                        // OK: Generic Sensor needs no specific status/value variable
+                                                    } elseif (($isGeneric || $isHealth) && in_array($varField, ['Value_VarID', 'Status_VarID'])) {
+                                                        // OK: Generic/Health braucht keine spezifische Variable
                                                     } elseif (in_array($varField, ['OnOff_VarID', 'OpenClose_VarID', 'Status_VarID', 'Value_VarID', 'TempSet_VarID', 'ActualTemp_VarID'])) {
                                                         $status   = 'Unvollstaendig';
                                                         $rowColor = '#FF8000';
@@ -324,6 +317,11 @@ class SymconDeviceRegistry extends IPSModuleStrict
                                              $status   = 'Unvollstaendig';
                                              $rowColor = '#FF8000'; 
                                         }
+
+                                    // Auto-Quelle im Status anzeigen
+                                    if ($isAuto && $rowColor === '') {
+                                        $status .= ' (Auto)';
+                                    }
 
                                     $dev['Status']   = $status;
                                     if ($rowColor !== '') {
@@ -389,38 +387,9 @@ class SymconDeviceRegistry extends IPSModuleStrict
             $list = json_decode((string)$json, true);
             if (is_array($list)) {
                 foreach ($list as $dev) {
+                    if (!($dev['enabled'] ?? true)) continue;
                     $dev['Type'] = $propName;
                     $allDevices[] = $dev;
-                }
-            }
-        }
-
-        // Merge auto-registered devices
-        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
-        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
-        $autoDevices = json_decode((string)$autoJson, true);
-        if (is_array($autoDevices)) {
-            foreach ($autoDevices as $autoDev) {
-                // Prüfe ob dieses Gerät schon manuell vorhanden ist (gleiche instanceID)
-                $isDuplicate = false;
-                $autoInstID = $autoDev['instanceID'] ?? 0;
-                if ($autoInstID > 0) {
-                    foreach ($allDevices as $manualDev) {
-                        // Prüfe ob eine manuelle Variable-ID zur gleichen Instanz gehört
-                        foreach ($manualDev as $key => $val) {
-                            if (str_ends_with($key, '_VarID') && is_int($val) && $val > 0) {
-                                $parentInst = @IPS_GetParent($val);
-                                if ($parentInst === $autoInstID) {
-                                    $isDuplicate = true;
-                                    break 2;
-                                }
-                            }
-                        }
-                    }
-                }
-                if (!$isDuplicate) {
-                    $autoDev['source'] = $autoDev['source'] ?? 'auto';
-                    $allDevices[] = $autoDev;
                 }
             }
         }
@@ -438,6 +407,7 @@ class SymconDeviceRegistry extends IPSModuleStrict
         $primaryList = json_decode((string)$json, true);
         if (is_array($primaryList)) {
             foreach ($primaryList as $dev) {
+                if (!($dev['enabled'] ?? true)) continue;
                 $dev['Type'] = $type;
                 $list[] = $dev;
             }
@@ -555,53 +525,133 @@ class SymconDeviceRegistry extends IPSModuleStrict
         if (!is_array($device) || empty($device['instanceID'])) {
             return false;
         }
-        
-        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
-        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
-        $autoDevices = json_decode((string)$autoJson, true);
-        if (!is_array($autoDevices)) {
-            $autoDevices = [];
+
+        $type = $device['type'] ?? 'DevicesGenericSensor';
+        $instanceID = (int)$device['instanceID'];
+
+        // Validiere dass der Typ als Property existiert
+        $validTypes = [
+            'DevicesSwitch', 'DevicesSocket', 'DevicesLight', 'DevicesLightDimmer',
+            'DevicesLightColor', 'DevicesBlind', 'DevicesThermostat',
+            'DevicesWallSwitch', 'DevicesMotionSensor', 'DevicesContactSensor',
+            'DevicesSmokeSensor', 'DevicesAlarmSensor', 'DevicesGenericSensor',
+            'DevicesHealth', 'DevicesEvent'
+        ];
+        if (!in_array($type, $validTypes)) {
+            $type = 'DevicesGenericSensor';
         }
-        
-        $device['variables'] = $device['variables'] ?? [];
-        $capabilities = $this->deriveCapabilities($device['variables']);
-        $device = array_merge($device, $capabilities);
-        
+
+        // Aktuelle Liste laden
+        $json = @$this->ReadPropertyString($type);
+        if ($json === false || $json === '') $json = '[]';
+        $list = json_decode((string)$json, true);
+        if (!is_array($list)) $list = [];
+
+        // Variablen flach vorbereiten
+        $flatVars = [];
+        if (isset($device['variables']) && is_array($device['variables'])) {
+            foreach ($device['variables'] as $k => $v) {
+                $flatVars[$k] = (int)$v;
+            }
+        }
+
+        // Existierenden Eintrag suchen (nach instanceID)
         $found = false;
-        foreach ($autoDevices as &$existing) {
-            if (($existing['instanceID'] ?? 0) === $device['instanceID']) {
-                $existing = $device;
+        foreach ($list as &$existing) {
+            if (($existing['instanceID'] ?? 0) === $instanceID) {
+                // Merge: Nur leere Felder befüllen (User-Änderungen schützen)
+                $this->mergeDeviceData($existing, $device, $flatVars);
                 $found = true;
                 break;
             }
         }
+        unset($existing);
+
         if (!$found) {
-            $autoDevices[] = $device;
+            // Neues Gerät anlegen
+            $newEntry = [
+                'name'       => $device['name'] ?? '',
+                'room'       => $device['room'] ?? '',
+                'enabled'    => true,
+                'source'     => $device['source'] ?? 'auto',
+                'instanceID' => $instanceID,
+                'id'         => md5(uniqid((string)mt_rand(), true)),
+            ];
+            // Variablen flach eintragen
+            foreach ($flatVars as $k => $v) {
+                $newEntry[$k] = $v;
+            }
+            $list[] = $newEntry;
         }
-        
-        $this->WriteAttributeString('AutoRegisteredDevices', json_encode(array_values($autoDevices)));
+
+        // Prüfen ob sich tatsächlich etwas geändert hat
+        $newJson = json_encode(array_values($list));
+        if ($newJson === $json) {
+            return true; // Keine Änderung → kein IPS_SetProperty (Loop-Prevention)
+        }
+
+        IPS_SetProperty($this->InstanceID, $type, $newJson);
+        IPS_ApplyChanges($this->InstanceID);
         return true;
     }
 
     public function AutoUnregister(int $instanceID): bool
     {
-        $autoJson = @$this->ReadAttributeString('AutoRegisteredDevices');
-        if ($autoJson === false || $autoJson === '') $autoJson = '[]';
-        $autoDevices = json_decode((string)$autoJson, true);
-        if (!is_array($autoDevices)) {
-            return false;
-        }
-        
-        $initialCount = count($autoDevices);
-        $autoDevices = array_filter($autoDevices, function($device) use ($instanceID) {
-            return ($device['instanceID'] ?? 0) !== $instanceID;
-        });
-        
-        if (count($autoDevices) !== $initialCount) {
-            $this->WriteAttributeString('AutoRegisteredDevices', json_encode(array_values($autoDevices)));
-            return true;
+        $validTypes = [
+            'DevicesSwitch', 'DevicesSocket', 'DevicesLight', 'DevicesLightDimmer',
+            'DevicesLightColor', 'DevicesBlind', 'DevicesThermostat',
+            'DevicesWallSwitch', 'DevicesMotionSensor', 'DevicesContactSensor',
+            'DevicesSmokeSensor', 'DevicesAlarmSensor', 'DevicesGenericSensor',
+            'DevicesHealth', 'DevicesEvent'
+        ];
+
+        foreach ($validTypes as $type) {
+            $json = @$this->ReadPropertyString($type);
+            if ($json === false || $json === '') continue;
+            $list = json_decode((string)$json, true);
+            if (!is_array($list)) continue;
+
+            $initialCount = count($list);
+            $list = array_filter($list, function($device) use ($instanceID) {
+                return ($device['instanceID'] ?? 0) !== $instanceID;
+            });
+
+            if (count($list) !== $initialCount) {
+                IPS_SetProperty($this->InstanceID, $type, json_encode(array_values($list)));
+                IPS_ApplyChanges($this->InstanceID);
+                return true;
+            }
         }
         return false;
+    }
+
+    /**
+     * Merge-Safe: Befüllt nur leere/fehlende Felder im bestehenden Eintrag.
+     * User-Änderungen (Raum, Variablen-Korrekturen, enabled) bleiben erhalten.
+     */
+    private function mergeDeviceData(array &$existing, array $newData, array $flatVars): void
+    {
+        // Name nur befüllen wenn leer
+        if (empty($existing['name']) && !empty($newData['name'])) {
+            $existing['name'] = $newData['name'];
+        }
+
+        // Raum nur befüllen wenn leer
+        if (empty($existing['room']) && !empty($newData['room'])) {
+            $existing['room'] = $newData['room'];
+        }
+
+        // Source immer aktualisieren
+        $existing['source'] = $newData['source'] ?? ($existing['source'] ?? 'auto');
+
+        // enabled NIEMALS überschreiben (User-Entscheidung)
+
+        // Variablen-IDs: Nur befüllen wenn der alte Wert 0 oder nicht gesetzt ist
+        foreach ($flatVars as $k => $v) {
+            if ($v > 0 && (($existing[$k] ?? 0) === 0 || !isset($existing[$k]))) {
+                $existing[$k] = $v;
+            }
+        }
     }
 
     public function ResolveLocation(string $path): string
@@ -616,24 +666,12 @@ class SymconDeviceRegistry extends IPSModuleStrict
         return json_encode(['room' => $room, 'floor' => $floor]);
     }
 
+    /**
+     * @deprecated Wird nur noch für Abwärtskompatibilität beibehalten.
+     */
     public function GetAutoRegistered(): string
     {
-        return $this->ReadAttributeString('AutoRegisteredDevices');
-    }
-
-    private function deriveCapabilities(array $variables): array
-    {
-        return [
-            'hasBattery'     => ($variables['Battery_VarID'] ?? 0) > 0,
-            'hasReachable'   => ($variables['Reachable_VarID'] ?? 0) > 0,
-            'hasOnOff'       => ($variables['OnOff_VarID'] ?? 0) > 0,
-            'hasTemperature' => ($variables['Temperature_VarID'] ?? 0) > 0,
-            'hasBrightness'  => ($variables['Brightness_VarID'] ?? 0) > 0,
-            'hasPosition'    => ($variables['Position_VarID'] ?? 0) > 0,
-            'hasHumidity'    => ($variables['Humidity_VarID'] ?? 0) > 0,
-            'hasPower'       => ($variables['Power_VarID'] ?? 0) > 0,
-            'hasStatus'      => ($variables['Status_VarID'] ?? 0) > 0,
-        ];
+        return '[]';
     }
 
     /**

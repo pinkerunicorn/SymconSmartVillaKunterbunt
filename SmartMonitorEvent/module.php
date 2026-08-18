@@ -63,6 +63,7 @@ class SmartMonitorEvent extends IPSModuleStrict
                 $devices = @SDR_GetDevicesByType($regId, 'DevicesEvent');
                 if (is_array($devices)) {
                     foreach ($devices as $dev) {
+                        if (!($dev['enabled'] ?? true)) continue;
                         $vid = (int)($dev['Status_VarID'] ?? 0);
                         if ($vid > 0) {
                             $name = $dev['name'] ?? 'Unbekannt';
@@ -141,6 +142,7 @@ class SmartMonitorEvent extends IPSModuleStrict
                 $devices = @SDR_GetDevicesByType($registryId, 'DevicesEvent');
                 if (is_array($devices)) {
                     foreach ($devices as $dev) {
+                        if (!($dev['enabled'] ?? true)) continue;
                         $vid = (int)($dev['Status_VarID'] ?? 0);
                         if ($vid > 0 && IPS_VariableExists($vid)) {
                             $this->RegisterMessage($vid, VM_UPDATE);
@@ -167,6 +169,7 @@ class SmartMonitorEvent extends IPSModuleStrict
             $devices = @SDR_GetDevicesByType($registryId, 'DevicesEvent');
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
+                    if (!($dev['enabled'] ?? true)) continue;
                     $vid = (int)($dev['Status_VarID'] ?? 0);
                     if ($vid === $SenderID) {
                         $this->HandleEventTrigger($dev, $val);

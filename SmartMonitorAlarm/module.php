@@ -118,6 +118,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         $monitored = $this->GetRegistrySensors($registryId);
 
         foreach ($monitored as $item) {
+            if (!($item['enabled'] ?? true)) continue;
             $vid = $item['VariableID'] ?? 0;
             if ($vid > 0 && IPS_VariableExists($vid)) {
                 $this->RegisterMessage($vid, VM_UPDATE);
@@ -145,6 +146,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         // Auto-register Registry alarm sensor messages + Alarm_ variables
         $registrySensors = $this->GetRegistrySensors($registryId);
         foreach ($registrySensors as $sensor) {
+            if (!($sensor['enabled'] ?? true)) continue;
             $vid = (int)($sensor['Status_VarID'] ?? 0);
             if ($vid <= 0 || !IPS_VariableExists($vid)) continue;
             $this->RegisterReference($vid);
@@ -163,6 +165,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         // Window & Door contact messages
         $contactSensors = $this->GetRegistryContactSensors($registryId);
         foreach ($contactSensors as $sensor) {
+            if (!($sensor['enabled'] ?? true)) continue;
             $id = $sensor['Status_VarID'] ?? 0;
             if ($id > 0 && IPS_VariableExists($id)) {
                 $this->RegisterReference($id);
@@ -198,6 +201,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
             $sensors = @SDR_GetDevicesByType($registryId, $type);
             if (!is_array($sensors)) continue;
             foreach ($sensors as $s) {
+                if (!($s['enabled'] ?? true)) continue;
                 $s['_alarmLevel'] = $cfg['level'];
                 $s['_label']      = $cfg['label'];
                 $result[] = $s;
@@ -221,6 +225,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         // Check if sender is a contact sensor (window/door)
         $contactSensors = $this->GetRegistryContactSensors($registryId);
         foreach ($contactSensors as $sensor) {
+            if (!($sensor['enabled'] ?? true)) continue;
             if (isset($sensor['Status_VarID']) && $sensor['Status_VarID'] == $SenderID) {
                 if (empty($sensor['ExcludeFromAlarm'])) {
                     $this->CalculateOpenWindows();
@@ -232,6 +237,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         // Check if sender is an auto-alarm sensor from registry
         $registrySensors = $this->GetRegistrySensors($registryId);
         foreach ($registrySensors as $sensor) {
+            if (!($sensor['enabled'] ?? true)) continue;
             $vid = (int)($sensor['Status_VarID'] ?? 0);
             if ($vid !== $SenderID) continue;
             $currentVal = $Data[0];
@@ -268,6 +274,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
         $openNames = [];
 
         foreach ($contactSensors as $sensor) {
+            if (!($sensor['enabled'] ?? true)) continue;
             if (!empty($sensor['ExcludeFromAlarm'])) {
                 continue;
             }
@@ -452,6 +459,7 @@ class SmartMonitorAlarm extends IPSModuleStrict
 $monitoredMap = [];
         $registryId = $this->ReadPropertyInteger('RegistryID');
         foreach ($this->GetRegistrySensors($registryId) as $sensor) {
+            if (!($sensor['enabled'] ?? true)) continue;
             $vid = (int)($sensor['Status_VarID'] ?? 0);
             if ($vid > 0) {
                 $monitoredMap[$vid] = [

@@ -31,69 +31,69 @@
             {
               "type": "List",
               "name": "Floors",
-          "caption": "Etagen & Bereiche",
-          "add": true,
-          "delete": true,
-          "changeOrder": true,
-          "rowCount": 15,
-          "columns": [
-            {
-              "caption": "Name (z.B. Erdgeschoss)",
-              "name": "name",
-              "width": "200px",
-              "add": "",
-              "edit": {
-                "type": "ValidationTextBox"
-              }
+              "caption": "Etagen & Bereiche",
+              "add": true,
+              "delete": true,
+              "changeOrder": true,
+              "rowCount": 15,
+              "columns": [
+                {
+                  "caption": "Name (z.B. Erdgeschoss)",
+                  "name": "name",
+                  "width": "200px",
+                  "add": "",
+                  "edit": {
+                    "type": "ValidationTextBox"
+                  }
+                },
+                {
+                  "visible": false,
+                  "save": true,
+                  "width": "0px",
+                  "name": "id",
+                  "caption": "ID",
+                  "add": ""
+                }
+              ]
             },
             {
-              "visible": false,
-              "save": true,
-              "width": "0px",
-              "name": "id",
-              "caption": "ID",
-              "add": ""
+              "type": "List",
+              "name": "Rooms",
+              "caption": "Verfügbare Räume",
+              "add": true,
+              "delete": true,
+              "changeOrder": true,
+              "rowCount": 30,
+              "columns": [
+                {
+                  "caption": "Raum Name",
+                  "name": "name",
+                  "width": "250px",
+                  "add": "",
+                  "edit": {
+                    "type": "ValidationTextBox"
+                  }
+                },
+                {
+                  "caption": "Etage / Bereich",
+                  "name": "floor",
+                  "width": "200px",
+                  "add": "",
+                  "edit": {
+                    "type": "Select",
+                    "options": []
+                  }
+                },
+                {
+                  "visible": false,
+                  "save": true,
+                  "width": "0px",
+                  "name": "id",
+                  "caption": "ID",
+                  "add": ""
+                }
+              ]
             }
-          ]
-        },
-        {
-          "type": "List",
-          "name": "Rooms",
-          "caption": "Verfügbare Räume",
-          "add": true,
-          "delete": true,
-          "changeOrder": true,
-          "rowCount": 30,
-          "columns": [
-            {
-              "caption": "Raum Name",
-              "name": "name",
-              "width": "250px",
-              "add": "",
-              "edit": {
-                "type": "ValidationTextBox"
-              }
-            },
-            {
-              "caption": "Etage / Bereich",
-              "name": "floor",
-              "width": "200px",
-              "add": "",
-              "edit": {
-                "type": "Select",
-                "options": []
-              }
-            },
-            {
-              "visible": false,
-              "save": true,
-              "width": "0px",
-              "name": "id",
-              "caption": "ID",
-              "add": ""
-            }
-          ]
-        }
           ]
         }
       ]
@@ -241,6 +241,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -330,6 +354,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -401,6 +449,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -481,6 +553,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -579,6 +675,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -650,6 +770,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -757,6 +901,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -843,6 +1011,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -923,6 +1115,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -1012,6 +1228,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -1083,6 +1323,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -1160,6 +1424,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -1219,8 +1507,14 @@
               "edit": {
                 "type": "Select",
                 "options": [
-                  { "caption": "0 (Info)", "value": 0 },
-                  { "caption": "1 (Hinweis)", "value": 1 }
+                  {
+                    "caption": "0 (Info)",
+                    "value": 0
+                  },
+                  {
+                    "caption": "1 (Hinweis)",
+                    "value": 1
+                  }
                 ]
               }
             },
@@ -1249,6 +1543,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ]
         },
@@ -1318,6 +1636,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -1395,6 +1737,30 @@
               "name": "id",
               "caption": "ID",
               "add": ""
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "source",
+              "caption": "Quelle",
+              "add": "manual"
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "instanceID",
+              "caption": "InstID",
+              "add": 0
+            },
+            {
+              "visible": false,
+              "save": true,
+              "width": "0px",
+              "name": "enabled",
+              "caption": "Aktiv",
+              "add": true
             }
           ],
           "rowCount": 15,
@@ -1427,28 +1793,6 @@
               "minimum": 0,
               "maximum": 10
             }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "ExpansionPanel",
-      "caption": "Automatisch registrierte Geräte (Leseansicht)",
-      "items": [
-        {
-          "type": "List",
-          "name": "AutoRegisteredList",
-          "caption": "Geräte aus Auto-Discovery und autarken Modulen",
-          "add": false,
-          "delete": false,
-          "edit": false,
-          "rowCount": 20,
-          "columns": [
-            { "name": "source", "caption": "Quelle", "width": "100px" },
-            { "name": "type", "caption": "Erkannter Typ", "width": "200px" },
-            { "name": "name", "caption": "Name", "width": "300px" },
-            { "name": "room", "caption": "Raum", "width": "150px" },
-            { "name": "variablesSummary", "caption": "Zugeordnete Variablen (IDs)", "width": "800px" }
           ]
         }
       ]
