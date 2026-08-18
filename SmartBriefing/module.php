@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
@@ -15,6 +16,7 @@ require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
  */
 class SmartBriefing extends IPSModuleStrict
 {
+    use DeviceRegistration_Trait;
     use SmartLog_Trait;
     use CentralStateAware_Trait;
     use RegistryAware_Trait;
@@ -60,6 +62,14 @@ class SmartBriefing extends IPSModuleStrict
                 ['Value' => true, 'Caption' => 'Fehler!', 'IconValue' => 'triangle-exclamation', 'IconActive' => false, 'ColorActive' => false, 'ColorDisplay' => 0xFF0000, 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1, 'ColorValue' => 0xFF0000]
             ])
         ], 3);
+
+        $this->DR_Register('DevicesGenericSensor');
+    }
+
+    public function Destroy(): void
+    {
+        $this->DR_Unregister();
+        parent::Destroy();
     }
 
     public function ApplyChanges(): void

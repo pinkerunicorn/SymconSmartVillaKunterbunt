@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
+require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartSequencer extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
+    use DeviceRegistration_Trait;
 
     private const ACTION_SCRIPT = 0;
     private const ACTION_DEVICE = 1;
@@ -28,6 +30,14 @@ class SmartSequencer extends IPSModuleStrict
         
         // Timer für die Ausführung der Warteschlange
         $this->RegisterTimer('QueueTimer', 0, 'SHSQ_ProcessQueue($_IPS[\'TARGET\']);');
+
+        $this->DR_Register('DevicesGenericSensor');
+    }
+
+    public function Destroy(): void
+    {
+        $this->DR_Unregister();
+        parent::Destroy();
     }
 
     public function ApplyChanges(): void

@@ -5,12 +5,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
+require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartRoomLighting extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
+    use DeviceRegistration_Trait;
 
     // Maximum number of concurrent timers
     private const MAX_TIMERS = 20;
@@ -51,6 +53,14 @@ class SmartRoomLighting extends IPSModuleStrict
             $this->RegisterTimer("DoorOffTimer_$i", 0, 'SRL_ProcessDoorOff($_IPS[\'TARGET\'], ' . $i . ');');
             $this->RegisterTimer("TwilightTimer_$i", 0, 'SRL_ProcessTwilightTrigger($_IPS[\'TARGET\'], ' . $i . ');');
         }
+
+        $this->DR_Register('DevicesGenericSensor');
+    }
+
+    public function Destroy(): void
+    {
+        $this->DR_Unregister();
+        parent::Destroy();
     }
 
     public function ApplyChanges(): void

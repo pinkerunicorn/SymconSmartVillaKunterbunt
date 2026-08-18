@@ -5,12 +5,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
+require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartPresenceSimulation extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
+    use DeviceRegistration_Trait;
     public function Create(): void
     {
         parent::Create();
@@ -63,6 +65,14 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
         $this->RegisterTimer('LightExecutionTimer', 0, 'SPS_CheckAndExecuteLightSchedule($_IPS[\'TARGET\']);');
         $this->RegisterTimer('GeminiRetryTimer', 0, 'SPS_GenerateAiSchedule($_IPS[\'TARGET\'], true);');
+
+        $this->DR_Register('DevicesGenericSensor');
+    }
+
+    public function Destroy(): void
+    {
+        $this->DR_Unregister();
+        parent::Destroy();
     }
 
     public function ApplyChanges(): void
