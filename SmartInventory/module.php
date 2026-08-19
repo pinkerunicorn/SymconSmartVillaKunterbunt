@@ -948,8 +948,11 @@ PROMPT;
         }
 
         $this->WriteAttributeString('AISuggestions', json_encode($allSuggestions));
-        $this->SetValue('ScanDuration', count($allSuggestions) . " KI-Vorschläge (" . count($errors) . " Fehler)");
-        $this->SendDebug('KI-Tagger', "Fertig: " . count($allSuggestions) . " Vorschläge, " . count($errors) . " Fehler", 0);
+        $this->SetValue('ScanDuration', count($allSuggestions) . " KI-Vorschläge werden übernommen...");
+        $this->SendDebug('KI-Tagger', "Fertig: " . count($allSuggestions) . " Vorschläge, " . count($errors) . " Fehler – übernehme automatisch...", 0);
+
+        // Direkt übernehmen
+        $this->ApplyAllSuggestions();
 
         return json_encode([
             'suggestions' => count($allSuggestions),
