@@ -901,7 +901,7 @@ PROMPT;
             $prompt = json_encode($chunk, JSON_UNESCAPED_UNICODE);
             $this->SendDebug('KI-Tagger', "Batch $batchNum/$totalBatches: " . count($chunk) . " Instanzen, " . strlen($prompt) . " Bytes", 0);
 
-            $result = GIO_Query($geminiID, $prompt, $systemPrompt, $schema);
+            $result = GIO_Query($geminiID, $prompt, $systemPrompt, $schema, 0.1);
 
             if (empty($result)) {
                 $lastError = '';
