@@ -316,6 +316,12 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetInventory(): string
     {
+        $json = $this->GetBuffer('Inventory');
+        if ($json !== '' && $json !== false) {
+            return $json;
+        }
+        // Buffer leer (nach Neustart): Inventar direkt aufbauen und lean cachen
+        $this->Scan();
         return $this->GetBuffer('Inventory') ?: '[]';
     }
 
