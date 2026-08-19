@@ -41,6 +41,9 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterPropertyInteger('NotifierID', 0);              // SmartNotifier Instanz
         $this->RegisterPropertyInteger('GeminiIOID', 0);              // SmartGeminiIO Instanz
 
+        // Persistenter Speicher für KI-Vorschläge (überlebt Modul-Updates)
+        $this->RegisterAttributeString('AISuggestions', '[]');
+
         // Timer für periodischen Scan
         $this->RegisterTimer('ScanTimer', 0, 'SINV_Scan(' . $this->InstanceID . ');');
 
@@ -939,7 +942,7 @@ PROMPT;
             $this->SendDebug('KI-Tagger', "Batch $batchNum OK: " . count($batchSuggestions) . " analysiert, " . count($allSuggestions) . " Tags bisher", 0);
         }
 
-        $this->SetBuffer('AISuggestions', json_encode($allSuggestions));
+        $this->WriteAttributeString('AISuggestions', json_encode($allSuggestions));
         $this->SetValue('ScanDuration', count($allSuggestions) . " KI-Vorschläge (" . count($errors) . " Fehler)");
         $this->SendDebug('KI-Tagger', "Fertig: " . count($allSuggestions) . " Vorschläge, " . count($errors) . " Fehler", 0);
 
@@ -954,7 +957,7 @@ PROMPT;
      */
     public function ApplyAllSuggestions(): string
     {
-        $suggestions = json_decode($this->GetBuffer('AISuggestions') ?: '[]', true);
+        $suggestions = json_decode($this->ReadAttributeString('AISuggestions') ?: '[]', true);
         if (empty($suggestions)) {
             return 'Keine KI-Vorschläge im Buffer. Zuerst KI-Tagging starten.';
         }
@@ -997,8 +1000,8 @@ PROMPT;
 
         $this->SendDebug('ApplyAll', "$applied Tags gesetzt, $skipped übersprungen (von $total)", 0);
 
-        // Buffer leeren
-        $this->SetBuffer('AISuggestions', '[]');
+        // Attribut leeren
+        $this->WriteAttributeString('AISuggestions', '[]');
 
         // Inventar neu scannen
         $scanResult = $this->Scan();
@@ -1127,7 +1130,7 @@ PROMPT;
                     'items' => [
                         ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'echo SINV_Scan($id);'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging gestartet - Fortschritt in der Scan-Dauer Variable sichtbar.";'],
-                        ['type' => 'Button', 'caption' => 'KI-Vorschlaege uebernehmen (' . count(json_decode($this->GetBuffer('AISuggestions') ?: '[]', true)) . ')', 'onClick' => 'echo SINV_ApplyAllSuggestions($id);'],
+                        ['type' => 'Button', 'caption' => 'KI-Vorschlaege uebernehmen (' . count(json_decode($this->ReadAttributeString('AISuggestions') ?: '[]', true)) . ')', 'onClick' => 'echo SINV_ApplyAllSuggestions($id);'],
                     ],
                 ],
                 // Tab: Erreichbarkeit
