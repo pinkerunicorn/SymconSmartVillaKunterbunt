@@ -1078,112 +1078,41 @@ PROMPT;
         // Direkt aus dem Objektbaum lesen – kein Buffer, immer aktuell
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
 
-        $buildActionRow = function(string $listName) {
-            return [
-                'type' => 'RowLayout',
-                'items' => [
-                    [
-                        'type' => 'ValidationTextBox',
-                        'name' => 'TagInput_' . $listName,
-                        'caption' => 'Neuer Tag',
-                    ],
-                    [
-                        'type' => 'Button',
-                        'caption' => 'Tag speichern',
-                        'onClick' => '
-                            if (!isset($' . $listName . ') || !isset($' . $listName . '["varID"])) {
-                                echo "Bitte zuerst eine Variable auswählen.";
-                                return;
-                            }
-                            $input = ${"TagInput_" . "' . $listName . '"};
-                            if ($input === "") {
-                                echo "Bitte einen Tag in das Textfeld eintragen (z.B. SI:battery).";
-                                return;
-                            }
-                            $vid = $' . $listName . '["varID"];
-                            IPS_SetInfo($vid, $input);
-                            echo "Tag für Variable " . IPS_GetName($vid) . " gespeichert.";
-                            SINV_Scan($id);
-                        ',
-                    ],
-                    [
-                        'type' => 'ValidationTextBox',
-                        'name' => 'RoomInput_' . $listName,
-                        'caption' => 'Neuer Raum',
-                    ],
-                    [
-                        'type' => 'Button',
-                        'caption' => 'Raum speichern',
-                        'onClick' => '
-                            if (!isset($' . $listName . ') || !isset($' . $listName . '["instanceID"])) {
-                                echo "Bitte zuerst ein Gerät auswählen.";
-                                return;
-                            }
-                            $input = ${"RoomInput_" . "' . $listName . '"};
-                            if ($input === "") {
-                                echo "Bitte einen Raum eintragen.";
-                                return;
-                            }
-                            $iid = $' . $listName . '["instanceID"];
-                            $vid = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
-                            if ($vid === false) {
-                                $vid = IPS_CreateVariable(3); // String
-                                IPS_SetParent($vid, $iid);
-                                IPS_SetIdent($vid, "_SI_Room");
-                                IPS_SetName($vid, "SmartInventory Raum Override");
-                                IPS_SetHidden($vid, true);
-                            }
-                            SetValue($vid, $input);
-                            echo "Raum für Gerät " . IPS_GetName($iid) . " auf \'" . $input . "\' gesetzt.";
-                            SINV_Scan($id);
-                        ',
-                    ],
-                    [
-                        'type' => 'Button',
-                        'caption' => 'Deaktivieren',
-                        'onClick' => '
-                            if (!isset($' . $listName . ') || !isset($' . $listName . '["varID"])) {
-                                echo "Bitte zuerst eine Variable auswählen.";
-                                return;
-                            }
-                            $vid = $' . $listName . '["varID"];
-                            $info = IPS_GetObject($vid)["ObjectInfo"];
-                            if (!str_contains($info, ":disabled")) {
-                                IPS_SetInfo($vid, $info . ":disabled");
-                                echo "Variable " . IPS_GetName($vid) . " deaktiviert.";
-                                SINV_Scan($id);
-                            } else {
-                                echo "Bereits deaktiviert.";
-                            }
-                        ',
-                    ],
-                    [
-                        'type' => 'Button',
-                        'caption' => 'Ignorieren',
-                        'onClick' => '
-                            if (!isset($' . $listName . ') || !isset($' . $listName . '["instanceID"])) {
-                                echo "Bitte zuerst ein Gerät auswählen.";
-                                return;
-                            }
-                            $iid = $' . $listName . '["instanceID"];
-                            $vid = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
-                            if ($vid === false) {
-                                $vid = IPS_CreateVariable(0);
-                                IPS_SetParent($vid, $iid);
-                                IPS_SetIdent($vid, "_SI_Ignore");
-                                IPS_SetName($vid, "SmartInventory Ignoriert");
-                                IPS_SetHidden($vid, true);
-                            }
-                            SetValue($vid, true);
-                            echo IPS_GetName($iid) . " komplett ignoriert.";
-                            SINV_Scan($id);
-                        ',
-                    ],
-                ],
-            ];
-        };
-
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
+
+        // Räume sammeln für Dropdown
+        $allRooms = [];
+        foreach ($inventory as $device) {
+            if ($device['room'] !== '') {
+                $allRooms[$device['room']] = true;
+            }
+        }
+        foreach ($untagged as $device) {
+            if ($device['room'] !== '') {
+                $allRooms[$device['room']] = true;
+            }
+        }
+        $allRooms = array_keys($allRooms);
+        sort($allRooms);
+        $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
+        foreach ($allRooms as $r) {
+            $roomOptions[] = ['caption' => $r, 'value' => $r];
+        }
+
+        $tagOptions = [
+            ['caption' => 'Batterie', 'value' => 'SI:battery'],
+            ['caption' => 'Erreichbarkeit (Offline/Online)', 'value' => 'SI:reachability'],
+            ['caption' => 'Kontakt (Generisch)', 'value' => 'SI:contact'],
+            ['caption' => 'Kontakt (Fenster)', 'value' => 'SI:contact:window'],
+            ['caption' => 'Kontakt (Tür)', 'value' => 'SI:contact:door'],
+            ['caption' => 'Alarm (Generisch)', 'value' => 'SI:alarm'],
+            ['caption' => 'Alarm (Wasser)', 'value' => 'SI:alarm:water'],
+            ['caption' => 'Alarm (Rauch)', 'value' => 'SI:alarm:smoke'],
+            ['caption' => 'Alarm (Hitze)', 'value' => 'SI:alarm:heat'],
+            ['caption' => 'Alarm (Gas)', 'value' => 'SI:alarm:gas'],
+            ['caption' => 'Alarm (Bewegung)', 'value' => 'SI:alarm:motion'],
+            ['caption' => 'Warnung', 'value' => 'SI:warning'],
+        ];
 
         // Nur PROBLEMFÄLLE in die Listen – hält den Form-JSON unter 1MB
         $offlineList  = [];
@@ -1201,6 +1130,8 @@ PROMPT;
                     'instanceName' => $device['instanceName'],
                     'room'         => $device['room'],
                     'varName'      => $v['name'],
+                    'tagBase'      => str_replace(':disabled', '', $v['tag']),
+                    'disabled'     => $v['disabled'],
                     'tag'          => $v['tag'],
                     'value'        => $v['valueFormatted'],
                     'lastUpdate'   => $v['lastUpdate'],
@@ -1231,6 +1162,32 @@ PROMPT;
 
         $totalDevices = count($inventory);
         $totalVars    = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
+
+        $onEditScript = '
+            $listData = ${$IPS_VALUE};
+            $vid = $listData["varID"];
+            $iid = $listData["instanceID"];
+            
+            // Tag aktualisieren
+            $newTag = $listData["tagBase"] . ($listData["disabled"] ? ":disabled" : "");
+            IPS_SetInfo($vid, $newTag);
+            
+            // Raum aktualisieren
+            $newRoom = $listData["room"];
+            $roomVarID = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
+            if ($roomVarID === false && $newRoom !== "") {
+                $roomVarID = IPS_CreateVariable(3);
+                IPS_SetParent($roomVarID, $iid);
+                IPS_SetIdent($roomVarID, "_SI_Room");
+                IPS_SetName($roomVarID, "SmartInventory Raum Override");
+                IPS_SetHidden($roomVarID, true);
+            }
+            if ($roomVarID !== false) {
+                SetValue($roomVarID, $newRoom);
+            }
+            
+            SINV_Scan($id);
+        ';
 
         $form = [
             'elements' => [
@@ -1272,18 +1229,20 @@ PROMPT;
                             'caption' => '',
                             'rowCount' => min(count($offlineList), 20),
                             'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
+                            'onEdit' => str_replace('$IPS_VALUE', '"ReachabilityList"', $onEditScript),
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
+                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
+                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'lastUpdate', 'caption' => 'Seit', 'width' => '150px'],
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
                             ],
                             'values' => $offlineList,
                         ],
-                        $buildActionRow('ReachabilityList'),
                     ],
                 ],
-                // Tab: Batterie
+        // Tab: Batterie
                 [
                     'type' => 'ExpansionPanel',
                     'caption' => 'Batterie (' . count($lowBatList) . ' Kritisch)',
@@ -1295,16 +1254,18 @@ PROMPT;
                             'caption' => '',
                             'rowCount' => min(count($lowBatList), 20),
                             'sort' => ['column' => 'value', 'direction' => 'ascending'],
+                            'onEdit' => str_replace('$IPS_VALUE', '"BatteryList"', $onEditScript),
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
+                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
+                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value', 'caption' => 'Wert', 'width' => '100px'],
                                 ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
                             ],
                             'values' => $lowBatList,
                         ],
-                        $buildActionRow('BatteryList'),
                     ],
                 ],
                 // Tab: Alarme & Warnungen
@@ -1319,9 +1280,12 @@ PROMPT;
                             'caption' => '',
                             'rowCount' => min(count($alarmList), 20),
                             'sort' => ['column' => 'type', 'direction' => 'ascending'],
+                            'onEdit' => str_replace('$IPS_VALUE', '"AlarmList"', $onEditScript),
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
+                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
+                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'type', 'caption' => 'Typ', 'width' => '100px'],
                                 ['name' => 'value', 'caption' => 'Status', 'width' => '100px'],
                                 ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
@@ -1329,7 +1293,6 @@ PROMPT;
                             ],
                             'values' => $alarmList,
                         ],
-                        $buildActionRow('AlarmList'),
                     ],
                 ],
                 // Tab: Kontakte
@@ -1344,16 +1307,18 @@ PROMPT;
                             'caption' => '',
                             'rowCount' => min(count($contactList), 20),
                             'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
+                            'onEdit' => str_replace('$IPS_VALUE', '"ContactList"', $onEditScript),
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
+                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
+                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'status', 'caption' => 'Zustand', 'width' => '100px'],
                                 ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
                             ],
                             'values' => $contactList,
                         ],
-                        $buildActionRow('ContactList'),
                     ],
                 ],
                 // Nicht getaggte Instanzen
@@ -1368,11 +1333,27 @@ PROMPT;
                             'caption' => '',
                             'rowCount' => min(count($untagged), 20),
                             'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
+                            'onEdit' => '
+                                $iid = $UntaggedList["instanceID"];
+                                $newRoom = $UntaggedList["room"];
+                                $roomVarID = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
+                                if ($roomVarID === false && $newRoom !== "") {
+                                    $roomVarID = IPS_CreateVariable(3);
+                                    IPS_SetParent($roomVarID, $iid);
+                                    IPS_SetIdent($roomVarID, "_SI_Room");
+                                    IPS_SetName($roomVarID, "SmartInventory Raum Override");
+                                    IPS_SetHidden($roomVarID, true);
+                                }
+                                if ($roomVarID !== false) {
+                                    SetValue($roomVarID, $newRoom);
+                                }
+                                SINV_Scan($id);
+                            ',
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Instanz', 'width' => '200px'],
                                 ['name' => 'moduleName', 'caption' => 'Modul', 'width' => '200px'],
                                 ['name' => 'varCount', 'caption' => 'Variablen', 'width' => '80px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
+                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'instanceID', 'caption' => 'ID', 'width' => '60px'],
                             ],
                             'values' => $untagged,
@@ -1381,40 +1362,8 @@ PROMPT;
                             'type' => 'RowLayout',
                             'items' => [
                                 [
-                                    'type' => 'ValidationTextBox',
-                                    'name' => 'RoomInput_UntaggedList',
-                                    'caption' => 'Neuer Raum',
-                                ],
-                                [
                                     'type' => 'Button',
-                                    'caption' => 'Raum speichern',
-                                    'onClick' => '
-                                        if (!isset($UntaggedList) || !isset($UntaggedList["instanceID"])) {
-                                            echo "Bitte zuerst eine Instanz auswählen.";
-                                            return;
-                                        }
-                                        $input = $RoomInput_UntaggedList;
-                                        if ($input === "") {
-                                            echo "Bitte einen Raum eintragen.";
-                                            return;
-                                        }
-                                        $iid = $UntaggedList["instanceID"];
-                                        $vid = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
-                                        if ($vid === false) {
-                                            $vid = IPS_CreateVariable(3); // String
-                                            IPS_SetParent($vid, $iid);
-                                            IPS_SetIdent($vid, "_SI_Room");
-                                            IPS_SetName($vid, "SmartInventory Raum Override");
-                                            IPS_SetHidden($vid, true);
-                                        }
-                                        SetValue($vid, $input);
-                                        echo "Raum für " . IPS_GetName($iid) . " auf \'" . $input . "\' gesetzt.";
-                                        SINV_Scan($id);
-                                    ',
-                                ],
-                                [
-                                    'type' => 'Button',
-                                    'caption' => 'Instanz ignorieren',
+                                    'caption' => 'Ausgewählte Instanz ignorieren',
                                     'onClick' => '
                                         if (!isset($UntaggedList) || !isset($UntaggedList["instanceID"])) {
                                             echo "Bitte zuerst eine Instanz in der Liste auswählen.";
