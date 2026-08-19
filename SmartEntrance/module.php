@@ -80,6 +80,14 @@ class SmartEntrance extends IPSModuleStrict
         // --- Properties: Smart Locks (Tedee) ---
         $this->RegisterPropertyString('LockVariables', '[]');
 
+        // --- Properties: Garage ---
+        $this->RegisterPropertyFloat('GarageThresholdGreen', 1.5);
+        $this->RegisterPropertyFloat('GarageThresholdYellow', 0.8);
+        $this->RegisterPropertyFloat('GarageThresholdRed', 0.4);
+        $this->RegisterPropertyFloat('GarageThresholdBlink', 0.2);
+        $this->RegisterPropertyInteger('SourceGarageParked', 0);
+        $this->RegisterPropertyInteger('SourceGarageStatus', 0);
+
         // --- Timers ---
         $this->RegisterTimer('TimerLock1Lock', 0, 'SHE_TimerLockAction($_IPS[\'TARGET\'], 0, true);');
         $this->RegisterTimer('TimerLock1Unlock', 0, 'SHE_TimerLockAction($_IPS[\'TARGET\'], 0, false);');
@@ -148,6 +156,25 @@ class SmartEntrance extends IPSModuleStrict
             ])
         ], 3);
         
+        // Garage Variables
+        $this->RegisterVariableBoolean('GarageParked', 'Auto geparkt', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Car',
+            'OPTIONS' => json_encode([
+                ['Value' => false, 'Caption' => 'Unterwegs', 'IconValue' => 'Car', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x888888, 'ColorValue' => 0x888888,
+                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1],
+                ['Value' => true, 'Caption' => 'Geparkt', 'IconValue' => 'House', 'IconActive' => true,
+                 'ColorActive' => true, 'ColorDisplay' => 0x00CC00, 'ColorValue' => 0x00CC00,
+                 'ContentColorActive' => false, 'ContentColorDisplay' => -1, 'ContentColorValue' => -1]
+            ])
+        ], 10);
+        
+        $this->RegisterVariableString('GarageStatus', 'Ampel Status', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'Information'
+        ], 11);
+
         // No EnableAction on Doorbells - Read Only for Visu/History
     }
 
@@ -172,7 +199,8 @@ class SmartEntrance extends IPSModuleStrict
         $properties = [
             'SourceMailboxFlap', 'SourceMailboxDoor', 
             'SourceDoorbell1', 'SourceDoorbell2', 
-            'SourceAbsenceButton', 'TargetMP3P'
+            'SourceAbsenceButton', 'TargetMP3P',
+            'SourceGarageParked', 'SourceGarageStatus'
         ];
         foreach ($properties as $prop) {
             $id = $this->ReadPropertyInteger($prop);
@@ -202,6 +230,12 @@ class SmartEntrance extends IPSModuleStrict
         }
 
         $this->UpdateTimers();
+        
+        // Publish Garage Thresholds via MQTT
+        $this->PublishMQTT('garagen-sensor/number/schwelle_gruen/command', (string)$this->ReadPropertyFloat('GarageThresholdGreen'));
+        $this->PublishMQTT('garagen-sensor/number/schwelle_gelb/command', (string)$this->ReadPropertyFloat('GarageThresholdYellow'));
+        $this->PublishMQTT('garagen-sensor/number/schwelle_rot/command', (string)$this->ReadPropertyFloat('GarageThresholdRed'));
+        $this->PublishMQTT('garagen-sensor/number/schwelle_blinken/command', (string)$this->ReadPropertyFloat('GarageThresholdBlink'));
         $this->DA_SetAvailable(true);
         $this->SetStatus(102);
     }
@@ -242,6 +276,18 @@ class SmartEntrance extends IPSModuleStrict
                 $this->SLogInfo('MessageSink', "Prüfe Doorbell 2...");
                 if ($this->ValuesMatch($value, $this->ReadPropertyString('Doorbell2TriggerValue'), $SenderID)) {
                     $this->TriggerDoorbell(2);
+                }
+            }
+            // Garage Status
+            if ($SenderID === $this->ReadPropertyInteger('SourceGarageStatus')) {
+                if ($this->GetValue('GarageStatus') !== (string)$value) {
+                    $this->SetValue('GarageStatus', (string)$value);
+                }
+            }
+            // Garage Parked
+            if ($SenderID === $this->ReadPropertyInteger('SourceGarageParked')) {
+                if ($this->GetValue('GarageParked') !== (bool)$value) {
+                    $this->SetValue('GarageParked', (bool)$value);
                 }
             }
             // Absence Button
@@ -526,6 +572,17 @@ class SmartEntrance extends IPSModuleStrict
         return $this->ValuesMatch($currentVal, $closedVal);
     }
 
+    private function PublishMQTT(string $topic, string $payload): void
+    {
+        $mqttInstances = IPS_GetInstanceListByModuleID('{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}'); // MQTT Server
+        if (!empty($mqttInstances)) {
+            $mqttID = $mqttInstances[0];
+            if (function_exists('MQTT_Publish')) {
+                @MQTT_Publish($mqttID, $topic, $payload, 0, 0);
+            }
+        }
+    }
+
     // =========================================================================
     // Helpers & UI
     // =========================================================================
@@ -730,6 +787,28 @@ class SmartEntrance extends IPSModuleStrict
                             ]
                         },
                         { "type": "NumberSpinner", "name": "MailboxMP3P_LEDDuration", "caption": "LED Dauer (s, 0=unendlich)", "minimum": 0, "suffix": "s" }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🚗 Garagen-Einparkhilfe",
+            "items": [
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        { "type": "NumberSpinner", "name": "GarageThresholdGreen", "caption": "Schwelle Grün (m)", "digits": 2, "minimum": 0, "suffix": "m" },
+                        { "type": "NumberSpinner", "name": "GarageThresholdYellow", "caption": "Schwelle Gelb (m)", "digits": 2, "minimum": 0, "suffix": "m" },
+                        { "type": "NumberSpinner", "name": "GarageThresholdRed", "caption": "Schwelle Rot (m)", "digits": 2, "minimum": 0, "suffix": "m" },
+                        { "type": "NumberSpinner", "name": "GarageThresholdBlink", "caption": "Schwelle Blinken (m)", "digits": 2, "minimum": 0, "suffix": "m" }
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        { "type": "SelectVariable", "name": "SourceGarageStatus", "caption": "MQTT-Quelle: Ampel Status" },
+                        { "type": "SelectVariable", "name": "SourceGarageParked", "caption": "MQTT-Quelle: Auto geparkt" }
                     ]
                 }
             ]
