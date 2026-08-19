@@ -13,12 +13,10 @@ declare(strict_types=1);
  *   SLOG_Info($logId, 'MeinModul', 'Etwas ist passiert', 'Optionale Details');
  */
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
-require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 class SmartLog extends IPSModuleStrict
 {
     use CentralStateAware_Trait;
-    use RegistryAware_Trait;
 
     private const ATTR_LOG_DATA = 'LogData';
     private const ATTR_STATUS = 'VisualisierungsStatus';
@@ -50,6 +48,9 @@ class SmartLog extends IPSModuleStrict
         $this->RegisterPropertyInteger('AutoRefreshSekunden', 10);
         $this->RegisterPropertyBoolean('MirrorToSyslog', false);
         $this->RegisterPropertyBoolean('EnableSecurityLogging', true);
+        $this->RegisterPropertyInteger('InventoryID', 0);
+
+        // Legacy (Migration compat)
         $this->RegisterPropertyInteger('RegistryID', 0);
 
         // Attribute (persistenter Speicher)
@@ -57,10 +58,10 @@ class SmartLog extends IPSModuleStrict
         $this->RegisterAttributeString(self::ATTR_LOG_DATA, '[]');
         try {
             $this->RegisterAttributeString(self::ATTR_STATUS, json_encode([
-                'seite'       => 0,
-                'maxZeilen'   => 30,
-                'levelFilter' => [],
-                'textFilter'  => '',
+                'seite'        => 0,
+                'maxZeilen'    => 30,
+                'levelFilter'  => [],
+                'textFilter'   => '',
                 'sourceFilter' => [],
             ], JSON_THROW_ON_ERROR));
         } catch (\JsonException $e) {
@@ -68,8 +69,7 @@ class SmartLog extends IPSModuleStrict
         }
 
         // Variablen
-        $this->RegisterVariableInteger('EntryCount', 'Log-Einträge', ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'ICON' => 'list'], 1);
-
+        $this->RegisterVariableInteger('EntryCount', 'Log-Eintraege', ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'ICON' => 'list'], 1);
         $this->RegisterVariableString('LastEntry', 'Letzter Eintrag', ['PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION, 'ICON' => 'list'], 2);
 
         // Timer für Auto-Refresh
@@ -99,46 +99,46 @@ class SmartLog extends IPSModuleStrict
 
         $securityMap = [];
         if ($this->ReadPropertyBoolean('EnableSecurityLogging')) {
-            $regId = $this->ReadPropertyInteger('RegistryID');
-            if ($regId > 0 && IPS_InstanceExists($regId) && function_exists('SDR_GetDevicesByType')) {
-                // 1. Fenster/Türen
-                $contacts = (array)@SDR_GetDevicesByType($regId, 'DevicesContactSensor');
+            $inventoryId = $this->ReadPropertyInteger('InventoryID');
+            if ($inventoryId > 0 && @IPS_InstanceExists($inventoryId) && function_exists('SINV_GetByCategory')) {
+                // 1. Fenster/Türen (contact)
+                $contacts = json_decode((string)@SINV_GetByCategory($inventoryId, 'contact'), true) ?: [];
                 foreach ($contacts as $c) {
-                    $varId = (int)($c['Status_VarID'] ?? 0);
-                    if ($varId > 0 && IPS_VariableExists($varId)) {
+                    $varId = (int)($c['varID'] ?? 0);
+                    if ($varId > 0 && @IPS_VariableExists($varId)) {
                         $securityMap[$varId] = [
-                            'type' => 'Contact',
-                            'name' => $c['name'] ?? 'Fenster',
-                            'room' => $c['room'] ?? 'Unbekannt',
-                            'closedValue' => $c['ClosedValue'] ?? 'CLOSED'
+                            'type'        => 'Contact',
+                            'name'        => $c['instanceName'] ?? 'Fenster',
+                            'room'        => $c['room'] ?? 'Unbekannt',
+                            'normalState' => $c['normalState'] ?? null,
                         ];
                         $this->RegisterMessage($varId, VM_UPDATE);
                     }
                 }
-                // 2. Garagentore
-                $garages = (array)@SDR_GetDevicesByType($regId, 'DevicesGarageDoor');
+                // 2. Garagen (contact:garage)
+                $garages = json_decode((string)@SINV_GetByCategory($inventoryId, 'contact:garage'), true) ?: [];
                 foreach ($garages as $g) {
-                    $varId = (int)($g['Status_VarID'] ?? 0);
-                    if ($varId > 0 && IPS_VariableExists($varId)) {
+                    $varId = (int)($g['varID'] ?? 0);
+                    if ($varId > 0 && @IPS_VariableExists($varId)) {
                         $securityMap[$varId] = [
-                            'type' => 'Garage',
-                            'name' => $g['name'] ?? 'Garagentor',
-                            'room' => $g['room'] ?? 'Garage',
-                            'closedValue' => $g['ClosedValue'] ?? 'CLOSED'
+                            'type'        => 'Garage',
+                            'name'        => $g['instanceName'] ?? 'Garagentor',
+                            'room'        => $g['room'] ?? 'Garage',
+                            'normalState' => $g['normalState'] ?? null,
                         ];
                         $this->RegisterMessage($varId, VM_UPDATE);
                     }
                 }
-                // 3. Schlösser
-                $locks = (array)@SDR_GetDevicesByType($regId, 'DevicesDoorLock');
+                // 3. Schlösser (actor:lock)
+                $locks = json_decode((string)@SINV_GetByCategory($inventoryId, 'actor:lock'), true) ?: [];
                 foreach ($locks as $l) {
-                    $varId = (int)($l['Status_VarID'] ?? 0);
-                    if ($varId > 0 && IPS_VariableExists($varId)) {
+                    $varId = (int)($l['varID'] ?? 0);
+                    if ($varId > 0 && @IPS_VariableExists($varId)) {
                         $securityMap[$varId] = [
-                            'type' => 'Lock',
-                            'name' => $l['name'] ?? 'Schloss',
-                            'room' => $l['room'] ?? 'Eingang',
-                            'lockedValue' => $l['LockedValue'] ?? 'LOCKED'
+                            'type'        => 'Lock',
+                            'name'        => $l['instanceName'] ?? 'Schloss',
+                            'room'        => $l['room'] ?? 'Eingang',
+                            'normalState' => $l['normalState'] ?? null,
                         ];
                         $this->RegisterMessage($varId, VM_UPDATE);
                     }
@@ -148,6 +148,7 @@ class SmartLog extends IPSModuleStrict
         $this->WriteAttributeString('SecurityDeviceMap', json_encode($securityMap));
 
         $this->SetStatus(102);
+
     }
 
     protected function OnCentralStateChanged(string $stateName, mixed $newValue): void
@@ -285,31 +286,25 @@ class SmartLog extends IPSModuleStrict
     public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
     {
         if ($Message == VM_UPDATE) {
-            $mapStr = $this->ReadAttributeString('SecurityDeviceMap');
+            $mapStr      = $this->ReadAttributeString('SecurityDeviceMap');
             $securityMap = json_decode($mapStr, true);
             if (is_array($securityMap) && isset($securityMap[$SenderID])) {
                 $dev = $securityMap[$SenderID];
-                // $Data[0] is boolean or integer depending on the variable type, we cast to string for robust comparison
-                $val = is_bool($Data[0]) ? ($Data[0] ? 'true' : 'false') : (string)$Data[0];
-                
+                $val = $Data[0]; // aktueller Wert (bool/int/string)
+
                 $msg = '';
-                if ($dev['type'] === 'Contact') {
-                    $closedVal = is_bool($dev['closedValue']) ? ($dev['closedValue'] ? 'true' : 'false') : (string)$dev['closedValue'];
-                    $isOpen = ($val !== $closedVal);
-                    $stateStr = $isOpen ? 'geöffnet' : 'geschlossen';
-                    $msg = "{$dev['name']} ({$dev['room']}) wurde {$stateStr}.";
-                } elseif ($dev['type'] === 'Garage') {
-                    $closedVal = is_bool($dev['closedValue']) ? ($dev['closedValue'] ? 'true' : 'false') : (string)$dev['closedValue'];
-                    $isOpen = ($val !== $closedVal);
-                    $stateStr = $isOpen ? 'geöffnet' : 'geschlossen';
+                if ($dev['type'] === 'Contact' || $dev['type'] === 'Garage') {
+                    $normalState = $dev['normalState'] ?? null;
+                    $isOpen = ($normalState !== null) ? ($val != $normalState) : (bool)$val;
+                    $stateStr = $isOpen ? 'geoeffnet' : 'geschlossen';
                     $msg = "{$dev['name']} ({$dev['room']}) wurde {$stateStr}.";
                 } elseif ($dev['type'] === 'Lock') {
-                    $lockedVal = is_bool($dev['lockedValue']) ? ($dev['lockedValue'] ? 'true' : 'false') : (string)$dev['lockedValue'];
-                    $isLocked = ($val === $lockedVal);
+                    $normalState = $dev['normalState'] ?? null;
+                    $isLocked = ($normalState !== null) ? ($val == $normalState) : !(bool)$val;
                     $stateStr = $isLocked ? 'zugesperrt' : 'aufgeschlossen';
                     $msg = "{$dev['name']} ({$dev['room']}) wurde {$stateStr}.";
                 }
-                
+
                 if ($msg !== '') {
                     $this->Log('SECURITY', 'Sicherheit', $msg);
                 }

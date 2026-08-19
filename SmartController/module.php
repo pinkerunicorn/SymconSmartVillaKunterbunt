@@ -205,25 +205,17 @@ class SmartController extends IPSModuleStrict
         $this->UnregisterVariable('MediaPlaying');
         $this->UnregisterVariable('AlarmLevel');
 
-        // References for Monitors
-        $monitorGuids = [
-            'MonitorAlarmID' => '{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}',
-            'MonitorDeviceID' => '{4574D58D-2DC0-4E16-92DC-16D9CD27D014}',
-            'MonitorEventID' => '{72F8B3A1-C994-4E60-A54D-B591D8E72C42}',
-            'MonitorPresenceID' => '{E3405EEF-3ECA-4105-9658-47103378E206}'
-        ];
-        foreach ($monitorGuids as $prop => $guid) {
-            $id = $this->discoverMonitorID($guid);
-            if ($id === 0) {
-                $id = $this->ReadPropertyInteger($prop);
-            }
-            if ($id > 1 && @IPS_InstanceExists($id)) {
-                $this->RegisterReference($id);
-                // Subscribe to all variables of the monitor instance
-                foreach (IPS_GetChildrenIDs($id) as $childId) {
-                    if (IPS_VariableExists($childId)) {
-                        $this->RegisterMessage($childId, VM_UPDATE);
-                    }
+        // MonitorPresenceID (noch aktiv, falls vorhanden)
+        $presenceMonitorGuid = '{E3405EEF-3ECA-4105-9658-47103378E206}';
+        $presenceId = $this->discoverMonitorID($presenceMonitorGuid);
+        if ($presenceId === 0) {
+            $presenceId = $this->ReadPropertyInteger('MonitorPresenceID');
+        }
+        if ($presenceId > 1 && @IPS_InstanceExists($presenceId)) {
+            $this->RegisterReference($presenceId);
+            foreach (IPS_GetChildrenIDs($presenceId) as $childId) {
+                if (IPS_VariableExists($childId)) {
+                    $this->RegisterMessage($childId, VM_UPDATE);
                 }
             }
         }
