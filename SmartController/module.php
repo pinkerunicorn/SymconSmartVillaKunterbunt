@@ -298,12 +298,13 @@ class SmartController extends IPSModuleStrict
     /**
      * Reagiert auf MotionCount > 0 vom SmartNotifier.
      * Loest einen Alarm aus wenn niemand zuhause ist (AWAY oder VACATION).
+     * Cooldown: max. 1 Alarm pro 10 Minuten.
      */
     private function HandleMotionAlarm(int $motionCount): void
     {
         $presence = (int)$this->GetValue('PresenceMode');
 
-        // Zuhause → keine Aktion, normale Bewegung
+        // Zuhause → keine Aktion
         if ($presence === self::PRESENCE_HOME) {
             return;
         }
@@ -312,6 +313,13 @@ class SmartController extends IPSModuleStrict
         if ($notifierId < 1 || !@IPS_InstanceExists($notifierId)) {
             return;
         }
+
+        // Cooldown: nicht oefter als alle 10 Minuten alarmieren
+        $lastAlarm = (int)$this->GetBuffer('LastMotionAlarmTS');
+        if (time() - $lastAlarm < 600) {
+            return;
+        }
+        $this->SetBuffer('LastMotionAlarmTS', (string)time());
 
         $presenceLabel = match($presence) {
             self::PRESENCE_AWAY     => 'Abwesend',
@@ -325,81 +333,60 @@ class SmartController extends IPSModuleStrict
         @NOTIFY_SendEvent($notifierId, json_encode([
             'Title'    => 'Bewegungsalarm',
             'Message'  => $msg,
-            'Priority' => 2, // Hoch
+            'Priority' => 2,
         ]));
     }
 
     private function CalculateSystemStatus(): void
     {
         $statusLevel = 0;
-        $messages = [];
+        $messages    = [];
 
-        // 1. Check Alarms (Prio 3 - Red)
-        $alarmId = $this->discoverMonitorID('{F2D396E5-AA02-4A82-9CD8-B7C5963E8D09}');
-        if ($alarmId === 0) $alarmId = $this->ReadPropertyInteger('MonitorAlarmID');
-        if ($alarmId > 1 && @IPS_InstanceExists($alarmId)) {
-            $vid = @IPS_GetObjectIDByIdent('ActiveAlarmsCount', $alarmId);
-            if ($vid !== false && GetValue($vid) > 0) {
+        // Daten aus SmartNotifier lesen (wenn konfiguriert)
+        $notifierId = $this->ReadPropertyInteger('SmartNotifierID');
+        if ($notifierId > 1 && @IPS_InstanceExists($notifierId)) {
+            $alarmVid   = @IPS_GetObjectIDByIdent('ActiveAlarmCount',  $notifierId);
+            $offlineVid = @IPS_GetObjectIDByIdent('OfflineCount',      $notifierId);
+            $batVid     = @IPS_GetObjectIDByIdent('LowBatteryCount',   $notifierId);
+            $contactVid = @IPS_GetObjectIDByIdent('OpenContactCount',  $notifierId);
+
+            $alarms  = ($alarmVid   && @IPS_VariableExists($alarmVid))   ? (int)GetValue($alarmVid)   : 0;
+            $offline = ($offlineVid && @IPS_VariableExists($offlineVid)) ? (int)GetValue($offlineVid) : 0;
+            $bat     = ($batVid     && @IPS_VariableExists($batVid))     ? (int)GetValue($batVid)     : 0;
+            $contacts= ($contactVid && @IPS_VariableExists($contactVid)) ? (int)GetValue($contactVid) : 0;
+
+            if ($alarms > 0) {
                 $statusLevel = 3;
-                $lastEventVid = @IPS_GetObjectIDByIdent('LastEvent', $alarmId);
-                $messages[] = "ALARM: " . ($lastEventVid !== false ? GetValue($lastEventVid) : "Aktiver Alarm");
+                $messages[]  = "Alarm: $alarms aktive Alarme";
             }
-        }
-
-        // 2. Check Events (Prio 2 - Yellow)
-        $eventId = $this->discoverMonitorID('{72F8B3A1-C994-4E60-A54D-B591D8E72C42}');
-        if ($eventId === 0) $eventId = $this->ReadPropertyInteger('MonitorEventID');
-        if ($eventId > 1 && @IPS_InstanceExists($eventId)) {
-            $vid = @IPS_GetObjectIDByIdent('ActiveEventsCount', $eventId);
-            if ($vid !== false && GetValue($vid) > 0) {
+            if ($contacts > 0) {
                 if ($statusLevel < 2) $statusLevel = 2;
-                $lastEventVid = @IPS_GetObjectIDByIdent('LastEvent', $eventId);
-                $messages[] = "Hinweis: " . ($lastEventVid !== false ? GetValue($lastEventVid) : "Aktives Ereignis");
+                $messages[] = "$contacts Kontakte offen";
             }
-        }
-
-        // 3. Check Devices (Prio 1 - Blue)
-        $deviceId = $this->discoverMonitorID('{4574D58D-2DC0-4E16-92DC-16D9CD27D014}');
-        if ($deviceId === 0) $deviceId = $this->ReadPropertyInteger('MonitorDeviceID');
-        if ($deviceId > 1 && @IPS_InstanceExists($deviceId)) {
-            $offlineVid = @IPS_GetObjectIDByIdent('OfflineDeviceCount', $deviceId);
-            $batteryVid = @IPS_GetObjectIDByIdent('LowBatteryCount', $deviceId);
-            if (($offlineVid !== false && GetValue($offlineVid) > 0) || ($batteryVid !== false && GetValue($batteryVid) > 0)) {
+            if ($offline > 0 || $bat > 0) {
                 if ($statusLevel < 1) $statusLevel = 1;
-                $summaryVid = @IPS_GetObjectIDByIdent('SummaryText', $deviceId);
-                if ($summaryVid !== false) {
-                    $messages[] = "Info: " . GetValue($summaryVid);
-                }
+                if ($offline > 0) $messages[] = "$offline Geraete offline";
+                if ($bat > 0)     $messages[] = "$bat Batterien schwach";
             }
         }
 
-        // 4. Check Presence Simulation (Prio 2 - Yellow)
-        $presenceId = $this->discoverMonitorID('{E3405EEF-3ECA-4105-9658-47103378E206}');
+        // Presence Simulation Fehler (MonitorPresenceID bleibt aktiv)
+        $presenceMonitorGuid = '{E3405EEF-3ECA-4105-9658-47103378E206}';
+        $presenceId = $this->discoverMonitorID($presenceMonitorGuid);
         if ($presenceId === 0) $presenceId = $this->ReadPropertyInteger('MonitorPresenceID');
         if ($presenceId > 1 && @IPS_InstanceExists($presenceId)) {
             $errId = @IPS_GetObjectIDByIdent('GeminiError', $presenceId);
             if ($errId !== false && GetValue($errId)) {
-                if ($statusLevel < 2) $statusLevel = 2; // Warning
-                $messages[] = "Warnung: Fehler bei der Smart Presence Simulation KI!";
+                if ($statusLevel < 2) $statusLevel = 2;
+                $messages[] = 'Warnung: Fehler bei Smart Presence Simulation KI';
             }
         }
 
         $this->SetValue('SystemStatus', $statusLevel);
-
-        if ($statusLevel === 0) {
-            $this->SetValue('SystemMessage', 'Keine besonderen Vorkommnisse (Alles OK)');
-        } else {
-            if (count($messages) > 0) {
-                $primaryMessage = $messages[0];
-                $additionalCount = count($messages) - 1;
-                if ($additionalCount > 0) {
-                    $primaryMessage .= " (+" . $additionalCount . " weitere)";
-                }
-                $this->SetValue('SystemMessage', $primaryMessage);
-            } else {
-                $this->SetValue('SystemMessage', 'Auffälligkeit (Keine Details verfügbar)');
-            }
-        }
+        $this->SetValue('SystemMessage', empty($messages)
+            ? 'Keine besonderen Vorkommnisse'
+            : implode(' – ', array_slice($messages, 0, 2)) . (count($messages) > 2 ? ' (+' . (count($messages) - 2) . ' weitere)' : '')
+        );
     }
 
     public function RequestAction(string $Ident, mixed $Value): void
