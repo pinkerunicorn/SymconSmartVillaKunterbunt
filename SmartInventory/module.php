@@ -831,8 +831,16 @@ PROMPT;
 
     public function GetConfigurationForm(): string
     {
-        // Gecachtes Inventar aus Buffer lesen (statt buildInventoryData aufzurufen)
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        // Gecachtes Inventar aus Buffer lesen.
+        // Falls Buffer leer (erster Start / nach Modul-Reload): einmalig aufbauen und cachen.
+        $inventoryJson = $this->GetBuffer('Inventory');
+        if ($inventoryJson === '' || $inventoryJson === false) {
+            ['inventory' => $inv, 'untagged' => $unt] = $this->buildInventoryData();
+            $inventoryJson = json_encode($inv);
+            $this->SetBuffer('Inventory', $inventoryJson);
+            $this->SetBuffer('UntaggedInstances', json_encode($unt));
+        }
+        $inventory = json_decode($inventoryJson, true) ?: [];
         $untagged = json_decode($this->GetBuffer('UntaggedInstances'), true) ?: [];
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
