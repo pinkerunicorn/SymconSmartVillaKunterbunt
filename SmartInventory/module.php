@@ -1078,6 +1078,66 @@ PROMPT;
         // Direkt aus dem Objektbaum lesen – kein Buffer, immer aktuell
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
 
+        $buildActionRow = function(string $listName) {
+            return [
+                'type' => 'RowLayout',
+                'items' => [
+                    [
+                        'type' => 'Button',
+                        'caption' => 'Variable umbenennen / Tag aendern',
+                        'onClick' => '
+                            if (!isset($' . $listName . ') || !isset($' . $listName . '["varID"])) {
+                                echo "Bitte zuerst eine Variable auswaehlen.";
+                                return;
+                            }
+                            echo "Tipp: Variable oeffnen: ID " . $' . $listName . '["varID"];
+                        ',
+                    ],
+                    [
+                        'type' => 'Button',
+                        'caption' => 'Variable deaktivieren',
+                        'onClick' => '
+                            if (!isset($' . $listName . ') || !isset($' . $listName . '["varID"])) {
+                                echo "Bitte zuerst eine Variable auswaehlen.";
+                                return;
+                            }
+                            $vid = $' . $listName . '["varID"];
+                            $info = IPS_GetObject($vid)["ObjectInfo"];
+                            if (!str_contains($info, ":disabled")) {
+                                IPS_SetInfo($vid, $info . ":disabled");
+                                echo "Variable " . IPS_GetName($vid) . " wurde deaktiviert.";
+                                SINV_Scan($id);
+                            } else {
+                                echo "Variable ist bereits deaktiviert.";
+                            }
+                        ',
+                    ],
+                    [
+                        'type' => 'Button',
+                        'caption' => 'Instanz ignorieren',
+                        'onClick' => '
+                            if (!isset($' . $listName . ') || !isset($' . $listName . '["instanceID"])) {
+                                echo "Bitte zuerst eine Variable auswaehlen.";
+                                return;
+                            }
+                            $iid = $' . $listName . '["instanceID"];
+                            $vid = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
+                            if ($vid === false) {
+                                $vid = IPS_CreateVariable(0);
+                                IPS_SetParent($vid, $iid);
+                                IPS_SetIdent($vid, "_SI_Ignore");
+                                IPS_SetName($vid, "SmartInventory Ignoriert");
+                                IPS_SetHidden($vid, true);
+                            }
+                            SetValue($vid, true);
+                            echo IPS_GetName($iid) . " wird jetzt komplett ignoriert.";
+                            SINV_Scan($id);
+                        ',
+                    ],
+                ],
+            ];
+        };
+
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         // Nur PROBLEMFÄLLE in die Listen – hält den Form-JSON unter 1MB
@@ -1175,6 +1235,7 @@ PROMPT;
                             ],
                             'values' => $offlineList,
                         ],
+                        $buildActionRow('ReachabilityList'),
                     ],
                 ],
                 // Tab: Batterie
@@ -1198,6 +1259,7 @@ PROMPT;
                             ],
                             'values' => $lowBatList,
                         ],
+                        $buildActionRow('BatteryList'),
                     ],
                 ],
                 // Tab: Alarme & Warnungen
@@ -1222,6 +1284,7 @@ PROMPT;
                             ],
                             'values' => $alarmList,
                         ],
+                        $buildActionRow('AlarmList'),
                     ],
                 ],
                 // Tab: Kontakte
@@ -1245,6 +1308,7 @@ PROMPT;
                             ],
                             'values' => $contactList,
                         ],
+                        $buildActionRow('ContactList'),
                     ],
                 ],
                 // Nicht getaggte Instanzen
