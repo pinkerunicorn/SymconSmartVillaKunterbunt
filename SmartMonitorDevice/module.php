@@ -2,424 +2,56 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../libs/Trait_SmartLog.php';
-require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
-require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
-
+/**
+ * SmartMonitorDevice – DEPRECATED
+ *
+ * Dieses Modul ist veraltet und wird nicht mehr weiterentwickelt.
+ * Das Device-Monitoring wurde in SmartNotifier integriert.
+ * Bitte die Instanz in der Symcon-Konsole löschen.
+ *
+ * @author Florian Graßinger
+ * @url https://github.com/pinkerunicorn/
+ */
 class SmartMonitorDevice extends IPSModuleStrict
 {
-    use SmartLog_Trait;
-    use DeviceAvailability_Trait;
-    use RegistryAware_Trait;
-
     public function Create(): void
     {
         parent::Create();
-        $this->DA_RegisterAvailability(900);
-
-        // Properties
-        $this->RegisterPropertyInteger('RegistryID', 0);
-        $this->RegisterPropertyInteger('TargetNotifier', 0);
-        $this->RegisterPropertyInteger('LowBatteryThreshold', 15);
-        $this->RegisterPropertyInteger('BackupVariableID', 0);
-
-        // Legacy properties (kept to prevent errors on update, no longer used)
-        $this->RegisterPropertyString('BatteryList', '[]');
-        $this->RegisterPropertyString('OfflineList', '[]');
-        $this->RegisterPropertyString('CustomVariables', '[]');
-        $this->RegisterPropertyString('CustomBatteryVariables', '[]');
-        $this->RegisterPropertyString('CustomOfflineVariables', '[]');
-
-        // Status variables
-        $this->RegisterVariableInteger('LowBatteryCount', 'Schwache Batterien', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'battery-quarter'
-        ], 1);
-        $this->RegisterVariableInteger('OfflineDeviceCount', 'Offline Geraete', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'link-slash'
-        ], 2);
-        $this->RegisterVariableInteger('OrphanedVarCount', 'Verwaiste Variablen', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'bell'
-        ], 3);
-        $this->RegisterVariableString('SummaryText', 'Status Zusammenfassung', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'info'
-        ], 4);
-        $this->RegisterVariableString('MonitoredListHTML', 'Ueberwachte Geraete (Uebersicht)', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'database'
-        ], 10);
-
-        // Health-check timer (every 30 minutes)
-        $this->RegisterTimer('HealthCheckTimer', 0, 'SMD_CheckHealth($_IPS[\'TARGET\'], false);');
+        $this->RegisterTimer('HealthCheckTimer', 0, '');
     }
 
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->DA_ApplyPresentation();
-
-        $this->SetVisualizationType(1);
-        $this->SetStatus(102);
-
-        // Clear old message subscriptions
-        foreach ($this->GetMessageList() as $senderID => $messages) {
-            foreach ($messages as $message) {
-                $this->UnregisterMessage($senderID, $message);
+        foreach ($this->GetMessageList() as $senderID => $msgs) {
+            foreach ($msgs as $msg) {
+                $this->UnregisterMessage($senderID, $msg);
             }
         }
-
-        // Clear old references
-        foreach ($this->GetReferenceList() as $refID) {
-            $this->UnregisterReference($refID);
-        }
-
-        $registryID = $this->ReadPropertyInteger('RegistryID');
-        if ($registryID > 1 && @IPS_ObjectExists($registryID)) {
-            $this->RegisterReference($registryID);
-        }
-
-        // Subscribe to all Reachable_VarID and Battery_VarID from registry
-        $this->RegisterRegistryMessages($registryID);
-
-        $backupVid = $this->ReadPropertyInteger('BackupVariableID');
-        if ($backupVid > 1 && @IPS_VariableExists($backupVid)) {
-            $this->RegisterMessage($backupVid, VM_UPDATE);
-            $this->RegisterReference($backupVid);
-        }
-
-        // Enable timer
-        $this->SetTimerInterval('HealthCheckTimer', 30 * 60 * 1000);
-
-        $this->CheckHealth(false);
-        $this->DA_SetAvailable(true);
-    }
-
-    private function RegisterRegistryMessages(int $registryID): void
-    {
-        if ($registryID <= 1 || !@IPS_ObjectExists($registryID) || !function_exists('SDR_GetDevices')) {
-            return;
-        }
-
-        $allDevices = @SDR_GetDevices($registryID);
-        if (!is_array($allDevices)) return;
-
-        foreach ($allDevices as $dev) {
-            if (!($dev['enabled'] ?? true)) continue;
-            $vid = (int)($dev['Reachable_VarID'] ?? 0);
-            if ($vid > 0 && IPS_VariableExists($vid)) {
-                $this->RegisterMessage($vid, VM_UPDATE);
-                $this->RegisterReference($vid);
-            }
-            $vid = (int)($dev['Battery_VarID'] ?? 0);
-            if ($vid > 0 && IPS_VariableExists($vid)) {
-                $this->RegisterMessage($vid, VM_UPDATE);
-                $this->RegisterReference($vid);
-            }
-        }
-    }
-
-    public function MessageSink(int $TimeStamp, int $SenderID, int $Message, array $Data): void
-    {
-        if ($Message === VM_UPDATE) {
-            // Only react if value actually changed
-            if (isset($Data[1]) && $Data[1] === false) {
-                return;
-            }
-            $this->CheckHealth(true);
-        }
-    }
-
-    public function CheckHealth(bool $triggerNotification = false): void
-    {
-        $threshold = $this->ReadPropertyInteger('LowBatteryThreshold');
-        $registryID = $this->ReadPropertyInteger('RegistryID');
-        $backupVid = $this->ReadPropertyInteger('BackupVariableID');
-
-        $lowBatteries = [];
-        $systemWarnings = [];
-        $offlineDevices = [];
-        $orphanedVars = [];
-        $htmlRowsBattery = [];
-        $htmlRowsOffline = [];
-        $htmlRowsOrphaned = [];
-
-        if ($registryID > 1 && @IPS_ObjectExists($registryID) && function_exists('SDR_GetDevices')) {
-            $allDevices = @SDR_GetDevices($registryID);
-            if (is_array($allDevices)) {
-                foreach ($allDevices as $dev) {
-                    if (!($dev['enabled'] ?? true)) continue;
-                    $devName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '?');
-                    $devType = $dev['Type'] ?? '?';
-
-                    // Check for orphaned primary variables
-                    $primaryVarFields = [
-                        'OnOff_VarID', 'OpenClose_VarID', 'Status_VarID', 'TempSet_VarID',
-                        'ActualTemp_VarID', 'Value_VarID', 'Brightness_VarID'
-                    ];
-                    foreach ($primaryVarFields as $field) {
-                        if (!isset($dev[$field])) continue;
-                        $vid = (int)$dev[$field];
-                        if ($vid > 0 && !IPS_VariableExists($vid)) {
-                            $orphanedVars[] = "$devName ($field #$vid fehlt)";
-                            $htmlRowsOrphaned[] = "<tr><td style='width:50%;'><b>$devName</b></td><td style='width:30%;'>$devType</td><td style='width:20%; color:#FF4040;'><b>VARIABLE FEHLT (#$vid)</b></td></tr>";
-                        }
-                    }
-
-                    // Battery check
-                    $batVid = (int)($dev['Battery_VarID'] ?? 0);
-                    if ($batVid > 0) {
-                        if (!IPS_VariableExists($batVid)) {
-                            $orphanedVars[] = "$devName (Battery_VarID #$batVid fehlt)";
-                        } else {
-                            $val = GetValue($batVid);
-                            $statusText = GetValueFormatted($batVid);
-                            $statusColor = '#00FF00';
-                            $isLow = false;
-
-                            if (is_bool($val) && $val === true) {
-                                $isLow = true;
-                                $statusText = 'SCHWACH';
-                                $statusColor = '#FF0000';
-                            } elseif (is_numeric($val)) {
-                                $varInfo = IPS_GetVariable($batVid);
-                                $profileName = $varInfo['VariableCustomProfile'] != '' ? $varInfo['VariableCustomProfile'] : $varInfo['VariableProfile'];
-                                $isPercent = false;
-                                
-                                if ($profileName != '') {
-                                    $profile = IPS_GetVariableProfile($profileName);
-                                    if (strpos($profile['Suffix'], '%') !== false) {
-                                        $isPercent = true;
-                                    }
-                                } elseif ($val >= 0 && $val <= 100) {
-                                    $isPercent = true;
-                                    $statusText = round((float)$val) . '%';
-                                }
-
-                                if ($isPercent && (float)$val < $threshold) {
-                                    $isLow = true;
-                                    $statusText .= ' (NIEDRIG)';
-                                    $statusColor = '#FF0000';
-                                }
-                            }
-
-                            if ($isLow) {
-                                $lowBatteries[] = $devName;
-                            }
-                            $htmlRowsBattery[] = "<tr><td style='width:50%;'><b>$devName</b></td><td style='width:30%;'>$devType</td><td style='width:20%; color:$statusColor;'><b>$statusText</b></td></tr>";
-                        }
-                    }
-
-                    // Reachability check
-                    $reachVid = (int)($dev['Reachable_VarID'] ?? 0);
-                    if ($reachVid > 0) {
-                        if (!IPS_VariableExists($reachVid)) {
-                            $orphanedVars[] = "$devName (Reachable_VarID #$reachVid fehlt)";
-                        } else {
-                            $val = GetValue($reachVid);
-                            $ident = strtoupper(IPS_GetObject($reachVid)['ObjectIdent']);
-                            $name = strtoupper(IPS_GetName($reachVid));
-                            $formatted = strtolower(GetValueFormatted($reachVid));
-                            $isOffline = false;
-
-                            if (strpos($formatted, 'offline') !== false || strpos($formatted, 'nicht erreichbar') !== false || strpos($formatted, 'unreach') !== false || strpos($formatted, 'fehler') !== false) {
-                                $isOffline = true;
-                            } elseif (is_bool($val)) {
-                                $isPositiveLogic = (strpos($ident, 'AVAILABLE') !== false || strpos($ident, 'ONLINE') !== false || strpos($ident, 'CONNECTED') !== false || strpos($name, 'STATUS') !== false || strpos($ident, 'STATE') !== false || strpos($ident, 'STATUS') !== false);
-                                $isNegativeLogic = (strpos($ident, 'UNREACH') !== false || strpos($ident, 'OFFLINE') !== false || strpos($ident, 'ERROR') !== false || strpos($ident, 'FAILURE') !== false);
-                                
-                                if ($isPositiveLogic) {
-                                    $isOffline = ($val === false);
-                                } elseif ($isNegativeLogic) {
-                                    $isOffline = ($val === true);
-                                } else {
-                                    $isOffline = ($val === false);
-                                }
-                            } elseif (is_string($val) && strtolower($val) === 'offline') {
-                                $isOffline = true;
-                            }
-
-                            $statusText = $isOffline ? 'OFFLINE' : 'ONLINE';
-                            $statusColor = $isOffline ? '#FF9900' : '#00FF00';
-                            if ($isOffline) $offlineDevices[] = $devName;
-                            $htmlRowsOffline[] = "<tr><td style='width:50%;'><b>$devName</b></td><td style='width:30%;'>$devType</td><td style='width:20%; color:$statusColor;'><b>$statusText</b></td></tr>";
-                        }
-                    }
-                }
-            }
-        }
-
-        // Backup Check
-        if ($backupVid > 1 && @IPS_VariableExists($backupVid)) {
-            $lastBackup = GetValue($backupVid);
-            if (is_int($lastBackup) && $lastBackup > 0) {
-                if (time() - $lastBackup > 48 * 3600) {
-                    $systemWarnings[] = 'Backup ist älter als 48h';
-                }
-            }
-        }
-
-        $batCount   = count($lowBatteries);
-        $offCount   = count($offlineDevices);
-        $orphaCount = count($orphanedVars);
-        $warnCount  = count($systemWarnings);
-
-        $this->SetValue('LowBatteryCount', $batCount);
-        $this->SetValue('OfflineDeviceCount', $offCount);
-        $this->SetValue('OrphanedVarCount', $orphaCount);
-
-        $summary = [];
-        if ($warnCount > 0)  $summary[] = "System Warnungen: " . implode(', ', $systemWarnings);
-        if ($batCount > 0)   $summary[] = "Batterien niedrig ($batCount): " . implode(', ', $lowBatteries);
-        if ($offCount > 0)   $summary[] = "Offline ($offCount): " . implode(', ', $offlineDevices);
-        if ($orphaCount > 0) $summary[] = "Fehlende Variablen ($orphaCount)";
-
-        $text = count($summary) > 0 ? implode(' | ', $summary) : 'Alle Geraete betriebsbereit.';
-        $oldText = $this->GetValue('SummaryText');
-        $this->SetValue('SummaryText', $text);
-        $hasChanged = ($text !== $oldText);
-
-        $buildTable = function(string $title, array $rows): string {
-            $t  = "<div style='margin-top:10px;margin-bottom:5px;padding-bottom:2px;border-bottom:1px solid #555;color:#ddd;font-weight:bold;text-transform:uppercase;'>$title</div>";
-            $t .= "<table style='width:100%;border-collapse:collapse;margin-bottom:15px;'>";
-            $t .= count($rows) > 0 ? implode('', $rows) : "<tr><td colspan='3' style='color:#00FF00;'>Alles in Ordnung.</td></tr>";
-            $t .= "</table>";
-            return $t;
-        };
-
-        $html  = $buildTable('Erreichbarkeit (Online/Offline)', $htmlRowsOffline);
-        $html .= $buildTable('Batteriestatus', $htmlRowsBattery);
-        $html .= $buildTable('Fehlende / Verwaiste Variablen', $htmlRowsOrphaned);
-        $this->SetValue('MonitoredListHTML', $html);
-
-        $payload = [
-            'lowBatteries' => $lowBatteries,
-            'offlineDevices' => $offlineDevices,
-            'orphanedVars' => $orphanedVars,
-            'warnings' => $systemWarnings
-        ];
-        $this->UpdateVisualizationValue(json_encode($payload));
-
-        if ($triggerNotification && $hasChanged && ($batCount > 0 || $offCount > 0 || $orphaCount > 0)) {
-            $notifierId = $this->DR_GetNotifierID();
-            if ($notifierId > 0 && @IPS_InstanceExists($notifierId)) {
-                $payload = json_encode([
-                    'Title'    => 'Geraeteueberwachung',
-                    'Message'  => $text,
-                    'Priority' => ($orphaCount > 0 || $offCount > 0) ? 2 : 1
-                ]);
-                @NOTIFY_SendEvent($notifierId, $payload);
-            }
-        }
-    }
-
-    public function GetVisualizationTile(): string
-    {
-        return file_get_contents(__DIR__ . '/module.html');
-    }
-
-    public function RequestAction(string $Ident, $Value): void
-    {
-        if ($Ident === 'Init') {
-            $this->CheckHealth(false);
-        }
+        $this->SetTimerInterval('HealthCheckTimer', 0);
+        $this->SetStatus(104);
     }
 
     public function GetConfigurationForm(): string
     {
-        $elements = [];
-        
-        $elements[] = [
-            "type"     => "SelectModule",
-            "name"     => "RegistryID",
-            "caption"  => "Device Registry (Geraeteverwaltung)",
-            "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
-        ];
-        
-        // Dynamic Read-Only List of Monitored Devices
-        $monitoredList = [];
-        $registryId = $this->ReadPropertyInteger('RegistryID');
-        if ($registryId > 1 && @IPS_ObjectExists($registryId) && function_exists('SDR_GetDevices')) {
-            $allDevices = @SDR_GetDevices($registryId);
-            if (is_array($allDevices)) {
-                foreach ($allDevices as $dev) {
-                    if (!($dev['enabled'] ?? true)) continue;
-                    $hasBattery = (isset($dev['Battery_VarID']) && (int)$dev['Battery_VarID'] > 0);
-                    $hasReachable = (isset($dev['Reachable_VarID']) && (int)$dev['Reachable_VarID'] > 0);
-                    
-                    if ($hasBattery || $hasReachable) {
-                        $monitors = [];
-                        if ($hasBattery) $monitors[] = "Batterie";
-                        if ($hasReachable) $monitors[] = "Erreichbarkeit";
-                        
-                        $monitoredList[] = [
-                            "id" => $dev['id'] ?? '',
-                            "name" => $dev['name'] ?? 'Unbekannt',
-                            "room" => $dev['room'] ?? '',
-                            "monitors" => implode(", ", $monitors)
-                        ];
-                    }
-                }
-            }
-        }
-        
-        $elements[] = [
-            "type" => "ExpansionPanel",
-            "caption" => "Automatisch ueberwachte Geraete (Aus der Registry)",
-            "items" => [
+        return json_encode([
+            'elements' => [
                 [
-                    "type" => "Label",
-                    "caption" => "Die folgenden Geräte werden vollautomatisch auf leere Batterien oder Verbindungsabbrüche überwacht:"
+                    'type'    => 'Label',
+                    'bold'    => true,
+                    'color'   => 16711680,
+                    'caption' => 'VERALTET – Dieses Modul ist nicht mehr aktiv!',
                 ],
                 [
-                    "type" => "List",
-                    "name" => "_dummyList",
-                    "caption" => "Geräte",
-                    "add" => false,
-                    "delete" => false,
-                    "edit" => false,
-                    "columns" => [
-                        ["name" => "name", "caption" => "Name", "width" => "250px"],
-                        ["name" => "room", "caption" => "Raum", "width" => "150px"],
-                        ["name" => "monitors", "caption" => "Überwachung", "width" => "auto"]
-                    ],
-                    "values" => $monitoredList
-                ]
-            ]
-        ];
-
-        $elements[] = [
-            "type" => "Label",
-            "caption" => " "
-        ];
-        $elements[] = [
-            "type"    => "NumberSpinner",
-            "name"    => "LowBatteryThreshold",
-            "caption" => "Batterie Warnschwelle (%)",
-            "minimum" => 1,
-            "maximum" => 50
-        ];
-        $elements[] = [
-            "type" => "Label",
-            "caption" => " "
-        ];
-        $elements[] = [
-            "type"    => "SelectVariable",
-            "name"    => "BackupVariableID",
-            "caption" => "Zuletzt abgeschlossenes Backup (UnixTimestamp Variable)"
-        ];
-
-        return json_encode([
-            "elements" => $elements,
-            "actions" => [
-                [
-                    "type"    => "Button",
-                    "caption" => "Jetzt Geraete pruefen",
-                    "onClick" => 'SMD_CheckHealth($id, false); echo "Pruefung abgeschlossen!";'
-                ]
-            ]
+                    'type'    => 'Label',
+                    'caption' => 'Das Device-Monitoring wurde in SmartNotifier integriert. Diese Instanz kann gelöscht werden.',
+                ],
+            ],
+            'actions' => [],
         ]);
     }
+
+    public function CheckHealth(bool $triggerNotification = false): void {}
+    public function GetVisualizationTile(): string { return ''; }
+    public function RequestAction(string $Ident, mixed $Value): void {}
 }
