@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
-require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
 
 class SmartController extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
-    use RegistryAware_Trait;
 
     // PresenceMode constants
     private const PRESENCE_HOME     = 0;
@@ -595,24 +593,10 @@ class SmartController extends IPSModuleStrict
     // Private Helpers
 
     private function discoverMonitorID(string $moduleGUID): int {
-        $myRegistryID = $this->DR_GetRegistryID();
         $all = @IPS_GetInstanceListByModuleID($moduleGUID);
-        if (!is_array($all)) return 0;
-        
-        // Bei nur 1 Instanz: direkt verwenden
-        if (count($all) === 1) return $all[0];
-        
-        // Multi-House: Filtere auf gleiche RegistryID
-        if ($myRegistryID > 0) {
-            foreach ($all as $id) {
-                try {
-                    if (@IPS_GetProperty($id, 'RegistryID') === $myRegistryID) return $id;
-                } catch (\Throwable $e) {}
-            }
-        }
-        
-        // Fallback: Alte Property
-        return 0;
+        if (!is_array($all) || count($all) === 0) return 0;
+        // Bei einer Instanz direkt; sonst erste verfuegbare
+        return $all[0];
     }
 
     private function registerModeVariables(): void
