@@ -710,7 +710,6 @@ class SmartInventory extends IPSModuleStrict
     {
         $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
         $results = [];
-
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
                 if (in_array($v['category'], ['alarm', 'warning']) && !$v['disabled'] && $this->isProblematic($v)) {
@@ -787,17 +786,17 @@ class SmartInventory extends IPSModuleStrict
     {
         $geminiID = $this->ReadPropertyInteger('GeminiIOID');
         if ($geminiID === 0 || !@IPS_InstanceExists($geminiID)) {
-            // Auto-Discovery
             $ids = @IPS_GetInstanceListByModuleID('{4C8B2A6D-9E3F-4A7B-8C5D-1F6E2A3B7C4D}');
             if (is_array($ids) && count($ids) > 0) {
                 $geminiID = $ids[0];
             } else {
-                return json_encode(['error' => 'Kein SmartGeminiIO konfiguriert oder gefunden']);
+                return json_encode(['error' => 'Kein SmartGeminiIO gefunden. Bitte in den Einstellungen konfigurieren.']);
             }
         }
 
         // Ungetaggte Variablen sammeln
         $batches = [];
+        $totalVars = 0;
         foreach (IPS_GetInstanceList() as $instanceID) {
             $instance = @IPS_GetInstance($instanceID);
             if ($instance === false || $instance['ModuleInfo']['ModuleType'] !== 3) {
@@ -817,7 +816,6 @@ class SmartInventory extends IPSModuleStrict
                 if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
                     continue;
                 }
-                // Nur ungetaggte
                 if (str_starts_with($obj['ObjectInfo'], self::TAG_PREFIX)) {
                     continue;
                 }
@@ -825,109 +823,128 @@ class SmartInventory extends IPSModuleStrict
                 $var = IPS_GetVariable($childID);
                 $typeNames = ['Boolean', 'Integer', 'Float', 'String'];
                 $vars[] = [
-                    'varID'  => $childID,
-                    'ident'  => $obj['ObjectIdent'],
-                    'name'   => $obj['ObjectName'],
-                    'type'   => $typeNames[$var['VariableType']] ?? 'Unknown',
-                    'value'  => $this->getFormattedValue($childID),
+                    'v'  => $childID,                                         // varID (kurz)
+                    'i'  => $obj['ObjectIdent'],                              // ident
+                    'n'  => $obj['ObjectName'],                               // name
+                    't'  => $typeNames[$var['VariableType']] ?? '?',           // type
+                    'w'  => $this->getFormattedValue($childID),               // wert
                 ];
+                $totalVars++;
             }
 
             if (count($vars) > 0) {
-                $location = IPS_GetLocation($instanceID);
                 $batches[] = [
-                    'instanceID'   => $instanceID,
-                    'instanceName' => IPS_GetName($instanceID),
-                    'moduleName'   => $instance['ModuleInfo']['ModuleName'],
-                    'location'     => $location,
-                    'variables'    => $vars,
+                    'id'   => $instanceID,
+                    'name' => IPS_GetName($instanceID),
+                    'mod'  => $instance['ModuleInfo']['ModuleName'],
+                    'path' => IPS_GetLocation($instanceID),
+                    'vars' => $vars,
                 ];
             }
         }
 
         if (count($batches) === 0) {
-            return json_encode(['suggestions' => [], 'message' => 'Keine ungetaggten Variablen gefunden']);
+            return json_encode(['message' => 'Keine ungetaggten Variablen gefunden.']);
         }
 
-        // System-Prompt für die KI
+        // System-Prompt
         $systemPrompt = <<<'PROMPT'
-Du bist ein Smart Home Experte. Du klassifizierst Variablen von IP-Symcon Geräten.
+Du klassifizierst Smart-Home-Variablen. Für jede Variable: Tag zuweisen, Raum aus Pfad ableiten.
 
-Für jede Variable musst du entscheiden:
-1. Welchen Tag sie bekommt (aus der Liste unten)
-2. Welcher Raum zum Gerät passt (aus dem Pfad ableitbar)
-3. Was der "normale" Zustand ist (bei Boolean/String-Variablen)
+Tags (exakt verwenden):
+SI:battery, SI:reachability, SI:reachability:online=false (für UNREACH),
+SI:alarm:smoke, SI:alarm:water, SI:alarm:co, SI:alarm:tamper, SI:alarm:generic,
+SI:contact, SI:contact:closed=WERT (für String-Kontakte),
+SI:sensor:temp, SI:sensor:humidity, SI:sensor:co2, SI:sensor:voc,
+SI:sensor:pressure, SI:sensor:lux, SI:sensor:radon,
+SI:sensor:power, SI:sensor:energy, SI:sensor:generic,
+SI:actor:switch, SI:actor:dimmer, SI:actor:blind, SI:actor:thermostat,
+SI:actor:lock, SI:actor:valve,
+SI:warning, SI:info, SI:diagnostic, SKIP
 
-Mögliche Tags:
-- SI:battery - Batterie-Status (LOW_BAT, BatteryLevel, etc.)
-- SI:reachability - Erreichbarkeit (UNREACH, DeviceAvailable, Online, etc.)
-- SI:reachability:online=false - Invertierte Erreichbarkeit (UNREACH: true=offline)
-- SI:alarm:smoke - Rauchmelder
-- SI:alarm:water - Wassersensor
-- SI:alarm:co - CO-Melder
-- SI:alarm:tamper - Sabotage/Manipulation
-- SI:alarm:generic - Sonstiger Alarm
-- SI:contact - Fenster-/Türkontakt (Standard: true=offen)
-- SI:contact:closed=WERT - Kontakt mit explizitem Geschlossen-Wert
-- SI:sensor:temp - Temperatur
-- SI:sensor:humidity - Luftfeuchtigkeit
-- SI:sensor:co2 - CO2
-- SI:sensor:voc - VOC
-- SI:sensor:pressure - Luftdruck
-- SI:sensor:lux - Helligkeit
-- SI:sensor:radon - Radon
-- SI:sensor:power - Leistung (Watt)
-- SI:sensor:energy - Energie (kWh)
-- SI:sensor:generic - Sonstiger Messwert
-- SI:actor:switch - Schaltaktor
-- SI:actor:dimmer - Dimmer
-- SI:actor:blind - Rollladen/Jalousie
-- SI:actor:thermostat - Thermostat-Sollwert
-- SI:actor:lock - Schloss
-- SI:actor:valve - Ventil
-- SI:warning - Warnmeldung
-- SI:info - Info-Event
-- SI:diagnostic - Diagnose (RSSI, Firmware, etc.)
-- null - Variable überspringen (nicht relevant)
-
-Bei invertierten Variablen:
-- UNREACH (true=offline) → Tag: "SI:reachability:online=false"
-- Bei String-Kontakten (z.B. "Geschlossen") → Tag: "SI:contact:closed=Geschlossen"
-
-Leite den Raum aus dem Pfad ab (typischerweise das vorletzte Segment).
+Regeln:
+- UNREACH/Nicht erreichbar: SI:reachability:online=false (invertiert!)
+- DeviceAvailable/Online: SI:reachability (normal)
+- String-Kontakte z.B. "Geschlossen": SI:contact:closed=Geschlossen
+- Raum = vorletztes Pfadsegment (vor Gerätename)
+- SKIP für irrelevante Variablen (interne Zähler, Config, Darstellung)
 PROMPT;
-
-        $prompt = "Klassifiziere folgende Variablen:\n\n" . json_encode($batches, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         $schema = json_encode([
             'type' => 'array',
             'items' => [
                 'type' => 'object',
                 'properties' => [
-                    'varID'  => ['type' => 'integer'],
-                    'tag'    => ['type' => 'string', 'nullable' => true],
-                    'room'   => ['type' => 'string'],
-                    'reason' => ['type' => 'string'],
+                    'v' => ['type' => 'integer', 'description' => 'varID'],
+                    'tag' => ['type' => 'string'],
+                    'room' => ['type' => 'string'],
+                    'r' => ['type' => 'string', 'description' => 'reason'],
                 ],
-                'required' => ['varID', 'tag', 'room', 'reason'],
+                'required' => ['v', 'tag', 'room', 'r'],
             ],
         ]);
 
-        $result = GIO_Query($geminiID, $prompt, $systemPrompt, $schema, 0.1);
+        // In Batches aufteilen (max 10 Instanzen pro API-Call)
+        $batchSize = 10;
+        $chunks = array_chunk($batches, $batchSize);
+        $allSuggestions = [];
+        $errors = [];
+        $totalBatches = count($chunks);
 
-        if (empty($result)) {
-            return json_encode(['error' => 'KI-Abfrage fehlgeschlagen']);
+        $this->SendDebug('KI-Tagger', "Start: $totalVars Variablen in " . count($batches) . " Instanzen, $totalBatches Batches", 0);
+        $this->SetValue('ScanDuration', "KI-Tagging: 0/$totalBatches...");
+
+        foreach ($chunks as $batchIdx => $chunk) {
+            $batchNum = $batchIdx + 1;
+            $this->SetValue('ScanDuration', "KI-Tagging: $batchNum/$totalBatches...");
+
+            $prompt = json_encode($chunk, JSON_UNESCAPED_UNICODE);
+            $this->SendDebug('KI-Tagger', "Batch $batchNum/$totalBatches: " . count($chunk) . " Instanzen, " . strlen($prompt) . " Bytes", 0);
+
+            $result = GIO_Query($geminiID, $prompt, $systemPrompt, $schema);
+
+            if (empty($result)) {
+                $lastError = '';
+                $errorVarID = @IPS_GetObjectIDByIdent('LastError', $geminiID);
+                if ($errorVarID !== false) {
+                    $lastError = GetValue($errorVarID);
+                }
+                $errors[] = "Batch $batchNum: $lastError";
+                $this->SendDebug('KI-Tagger', "Batch $batchNum FEHLER: $lastError", 0);
+                continue;
+            }
+
+            $batchSuggestions = json_decode($result, true);
+            if (!is_array($batchSuggestions)) {
+                $errors[] = "Batch $batchNum: JSON ungültig";
+                $this->SendDebug('KI-Tagger', "Batch $batchNum JSON-FEHLER: " . substr($result, 0, 300), 0);
+                continue;
+            }
+
+            foreach ($batchSuggestions as $s) {
+                $tag = $s['tag'] ?? '';
+                if ($tag !== 'SKIP' && $tag !== '' && $tag !== 'null') {
+                    $allSuggestions[] = [
+                        'varID'  => $s['v'] ?? $s['varID'] ?? 0,
+                        'tag'    => $tag,
+                        'room'   => $s['room'] ?? '',
+                        'reason' => $s['r'] ?? $s['reason'] ?? '',
+                    ];
+                }
+            }
+
+            $this->SendDebug('KI-Tagger', "Batch $batchNum OK: " . count($batchSuggestions) . " analysiert, " . count($allSuggestions) . " Tags bisher", 0);
         }
 
-        $suggestions = json_decode($result, true);
-        if (!is_array($suggestions)) {
-            return json_encode(['error' => 'KI-Antwort nicht parsbar', 'raw' => $result]);
-        }
+        $this->SetBuffer('AISuggestions', json_encode($allSuggestions));
+        $this->SetValue('ScanDuration', count($allSuggestions) . " KI-Vorschläge (" . count($errors) . " Fehler)");
+        $this->SendDebug('KI-Tagger', "Fertig: " . count($allSuggestions) . " Vorschläge, " . count($errors) . " Fehler", 0);
 
-        // Vorschläge in Buffer speichern (für Review im Formular)
-        $this->SetBuffer('AISuggestions', json_encode($suggestions));
-
-        return json_encode(['suggestions' => $suggestions, 'count' => count($suggestions)]);
+        return json_encode([
+            'suggestions' => count($allSuggestions),
+            'batches'     => $totalBatches,
+            'errors'      => $errors,
+        ]);
     }
 
     /**
