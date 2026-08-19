@@ -398,6 +398,8 @@ class SmartInventory extends IPSModuleStrict
 
         $this->SendDebug('Scan', "Geräte: $deviceCount, Variablen: $taggedVarCount, Ungetaggt: " . count($untaggedInstances), 0);
 
+        $this->ReloadForm();
+
         return json_encode([
             'devices'    => $deviceCount,
             'variables'  => $taggedVarCount,
