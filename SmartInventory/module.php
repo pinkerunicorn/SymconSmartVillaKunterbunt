@@ -792,7 +792,7 @@ class SmartInventory extends IPSModuleStrict
             if (is_array($ids) && count($ids) > 0) {
                 $geminiID = $ids[0];
             } else {
-                return json_encode(['error' => 'Kein SmartGeminiIO konfiguriert']);
+                return json_encode(['error' => 'Kein SmartGeminiIO konfiguriert oder gefunden']);
             }
         }
 
@@ -861,12 +861,14 @@ Für jede Variable musst du entscheiden:
 Mögliche Tags:
 - SI:battery - Batterie-Status (LOW_BAT, BatteryLevel, etc.)
 - SI:reachability - Erreichbarkeit (UNREACH, DeviceAvailable, Online, etc.)
+- SI:reachability:online=false - Invertierte Erreichbarkeit (UNREACH: true=offline)
 - SI:alarm:smoke - Rauchmelder
 - SI:alarm:water - Wassersensor
 - SI:alarm:co - CO-Melder
 - SI:alarm:tamper - Sabotage/Manipulation
 - SI:alarm:generic - Sonstiger Alarm
-- SI:contact - Fenster-/Türkontakt
+- SI:contact - Fenster-/Türkontakt (Standard: true=offen)
+- SI:contact:closed=WERT - Kontakt mit explizitem Geschlossen-Wert
 - SI:sensor:temp - Temperatur
 - SI:sensor:humidity - Luftfeuchtigkeit
 - SI:sensor:co2 - CO2
