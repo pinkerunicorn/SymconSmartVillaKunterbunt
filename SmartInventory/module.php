@@ -296,8 +296,6 @@ class SmartInventory extends IPSModuleStrict
 
         $this->SendDebug('Scan', "Geräte: $deviceCount, Variablen: $taggedVarCount, Ungetaggt: " . count($untaggedInstances), 0);
 
-        $this->ReloadForm();
-
         return json_encode([
             'devices'    => $deviceCount,
             'variables'  => $taggedVarCount,
@@ -1234,7 +1232,7 @@ PROMPT;
                 [
                     'type' => 'RowLayout',
                     'items' => [
-                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'echo SINV_Scan($id);'],
+                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); if (isset($CatalogFilter)) { SINV_UpdateCatalogList($id, $CatalogFilter); } echo "Scan abgeschlossen.";'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.\nFortschritt: Scan-Dauer Variable beobachten.\nWenn fertig: \'Jetzt scannen\' druecken um Listen zu aktualisieren.";'],
                     ],
                 ],
