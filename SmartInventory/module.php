@@ -1147,7 +1147,7 @@ PROMPT;
                         'normalState'  => $normalStateStr,
                         'disabled'     => $v['disabled'],
                         'value'        => $v['valueFormatted'],
-                        'varID'        => $v['varID'],
+                        'ObjectID'     => $v['varID'],
                         'instanceID'   => $device['instanceID'],
                         'rowColor'     => $rowColor,
                     ];
@@ -1160,28 +1160,44 @@ PROMPT;
         $catalogOptions[] = ['caption' => '--- Aktuelle Probleme & Alarme ---', 'value' => 'problems'];
         $catalogOptions[] = ['caption' => '--- Bitte waehlen ---', 'value' => 'none'];
         $catalogOptions[] = ['caption' => '--- Alle Typen ---', 'value' => 'all'];
+        $catalogOptions[] = ['caption' => '--- Nicht getaggte (Ignoriert) ---', 'value' => 'untagged'];
         $catalogOptions[] = ['caption' => '--- Nur Deaktivierte ---', 'value' => 'disabled'];
         foreach ($catalogCategories as $cat) {
             $catalogOptions[] = ['caption' => $cat, 'value' => $cat];
         }
 
-        $totalDevices = count($inventory);
-        $totalVars    = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
-
         $onEditScript = '
             $listData = ${$IPS_VALUE};
-            $vid = $listData["varID"];
+            $vid = $listData["ObjectID"];
             $iid = $listData["instanceID"];
             
-            // Tag aktualisieren
-            $newTag = $listData["tagBase"];
-            if (isset($listData["normalState"]) && $listData["normalState"] !== "") {
-                $newTag .= ":ok=" . $listData["normalState"];
+            $objType = IPS_GetObject($vid)["ObjectType"];
+            if ($objType === 2) {
+                // Variable -> Tag aktualisieren
+                $newTag = $listData["tagBase"];
+                if (isset($listData["normalState"]) && $listData["normalState"] !== "") {
+                    $newTag .= ":ok=" . $listData["normalState"];
+                }
+                if ($listData["disabled"]) {
+                    $newTag .= ":disabled";
+                }
+                IPS_SetInfo($vid, $newTag);
+            } elseif ($objType === 3) {
+                // Instanz (Nicht getaggt) -> Ignore setzen
+                $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
+                if ($listData["disabled"]) {
+                    if ($ignoreVarID === false) {
+                        $ignoreVarID = IPS_CreateVariable(0);
+                        IPS_SetParent($ignoreVarID, $iid);
+                        IPS_SetIdent($ignoreVarID, "_SI_Ignore");
+                        IPS_SetName($ignoreVarID, "SmartInventory Ignoriert");
+                        IPS_SetHidden($ignoreVarID, true);
+                    }
+                    SetValue($ignoreVarID, true);
+                } elseif ($ignoreVarID !== false) {
+                    SetValue($ignoreVarID, false);
+                }
             }
-            if ($listData["disabled"]) {
-                $newTag .= ":disabled";
-            }
-            IPS_SetInfo($vid, $newTag);
             
             // Raum aktualisieren
             $newRoom = $listData["room"];
@@ -1231,7 +1247,7 @@ PROMPT;
                 // Katalog / Pflege
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Katalog / Pflege (Alle getaggten Geräte)',
+                    'caption' => 'Katalog / Pflege (Alle Geräte)',
                     'expanded' => true,
                     'items' => [
                         [
@@ -1254,113 +1270,15 @@ PROMPT;
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
                                 ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
+                                ['name' => 'disabled', 'caption' => 'Deaktiviert (bzw. Ignoriert)', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
-                                ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
+                                ['name' => 'ObjectID', 'caption' => 'ID', 'width' => '70px'],
                             ],
                             'values' => $initialCatalogList,
                         ],
                     ],
                 ],
-                // Katalog / Pflege
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Katalog / Pflege (Alle getaggten Geräte)',
-                    'expanded' => false,
-                    'items' => [
-                        [
-                            'type' => 'Select',
-                            'name' => 'CatalogFilter',
-                            'caption' => 'Typ-Filter',
-                            'options' => $catalogOptions,
-                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter);'
-                        ],
-                        [
-                            'type' => 'List',
-                            'name' => 'CatalogList',
-                            'caption' => '',
-                            'rowCount' => 20,
-                            'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
-                            'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
-                            'columns' => [
-                                ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
-                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
-                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
-                                ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
-                                ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
-                            ],
-                            'values' => [],
-                        ],
-                    ],
-                ],
-                // Nicht getaggte Instanzen
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Nicht getaggt (' . count($untagged) . ')',
-                    'expanded' => count($untagged) > 0,
-                    'items' => [
-                        [
-                            'type' => 'List',
-                            'name' => 'UntaggedList',
-                            'caption' => '',
-                            'rowCount' => min(count($untagged), 20),
-                            'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
-                            'onEdit' => '
-                                $iid = $UntaggedList["instanceID"];
-                                $newRoom = $UntaggedList["room"];
-                                $roomVarID = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
-                                if ($roomVarID === false && $newRoom !== "") {
-                                    $roomVarID = IPS_CreateVariable(3);
-                                    IPS_SetParent($roomVarID, $iid);
-                                    IPS_SetIdent($roomVarID, "_SI_Room");
-                                    IPS_SetName($roomVarID, "SmartInventory Raum Override");
-                                    IPS_SetHidden($roomVarID, true);
-                                }
-                                if ($roomVarID !== false) {
-                                    SetValue($roomVarID, $newRoom);
-                                }
-                                SINV_Scan($id);
-                            ',
-                            'columns' => [
-                                ['name' => 'instanceName', 'caption' => 'Instanz', 'width' => '200px'],
-                                ['name' => 'moduleName', 'caption' => 'Modul', 'width' => '200px'],
-                                ['name' => 'varCount', 'caption' => 'Variablen', 'width' => '80px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
-                                ['name' => 'instanceID', 'caption' => 'ID', 'width' => '60px'],
-                            ],
-                            'values' => $untagged,
-                        ],
-                        [
-                            'type' => 'RowLayout',
-                            'items' => [
-                                [
-                                    'type' => 'Button',
-                                    'caption' => 'Ausgewählte Instanz ignorieren',
-                                    'onClick' => '
-                                        if (!isset($UntaggedList) || !isset($UntaggedList["instanceID"])) {
-                                            echo "Bitte zuerst eine Instanz in der Liste auswählen.";
-                                            return;
-                                        }
-                                        $iid = $UntaggedList["instanceID"];
-                                        $vid = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
-                                        if ($vid === false) {
-                                            $vid = IPS_CreateVariable(0);
-                                            IPS_SetParent($vid, $iid);
-                                            IPS_SetIdent($vid, "_SI_Ignore");
-                                            IPS_SetName($vid, "SmartInventory Ignoriert");
-                                            IPS_SetHidden($vid, true);
-                                        }
-                                        SetValue($vid, true);
-                                        echo IPS_GetName($iid) . " wird jetzt ignoriert.";
-                                        SINV_Scan($id);
-                                    ',
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
+        // UpdateCatalogList will handle filling it!
             ],
         ];
 
@@ -1369,53 +1287,72 @@ PROMPT;
 
     public function UpdateCatalogList(string $category): void
     {
-        ['inventory' => $inventory] = $this->buildInventoryData();
+        ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
         
         $list = [];
-        foreach ($inventory as $device) {
-            foreach ($device['variables'] as $v) {
-                $parsed = $this->parseTag($v['tag']);
-                $tagBase = 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '');
-                
-                $rowColor = '';
-                if ($parsed['category'] === 'reachability' && $this->isProblematic($v)) $rowColor = '#FF4400';
-                elseif ($parsed['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $rowColor = '#FF8800';
-                elseif (in_array($parsed['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $rowColor = '#FF0000';
-                elseif ($parsed['category'] === 'contact' && $this->isContactOpen($v)) $rowColor = '#FFAA00';
 
-                $match = false;
-                if ($category === 'problems') {
-                    if ($rowColor !== '') $match = true;
-                } elseif ($category === 'disabled' && $parsed['disabled']) {
-                    $match = true;
-                } elseif ($category !== 'disabled' && $tagBase === $category && !$parsed['disabled']) {
-                    $match = true;
-                } elseif ($category === 'all') {
-                    $match = true;
-                }
-                
-                if ($match) {
-                    $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
-                    $entry = [
-                        'instanceName' => $device['instanceName'],
-                        'room'         => $device['room'],
-                        'tagBase'      => $tagBase,
-                        'normalState'  => $normalStateStr,
-                        'disabled'     => $parsed['disabled'],
-                        'value'        => $this->getFormattedValue($v['varID']),
-                        'varID'        => $v['varID'],
-                        'instanceID'   => $device['instanceID'],
-                    ];
-                    if ($rowColor !== '') {
-                        $entry['rowColor'] = $rowColor;
+        if ($category === 'untagged') {
+            foreach ($untagged as $u) {
+                // Ignore-Status ermitteln
+                $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $u['instanceID']);
+                $isDisabled = ($ignoreVarID !== false && GetValue($ignoreVarID));
+
+                $list[] = [
+                    'instanceName' => $u['instanceName'],
+                    'room'         => $u['room'],
+                    'tagBase'      => '',
+                    'normalState'  => '',
+                    'disabled'     => $isDisabled,
+                    'value'        => $u['moduleName'] . ' (' . $u['varCount'] . ' Variablen)',
+                    'ObjectID'     => $u['instanceID'],
+                    'instanceID'   => $u['instanceID'],
+                ];
+            }
+        } else {
+            foreach ($inventory as $device) {
+                foreach ($device['variables'] as $v) {
+                    $parsed = $this->parseTag($v['tag']);
+                    $tagBase = 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '');
+                    
+                    $rowColor = '';
+                    if ($parsed['category'] === 'reachability' && $this->isProblematic($v)) $rowColor = '#FF4400';
+                    elseif ($parsed['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $rowColor = '#FF8800';
+                    elseif (in_array($parsed['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $rowColor = '#FF0000';
+                    elseif ($parsed['category'] === 'contact' && $this->isContactOpen($v)) $rowColor = '#FFAA00';
+
+                    $match = false;
+                    if ($category === 'problems') {
+                        if ($rowColor !== '') $match = true;
+                    } elseif ($category === 'disabled' && $parsed['disabled']) {
+                        $match = true;
+                    } elseif ($category !== 'disabled' && $tagBase === $category && !$parsed['disabled']) {
+                        $match = true;
+                    } elseif ($category === 'all') {
+                        $match = true;
                     }
-                    $list[] = $entry;
+                    
+                    if ($match) {
+                        $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
+                        $entry = [
+                            'instanceName' => $device['instanceName'],
+                            'room'         => $device['room'],
+                            'tagBase'      => $tagBase,
+                            'normalState'  => $normalStateStr,
+                            'disabled'     => $parsed['disabled'],
+                            'value'        => $this->getFormattedValue($v['varID']),
+                            'ObjectID'     => $v['varID'],
+                            'instanceID'   => $device['instanceID'],
+                        ];
+                        if ($rowColor !== '') {
+                            $entry['rowColor'] = $rowColor;
+                        }
+                        $list[] = $entry;
+                    }
                 }
             }
         }
         
-        // UpdateFormField ist in IPSModule definiert
         $this->UpdateFormField('CatalogList', 'values', json_encode($list));
     }
 
