@@ -1,0 +1,15 @@
+{
+    "id": "{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}",
+    "name": "SmartInventory",
+    "type": 3,
+    "vendor": "Florian Graßinger",
+    "aliases": [
+        "SmartInventory"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "SINV",
+    "author": "Florian Graßinger",
+    "url": "https://github.com/pinkerunicorn/SymconSmartVillaKunterbunt/tree/main/SmartInventory"
+}
