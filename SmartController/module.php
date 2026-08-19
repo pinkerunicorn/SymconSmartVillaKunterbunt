@@ -618,6 +618,7 @@ class SmartController extends IPSModuleStrict
     private function registerModeVariables(): void
     {
         $this->RegisterVariableInteger('PresenceMode', 'Anwesenheit', [
+            'ICON' => 'house',
             'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
             'OPTIONS' => json_encode([
                 ['Value' => self::PRESENCE_HOME, 'Caption' => 'Zuhause', 'IconActive' => true, 'IconValue' => 'House', 'Color' => 0x00CC00],
@@ -628,6 +629,7 @@ class SmartController extends IPSModuleStrict
         $this->EnableAction('PresenceMode');
 
         $this->RegisterVariableInteger('ActivityMode', 'Aktivität', [
+            'ICON' => 'person-running',
             'PRESENTATION' => VARIABLE_PRESENTATION_ENUMERATION,
             'OPTIONS' => json_encode([
                 ['Value' => self::ACTIVITY_NORMAL, 'Caption' => 'Normal', 'IconActive' => true, 'IconValue' => 'sun', 'Color' => -1],

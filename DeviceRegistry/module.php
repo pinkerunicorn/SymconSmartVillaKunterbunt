@@ -55,7 +55,10 @@ class SymconDeviceRegistry extends IPSModuleStrict
         $this->RegisterPropertyInteger('LocationFloorLevel', 2);
         $this->RegisterPropertyInteger('LocationRoomLevel', 3);
 
-        $this->RegisterVariableInteger('RegisteredDevices', 'Gesamtanzahl Geraete', '', 1);
+        $this->RegisterVariableInteger('RegisteredDevices', 'Gesamtanzahl Geraete', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON' => 'list-ol'
+        ], 1);
 
         $this->RegisterVariableFloat('VarPriceElectricity', 'Strompreis', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
