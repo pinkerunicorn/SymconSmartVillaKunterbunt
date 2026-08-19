@@ -94,30 +94,34 @@ class SmartInventory extends IPSModuleStrict
         $deviceCount    = count($inventory);
         $taggedVarCount = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
-        // Für externe API (GetByCategory, GetInventory etc.) schlanke Version cachen.
-        // Das volle Inventar mit valueFormatted etc. ist zu gross fuer den Symcon-Buffer (>256kB Limit).
+        // Fuer externe API nur Monitoring-relevante Variablen cachen (battery, reachability, alarm, warning, contact).
+        // Sensor/Actor/Info braucht SmartNotifier nicht -> deutlich kleinerer Buffer.
+        // Kurzschluessel (v/c/s/d/n/r/t/u) sparen weitere ~40% Bytes.
+        $monitorCategories = ['battery', 'reachability', 'alarm', 'warning', 'contact'];
         $leanInventory = [];
         foreach ($inventory as $device) {
             $leanVars = [];
             foreach ($device['variables'] as $v) {
+                if (!in_array($v['category'], $monitorCategories) || $v['disabled']) {
+                    continue;
+                }
                 $leanVars[] = [
-                    'varID'         => $v['varID'],
-                    'name'          => $v['name'],
-                    'tag'           => $v['tag'],
-                    'category'      => $v['category'],
-                    'subcategory'   => $v['subcategory'],
-                    'disabled'      => $v['disabled'],
-                    'normalState'   => $v['normalState'],
-                    'type'          => $v['type'],
-                    'value'         => $v['value'],
-                    'lastUpdatedTS' => $v['lastUpdatedTS'],
+                    'v' => $v['varID'],                // varID
+                    'c' => $v['category'],             // category
+                    's' => $v['subcategory'],          // subcategory
+                    'n' => $v['normalState'],          // normalState
+                    't' => $v['type'],                 // type
+                    'u' => $v['lastUpdatedTS'],        // lastUpdatedTS
                 ];
             }
+            if (count($leanVars) === 0) {
+                continue;
+            }
             $leanInventory[] = [
-                'instanceID'   => $device['instanceID'],
-                'instanceName' => $device['instanceName'],
-                'room'         => $device['room'],
-                'variables'    => $leanVars,
+                'i' => $device['instanceID'],      // instanceID
+                'n' => $device['instanceName'],    // instanceName
+                'r' => $device['room'],            // room
+                'v' => $leanVars,                  // variables
             ];
         }
         $this->SetBuffer('Inventory', json_encode($leanInventory));

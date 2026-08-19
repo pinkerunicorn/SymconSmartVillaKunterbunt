@@ -407,26 +407,58 @@ class SmartNotifier extends IPSModuleStrict
     }
 
     /**
-     * Liest das Inventar aus SmartInventory.
+     * Liest das Inventar aus SmartInventory und normalisiert die Kurzschluessel.
      */
     private function LoadInventory(): array
     {
         $inventoryID = $this->ReadPropertyInteger('InventoryID');
         if ($inventoryID === 0 || !@IPS_InstanceExists($inventoryID)) {
+            $this->SendDebug('LoadInventory', 'Keine InventoryID konfiguriert', 0);
             return [];
         }
 
         if (!function_exists('SINV_GetInventory')) {
+            $this->SendDebug('LoadInventory', 'SINV_GetInventory nicht verfuegbar', 0);
             return [];
         }
 
         $json = @SINV_GetInventory($inventoryID);
-        if (empty($json)) {
+        if (empty($json) || $json === '[]') {
+            $this->SendDebug('LoadInventory', 'Leeres Inventar von SINV_GetInventory', 0);
             return [];
         }
 
-        $data = json_decode($json, true);
-        return is_array($data) ? $data : [];
+        $raw = json_decode($json, true);
+        if (!is_array($raw)) {
+            $this->SendDebug('LoadInventory', 'JSON-Fehler: ' . substr($json, 0, 100), 0);
+            return [];
+        }
+
+        // Kurzschluessel (i/n/r/v/c/s/t/u) auf lesbare Namen normalisieren
+        $normalized = [];
+        foreach ($raw as $device) {
+            $vars = [];
+            foreach (($device['v'] ?? []) as $v) {
+                $vars[] = [
+                    'varID'       => $v['v'],
+                    'category'    => $v['c'],
+                    'subcategory' => $v['s'] ?? '',
+                    'normalState' => $v['n'] ?? null,
+                    'type'        => $v['t'] ?? 0,
+                    'lastUpdatedTS' => $v['u'] ?? 0,
+                    'disabled'    => false, // disabled wurden beim Cachen bereits herausgefiltert
+                ];
+            }
+            $normalized[] = [
+                'instanceID'   => $device['i'],
+                'instanceName' => $device['n'],
+                'room'         => $device['r'] ?? '',
+                'variables'    => $vars,
+            ];
+        }
+
+        $this->SendDebug('LoadInventory', count($normalized) . ' Geraete geladen', 0);
+        return $normalized;
     }
 
     /**
