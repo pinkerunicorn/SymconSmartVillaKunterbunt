@@ -1125,12 +1125,16 @@ PROMPT;
                 if ($v['disabled']) {
                     continue;
                 }
+                $parsedTag = $this->parseTag($v['tag']);
+                $tagBase = 'SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '');
+                $normalStateStr = $parsedTag['normalState'] !== null ? $parsedTag['normalState']['value'] : '';
 
                 $entry = [
                     'instanceName' => $device['instanceName'],
                     'room'         => $device['room'],
                     'varName'      => $v['name'],
-                    'tagBase'      => str_replace(':disabled', '', $v['tag']),
+                    'tagBase'      => $tagBase,
+                    'normalState'  => $normalStateStr,
                     'disabled'     => $v['disabled'],
                     'tag'          => $v['tag'],
                     'value'        => $v['valueFormatted'],
@@ -1169,7 +1173,13 @@ PROMPT;
             $iid = $listData["instanceID"];
             
             // Tag aktualisieren
-            $newTag = $listData["tagBase"] . ($listData["disabled"] ? ":disabled" : "");
+            $newTag = $listData["tagBase"];
+            if (isset($listData["normalState"]) && $listData["normalState"] !== "") {
+                $newTag .= ":ok=" . $listData["normalState"];
+            }
+            if ($listData["disabled"]) {
+                $newTag .= ":disabled";
+            }
             IPS_SetInfo($vid, $newTag);
             
             // Raum aktualisieren
@@ -1234,6 +1244,7 @@ PROMPT;
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'lastUpdate', 'caption' => 'Seit', 'width' => '150px'],
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
@@ -1259,6 +1270,7 @@ PROMPT;
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value', 'caption' => 'Wert', 'width' => '100px'],
                                 ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
@@ -1285,6 +1297,7 @@ PROMPT;
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'type', 'caption' => 'Typ', 'width' => '100px'],
                                 ['name' => 'value', 'caption' => 'Status', 'width' => '100px'],
@@ -1312,6 +1325,7 @@ PROMPT;
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'status', 'caption' => 'Zustand', 'width' => '100px'],
                                 ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
