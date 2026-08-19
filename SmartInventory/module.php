@@ -5,14 +5,17 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 
 /**
- * SmartInventory — Automatische Geräte-Inventarisierung & Überwachung.
+ * SmartInventory — Zentraler Geräte-Katalog für Smart Home.
  *
  * Inventarisiert alle Variablen im Symcon-Objektbaum, die einen SI:-Tag
- * im Beschreibungsfeld tragen. Überwacht Batterie, Erreichbarkeit, Alarme
- * und Kontakte per MessageSink und meldet Probleme an den SmartNotifier.
+ * im Beschreibungsfeld tragen. Stellt eine saubere API für andere Module
+ * (SmartNotifier, SecurityKachel, SmartController, SmartBriefing) bereit.
  *
  * Tags werden einmalig gesetzt (manuell oder per KI-Tagger) und danach
  * vom Scan nur noch gelesen – nie überschrieben.
+ *
+ * Dieses Modul macht KEIN Monitoring und KEIN Alerting.
+ * Das übernimmt der SmartNotifier.
  */
 class SmartInventory extends IPSModuleStrict
 {
@@ -20,11 +23,6 @@ class SmartInventory extends IPSModuleStrict
 
     // Tag-Prefix
     private const TAG_PREFIX = 'SI:';
-
-    // Überwachte Kategorien (lösen MessageSink-Events aus)
-    private const MONITORED_CATEGORIES = [
-        'battery', 'reachability', 'alarm', 'warning', 'contact', 'info'
-    ];
 
     // ─────────────────────────────────────────────────────────────────
     // Lifecycle
@@ -38,7 +36,7 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterPropertyInteger('ScanInterval', 60);           // Minuten (0 = nur manuell)
         $this->RegisterPropertyInteger('BatteryThreshold', 15);       // Prozent
         $this->RegisterPropertyInteger('RoomPathSegment', 2);         // Segment von rechts im Pfad
-        $this->RegisterPropertyInteger('NotifierID', 0);              // SmartNotifier Instanz
+        $this->RegisterPropertyInteger('NotifierID', 0);              // Legacy – wird nicht mehr verwendet
         $this->RegisterPropertyInteger('GeminiIOID', 0);              // SmartGeminiIO Instanz
 
         // Persistenter Speicher für KI-Vorschläge (überlebt Modul-Updates)
@@ -47,7 +45,7 @@ class SmartInventory extends IPSModuleStrict
         // Timer für periodischen Scan
         $this->RegisterTimer('ScanTimer', 0, 'SINV_Scan(' . $this->InstanceID . ');');
 
-        // Status-Variablen
+        // Status-Variablen (reine Statistik)
         $this->RegisterVariableInteger('DeviceCount', 'Geräte gesamt', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'microchip'
@@ -56,97 +54,6 @@ class SmartInventory extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'tags'
         ], 2);
-        $this->RegisterVariableInteger('OfflineCount', 'Geräte offline', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'wifi-slash',
-            'INTERVALS_ACTIVE' => true,
-            'INTERVALS' => json_encode([
-                [
-                    'IntervalMinValue' => 0, 'IntervalMaxValue' => 1,
-                    'ConstantActive' => false, 'ConstantValue' => '',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'wifi',
-                    'ColorActive' => true, 'ColorValue' => 0x00CC00,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
-                ],
-                [
-                    'IntervalMinValue' => 1, 'IntervalMaxValue' => 999,
-                    'ConstantActive' => false, 'ConstantValue' => '',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'wifi-slash',
-                    'ColorActive' => true, 'ColorValue' => 0xFF4400,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ]
-            ])
-        ], 3);
-        $this->RegisterVariableInteger('LowBatteryCount', 'Batterien kritisch', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'battery-quarter',
-            'INTERVALS_ACTIVE' => true,
-            'INTERVALS' => json_encode([
-                [
-                    'IntervalMinValue' => 0, 'IntervalMaxValue' => 1,
-                    'ConstantActive' => false, 'ConstantValue' => '',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'battery-full',
-                    'ColorActive' => true, 'ColorValue' => 0x00CC00,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
-                ],
-                [
-                    'IntervalMinValue' => 1, 'IntervalMaxValue' => 999,
-                    'ConstantActive' => false, 'ConstantValue' => '',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'battery-quarter',
-                    'ColorActive' => true, 'ColorValue' => 0xFF4400,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ]
-            ])
-        ], 10);
-        $this->RegisterVariableInteger('ActiveAlarmCount', 'Alarme aktiv', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'bell',
-            'INTERVALS_ACTIVE' => true,
-            'INTERVALS' => json_encode([
-                [
-                    'IntervalMinValue' => 0, 'IntervalMaxValue' => 1,
-                    'ConstantActive' => false, 'ConstantValue' => '',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'bell',
-                    'ColorActive' => true, 'ColorValue' => 0x00CC00,
-                    'ContentColorActive' => false, 'ContentColorValue' => -1
-                ],
-                [
-                    'IntervalMinValue' => 1, 'IntervalMaxValue' => 999,
-                    'ConstantActive' => false, 'ConstantValue' => '',
-                    'ConversionFactor' => 1,
-                    'PrefixActive' => false, 'PrefixValue' => '',
-                    'SuffixActive' => false, 'SuffixValue' => '',
-                    'DigitsActive' => false, 'DigitsValue' => 0,
-                    'IconActive' => true, 'IconValue' => 'bell-exclamation',
-                    'ColorActive' => true, 'ColorValue' => 0xFF0000,
-                    'ContentColorActive' => true, 'ContentColorValue' => 0xFFFFFF
-                ]
-            ])
-        ], 20);
-        $this->RegisterVariableInteger('OpenContactCount', 'Kontakte offen', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON' => 'door-open'
-        ], 30);
         $this->RegisterVariableString('LastScan', 'Letzter Scan', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'clock'
@@ -165,66 +72,13 @@ class SmartInventory extends IPSModuleStrict
         $interval = $this->ReadPropertyInteger('ScanInterval');
         $this->SetTimerInterval('ScanTimer', $interval > 0 ? $interval * 60 * 1000 : 0);
 
-        // Auf Instanz-Erstellung/Löschung lauschen
-        $this->RegisterMessage(0, IPS_INSTANCEMESSAGE);
-
-        // Initialen Scan anstoßen (verzögert, damit alle Module geladen sind)
-        if (IPS_GetKernelRunlevel() >= KR_READY) {
-            $this->resubscribeAll();
-        }
+        // Alte Counter-Variablen entfernen (Migration)
+        $this->UnregisterVariable('OfflineCount');
+        $this->UnregisterVariable('LowBatteryCount');
+        $this->UnregisterVariable('ActiveAlarmCount');
+        $this->UnregisterVariable('OpenContactCount');
 
         $this->SetStatus(102);
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // MessageSink
-    // ─────────────────────────────────────────────────────────────────
-
-    public function MessageSink(int $timeStamp, int $senderID, int $message, array $data): void
-    {
-        // Instanz-Events
-        if ($message === IPS_INSTANCEMESSAGE) {
-            if ($data[0] === IM_CREATE) {
-                $this->handleNewInstance($senderID);
-            } elseif ($data[0] === IM_DELETE) {
-                $this->handleDeletedInstance($senderID);
-            }
-            return;
-        }
-
-        // Variablen-Updates
-        if ($message !== IPS_VARIABLEMESSAGE || $data[0] !== VM_UPDATE) {
-            return;
-        }
-
-        $info = @IPS_GetObject($senderID);
-        if ($info === false) {
-            return;
-        }
-        $tag = $info['ObjectInfo'];
-        if (!str_starts_with($tag, self::TAG_PREFIX)) {
-            return;
-        }
-
-        $parsed = $this->parseTag($tag);
-        if ($parsed['disabled']) {
-            return;
-        }
-
-        $newValue = $data[1];
-        $oldValue = $data[2];
-        if ($newValue === $oldValue) {
-            return;
-        }
-
-        match ($parsed['category']) {
-            'battery'      => $this->handleBattery($senderID, $newValue, $parsed),
-            'reachability' => $this->handleReachability($senderID, $newValue, $parsed),
-            'alarm'        => $this->handleAlarm($senderID, $newValue, $parsed),
-            'warning'      => $this->handleWarning($senderID, $newValue),
-            'contact'      => $this->handleContact($senderID, $newValue, $parsed),
-            default        => null,
-        };
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -240,32 +94,9 @@ class SmartInventory extends IPSModuleStrict
         $deviceCount    = count($inventory);
         $taggedVarCount = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
-        // Inventar speichern (für MessageSink-Nachschlagen)
+        // Inventar im Buffer cachen (für API-Abfragen und Formular)
         $this->SetBuffer('Inventory', json_encode($inventory));
         $this->SetBuffer('UntaggedInstances', json_encode($untaggedInstances));
-
-        // Counters berechnen
-        $offlineCount     = 0;
-        $lowBatteryCount  = 0;
-        $activeAlarmCount = 0;
-        $openContactCount = 0;
-        $threshold        = $this->ReadPropertyInteger('BatteryThreshold');
-
-        foreach ($inventory as $device) {
-            foreach ($device['variables'] as $v) {
-                if ($v['disabled']) {
-                    continue;
-                }
-                match ($v['category']) {
-                    'reachability' => $offlineCount     += $this->isProblematic($v) ? 1 : 0,
-                    'battery'      => $lowBatteryCount  += $this->isBatteryLow($v, $threshold) ? 1 : 0,
-                    'alarm'        => $activeAlarmCount += $this->isProblematic($v) ? 1 : 0,
-                    'warning'      => $activeAlarmCount += $this->isProblematic($v) ? 1 : 0,
-                    'contact'      => $openContactCount += $this->isContactOpen($v) ? 1 : 0,
-                    default        => null,
-                };
-            }
-        }
 
         // Status-Variablen aktualisieren
         if ($this->GetValue('DeviceCount') !== $deviceCount) {
@@ -274,21 +105,6 @@ class SmartInventory extends IPSModuleStrict
         if ($this->GetValue('TaggedVarCount') !== $taggedVarCount) {
             $this->SetValue('TaggedVarCount', $taggedVarCount);
         }
-        if ($this->GetValue('OfflineCount') !== $offlineCount) {
-            $this->SetValue('OfflineCount', $offlineCount);
-        }
-        if ($this->GetValue('LowBatteryCount') !== $lowBatteryCount) {
-            $this->SetValue('LowBatteryCount', $lowBatteryCount);
-        }
-        if ($this->GetValue('ActiveAlarmCount') !== $activeAlarmCount) {
-            $this->SetValue('ActiveAlarmCount', $activeAlarmCount);
-        }
-        if ($this->GetValue('OpenContactCount') !== $openContactCount) {
-            $this->SetValue('OpenContactCount', $openContactCount);
-        }
-
-        // MessageSink-Subscriptions aktualisieren
-        $this->resubscribeAll();
 
         $duration = round((microtime(true) - $startTime) * 1000);
         $this->SetValue('LastScan', date('d.m.Y H:i:s'));
@@ -300,17 +116,12 @@ class SmartInventory extends IPSModuleStrict
             'devices'    => $deviceCount,
             'variables'  => $taggedVarCount,
             'untagged'   => count($untaggedInstances),
-            'offline'    => $offlineCount,
-            'lowBattery' => $lowBatteryCount,
-            'alarms'     => $activeAlarmCount,
-            'contacts'   => $openContactCount,
             'duration'   => $duration . ' ms',
         ]);
     }
 
     /**
-     * Baut die Inventar-Daten direkt aus dem Objektbaum auf (kein Buffer).
-     * Wird von Scan() UND GetConfigurationForm() aufgerufen → immer aktuell.
+     * Baut die Inventar-Daten direkt aus dem Objektbaum auf.
      *
      * @return array{inventory: array, untagged: array}
      */
@@ -375,9 +186,10 @@ class SmartInventory extends IPSModuleStrict
                     'disabled'       => $parsed['disabled'],
                     'normalState'    => $parsed['normalState'],
                     'type'           => $var['VariableType'],
-                    'value'          => GetValue($childID),
+                    'value'          => @GetValue($childID),
                     'valueFormatted' => $value,
                     'lastUpdate'     => date('Y-m-d H:i:s', $var['VariableUpdated']),
+                    'lastUpdatedTS'  => $var['VariableUpdated'],
                 ];
             }
 
@@ -430,8 +242,8 @@ class SmartInventory extends IPSModuleStrict
      *   SI:battery:disabled
      *   SI:alarm:smoke
      *   SI:alarm:smoke:disabled
-     *   SI:reachability:online=false
-     *   SI:contact:closed=CLOSED:disabled
+     *   SI:reachability:ok=false
+     *   SI:contact:ok=CLOSED:disabled
      */
     private function parseTag(string $tag): array
     {
@@ -470,135 +282,81 @@ class SmartInventory extends IPSModuleStrict
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // Monitoring Handlers
-    // ─────────────────────────────────────────────────────────────────
-
-    private function handleBattery(int $varID, mixed $newValue, array $parsed): void
-    {
-        $threshold = $this->ReadPropertyInteger('BatteryThreshold');
-        $var = IPS_GetVariable($varID);
-        $isLow = false;
-
-        if ($var['VariableType'] === 0) {
-            // Boolean: true = batterie schwach
-            $isLow = (bool) $newValue;
-        } elseif (is_numeric($newValue)) {
-            // Numerisch: unter Schwellwert
-            $isLow = ((float) $newValue) < $threshold;
-        }
-
-        if ($this->shouldNotify($varID, $isLow)) {
-            $instanceName = $this->getParentInstanceName($varID);
-            $room = $this->getVarRoom($varID);
-            $roomStr = $room !== '' ? " ($room)" : '';
-
-            if ($isLow) {
-                $this->notifyProblem(
-                    'Batterie schwach',
-                    $instanceName . $roomStr . ': Batterie kritisch',
-                    1
-                );
-            }
-        }
-
-        $this->recalculateCounters();
-    }
-
-    private function handleReachability(int $varID, mixed $newValue, array $parsed): void
-    {
-        $isOffline = $this->evaluateReachability($newValue, $parsed);
-
-        if ($this->shouldNotify($varID, $isOffline)) {
-            $instanceName = $this->getParentInstanceName($varID);
-            $room = $this->getVarRoom($varID);
-            $roomStr = $room !== '' ? " ($room)" : '';
-
-            if ($isOffline) {
-                $this->notifyProblem(
-                    'Gerät offline',
-                    $instanceName . $roomStr . ': Nicht erreichbar',
-                    2
-                );
-            }
-        }
-
-        $this->recalculateCounters();
-    }
-
-    private function handleAlarm(int $varID, mixed $newValue, array $parsed): void
-    {
-        $isActive = $this->isValueTriggered($newValue, $parsed);
-
-        if ($this->shouldNotify($varID, $isActive)) {
-            $instanceName = $this->getParentInstanceName($varID);
-            $varName = IPS_GetName($varID);
-            $room = $this->getVarRoom($varID);
-            $roomStr = $room !== '' ? " ($room)" : '';
-            $sub = $parsed['subcategory'] !== '' ? ' (' . $parsed['subcategory'] . ')' : '';
-
-            if ($isActive) {
-                $this->notifyProblem(
-                    'Alarm' . $sub,
-                    $instanceName . $roomStr . ': ' . $varName,
-                    3
-                );
-            }
-        }
-
-        $this->recalculateCounters();
-    }
-
-    private function handleWarning(int $varID, mixed $newValue): void
-    {
-        $isActive = (bool) $newValue;
-
-        if ($this->shouldNotify($varID, $isActive)) {
-            $instanceName = $this->getParentInstanceName($varID);
-            $varName = IPS_GetName($varID);
-            $room = $this->getVarRoom($varID);
-            $roomStr = $room !== '' ? " ($room)" : '';
-
-            if ($isActive) {
-                $this->notifyProblem(
-                    'Warnung',
-                    $instanceName . $roomStr . ': ' . $varName,
-                    1
-                );
-            }
-        }
-
-        $this->recalculateCounters();
-    }
-
-    private function handleContact(int $varID, mixed $newValue, array $parsed): void
-    {
-        $this->recalculateCounters();
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Instanz-Events
-    // ─────────────────────────────────────────────────────────────────
-
-    private function handleNewInstance(int $instanceID): void
-    {
-        $instance = @IPS_GetInstance($instanceID);
-        if ($instance === false || $instance['ModuleInfo']['ModuleType'] !== 3) {
-            return;
-        }
-
-        $this->SendDebug('NewInstance', 'Neue Instanz erkannt: ' . IPS_GetName($instanceID) . " (#$instanceID)", 0);
-        // Inventar wird beim nächsten Scan aktualisiert – neue Instanz erscheint als "ungetaggt"
-    }
-
-    private function handleDeletedInstance(int $instanceID): void
-    {
-        $this->SendDebug('DeletedInstance', "Instanz gelöscht: #$instanceID", 0);
-        // Bereinige MessageSink-Subscriptions beim nächsten Scan
-    }
-
-    // ─────────────────────────────────────────────────────────────────
     // API (öffentlich)
     // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Gibt das komplette gecachte Inventar als JSON zurück.
+     */
+    public function GetInventory(): string
+    {
+        return $this->GetBuffer('Inventory') ?: '[]';
+    }
+
+    /**
+     * Gibt alle existierenden Kategorien zurück.
+     */
+    public function GetCategories(): string
+    {
+        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $categories = [];
+
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                $cat = $v['category'];
+                if ($v['subcategory'] !== '') {
+                    $cat .= ':' . $v['subcategory'];
+                }
+                if (!in_array($cat, $categories)) {
+                    $categories[] = $cat;
+                }
+            }
+        }
+
+        sort($categories);
+        return json_encode($categories);
+    }
+
+    /**
+     * Gibt alle Variablen einer Kategorie zurück.
+     * z.B. SINV_GetByCategory($id, 'battery') oder SINV_GetByCategory($id, 'alarm:smoke')
+     */
+    public function GetByCategory(string $category): string
+    {
+        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $results = [];
+
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                if ($v['disabled']) {
+                    continue;
+                }
+                $matchTag = $v['category'];
+                if ($v['subcategory'] !== '') {
+                    $matchTag .= ':' . $v['subcategory'];
+                }
+                if ($category === $v['category'] || $category === $matchTag) {
+                    $results[] = [
+                        'instanceID'    => $device['instanceID'],
+                        'instanceName'  => $device['instanceName'],
+                        'room'          => $device['room'],
+                        'varID'         => $v['varID'],
+                        'varName'       => $v['name'],
+                        'tag'           => $v['tag'],
+                        'category'      => $v['category'],
+                        'subcategory'   => $v['subcategory'],
+                        'type'          => $v['type'],
+                        'value'         => $v['value'],
+                        'valueFormatted' => $v['valueFormatted'],
+                        'normalState'   => $v['normalState'],
+                        'lastUpdatedTS' => $v['lastUpdatedTS'] ?? 0,
+                    ];
+                }
+            }
+        }
+
+        return json_encode($results);
+    }
 
     /**
      * Sucht Variablen nach Tag und optional Raum.
@@ -868,9 +626,9 @@ class SmartInventory extends IPSModuleStrict
 Du klassifizierst Smart-Home-Variablen. Für jede Variable: Tag zuweisen, Raum aus Pfad ableiten.
 
 Tags (exakt verwenden):
-SI:battery, SI:reachability, SI:reachability:online=false (für UNREACH),
+SI:battery, SI:reachability, SI:reachability:ok=false (für UNREACH),
 SI:alarm:smoke, SI:alarm:water, SI:alarm:co, SI:alarm:tamper, SI:alarm:generic,
-SI:contact, SI:contact:closed=WERT (für String-Kontakte),
+SI:contact, SI:contact:ok=WERT (für String-Kontakte),
 SI:sensor:temp, SI:sensor:humidity, SI:sensor:co2, SI:sensor:voc,
 SI:sensor:pressure, SI:sensor:lux, SI:sensor:radon,
 SI:sensor:power, SI:sensor:energy, SI:sensor:generic,
@@ -879,9 +637,9 @@ SI:actor:lock, SI:actor:valve,
 SI:warning, SI:info, SI:diagnostic, SKIP
 
 Regeln:
-- UNREACH/Nicht erreichbar: SI:reachability:online=false (invertiert!)
+- UNREACH/Nicht erreichbar: SI:reachability:ok=false (invertiert!)
 - DeviceAvailable/Online: SI:reachability (normal)
-- String-Kontakte z.B. "Geschlossen": SI:contact:closed=Geschlossen
+- String-Kontakte z.B. "Geschlossen": SI:contact:ok=Geschlossen
 - Raum = vorletztes Pfadsegment (vor Gerätename)
 - SKIP für irrelevante Variablen (interne Zähler, Config, Darstellung)
 PROMPT;
@@ -1073,9 +831,9 @@ PROMPT;
 
     public function GetConfigurationForm(): string
     {
-        // Direkt aus dem Objektbaum lesen – kein Buffer, immer aktuell
-        ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
-
+        // Gecachtes Inventar aus Buffer lesen (statt buildInventoryData aufzurufen)
+        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $untagged = json_decode($this->GetBuffer('UntaggedInstances'), true) ?: [];
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         // Räume sammeln für Dropdown
@@ -1110,10 +868,21 @@ PROMPT;
             ['caption' => 'Alarm (Gas)', 'value' => 'SI:alarm:gas'],
             ['caption' => 'Alarm (Bewegung)', 'value' => 'SI:alarm:motion'],
             ['caption' => 'Warnung', 'value' => 'SI:warning'],
+            ['caption' => 'Sensor (Temperatur)', 'value' => 'SI:sensor:temp'],
+            ['caption' => 'Sensor (Luftfeuchte)', 'value' => 'SI:sensor:humidity'],
+            ['caption' => 'Sensor (Helligkeit)', 'value' => 'SI:sensor:lux'],
+            ['caption' => 'Sensor (Leistung W)', 'value' => 'SI:sensor:power'],
+            ['caption' => 'Sensor (Energie kWh)', 'value' => 'SI:sensor:energy'],
+            ['caption' => 'Aktor (Schalter)', 'value' => 'SI:actor:switch'],
+            ['caption' => 'Aktor (Dimmer)', 'value' => 'SI:actor:dimmer'],
+            ['caption' => 'Aktor (Rollladen)', 'value' => 'SI:actor:blind'],
+            ['caption' => 'Aktor (Thermostat)', 'value' => 'SI:actor:thermostat'],
+            ['caption' => 'Aktor (Schloss)', 'value' => 'SI:actor:lock'],
+            ['caption' => 'Diagnostik', 'value' => 'SI:diagnostic'],
+            ['caption' => 'Info', 'value' => 'SI:info'],
         ];
 
         $initialCatalogList = [];
-
         $catalogCategories = [];
 
         foreach ($inventory as $device) {
@@ -1131,13 +900,14 @@ PROMPT;
                 
                 $normalStateStr = $parsedTag['normalState'] !== null ? $parsedTag['normalState']['value'] : '';
 
-                $rowColor = '';
-                if ($parsedTag['category'] === 'reachability' && $this->isProblematic($v)) $rowColor = '#FF4400';
-                elseif ($parsedTag['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $rowColor = '#FF8800';
-                elseif (in_array($parsedTag['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $rowColor = '#FF0000';
-                elseif ($parsedTag['category'] === 'contact' && $this->isContactOpen($v)) $rowColor = '#FFAA00';
+                // Für die Problemansicht: nur problematische Einträge zeigen
+                $isProblem = false;
+                if ($parsedTag['category'] === 'reachability' && $this->isProblematic($v)) $isProblem = true;
+                elseif ($parsedTag['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $isProblem = true;
+                elseif (in_array($parsedTag['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $isProblem = true;
+                elseif ($parsedTag['category'] === 'contact' && $this->isProblematic($v)) $isProblem = true;
 
-                if ($rowColor !== '') {
+                if ($isProblem) {
                     $initialCatalogList[] = [
                         'instanceName' => $device['instanceName'],
                         'room'         => $device['room'],
@@ -1147,7 +917,6 @@ PROMPT;
                         'value'        => $v['valueFormatted'],
                         'ObjectID'     => $v['varID'],
                         'instanceID'   => $device['instanceID'],
-                        'rowColor'     => $rowColor,
                     ];
                 }
             }
@@ -1158,7 +927,7 @@ PROMPT;
         $catalogOptions[] = ['caption' => '--- Aktuelle Probleme & Alarme ---', 'value' => 'problems'];
         $catalogOptions[] = ['caption' => '--- Bitte waehlen ---', 'value' => 'none'];
         $catalogOptions[] = ['caption' => '--- Alle Typen ---', 'value' => 'all'];
-        $catalogOptions[] = ['caption' => '--- Nicht getaggte (Ignoriert) ---', 'value' => 'untagged'];
+        $catalogOptions[] = ['caption' => '--- Nicht getaggte ---', 'value' => 'untagged'];
         $catalogOptions[] = ['caption' => '--- Nur Deaktivierte ---', 'value' => 'disabled'];
         foreach ($catalogCategories as $cat) {
             $catalogOptions[] = ['caption' => $cat, 'value' => $cat];
@@ -1173,8 +942,11 @@ PROMPT;
             if ($objType === 2) {
                 // Variable -> Tag aktualisieren
                 $newTag = $listData["tagBase"];
-                if (isset($listData["normalState"]) && $listData["normalState"] !== "") {
-                    $newTag .= ":ok=" . $listData["normalState"];
+                $ns = $listData["normalState"] ?? "";
+                // Doppelpunkte aus normalState entfernen (Injection-Schutz)
+                $ns = str_replace(":", "", $ns);
+                if ($ns !== "") {
+                    $newTag .= ":ok=" . $ns;
                 }
                 if ($listData["disabled"]) {
                     $newTag .= ":disabled";
@@ -1223,7 +995,6 @@ PROMPT;
                         ['type' => 'NumberSpinner', 'name' => 'ScanInterval', 'caption' => 'Scan-Intervall', 'suffix' => 'Minuten (0 = nur manuell)', 'minimum' => 0, 'maximum' => 1440],
                         ['type' => 'NumberSpinner', 'name' => 'BatteryThreshold', 'caption' => 'Batterie-Schwellwert', 'suffix' => '%', 'minimum' => 5, 'maximum' => 50],
                         ['type' => 'NumberSpinner', 'name' => 'RoomPathSegment', 'caption' => 'Raum-Segment (von rechts im Pfad)', 'minimum' => 1, 'maximum' => 10],
-                        ['type' => 'SelectInstance', 'name' => 'NotifierID', 'caption' => 'SmartNotifier'],
                         ['type' => 'SelectInstance', 'name' => 'GeminiIOID', 'caption' => 'SmartGeminiIO (für KI-Tagging)'],
                     ],
                 ],
@@ -1245,7 +1016,7 @@ PROMPT;
                 // Katalog / Pflege
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Katalog / Pflege (Alle Geräte)',
+                    'caption' => 'Katalog / Pflege',
                     'expanded' => true,
                     'items' => [
                         [
@@ -1268,7 +1039,7 @@ PROMPT;
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
                                 ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['name' => 'disabled', 'caption' => 'Deaktiviert (bzw. Ignoriert)', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
+                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '80px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
                                 ['name' => 'ObjectID', 'caption' => 'ID', 'width' => '70px', 'edit' => ['type' => 'SelectObject']],
                             ],
@@ -1276,7 +1047,6 @@ PROMPT;
                         ],
                     ],
                 ],
-        // UpdateCatalogList will handle filling it!
             ],
         ];
 
@@ -1285,7 +1055,9 @@ PROMPT;
 
     public function UpdateCatalogList(string $category): void
     {
-        ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
+        // Gecachtes Inventar aus Buffer lesen
+        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $untagged = json_decode($this->GetBuffer('UntaggedInstances'), true) ?: [];
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
         
         $list = [];
@@ -1313,15 +1085,15 @@ PROMPT;
                     $parsed = $this->parseTag($v['tag']);
                     $tagBase = 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '');
                     
-                    $rowColor = '';
-                    if ($parsed['category'] === 'reachability' && $this->isProblematic($v)) $rowColor = '#FF4400';
-                    elseif ($parsed['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $rowColor = '#FF8800';
-                    elseif (in_array($parsed['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $rowColor = '#FF0000';
-                    elseif ($parsed['category'] === 'contact' && $this->isContactOpen($v)) $rowColor = '#FFAA00';
+                    $isProblem = false;
+                    if ($parsed['category'] === 'reachability' && $this->isProblematic($v)) $isProblem = true;
+                    elseif ($parsed['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $isProblem = true;
+                    elseif (in_array($parsed['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $isProblem = true;
+                    elseif ($parsed['category'] === 'contact' && $this->isProblematic($v)) $isProblem = true;
 
                     $match = false;
                     if ($category === 'problems') {
-                        if ($rowColor !== '') $match = true;
+                        if ($isProblem) $match = true;
                     } elseif ($category === 'disabled' && $parsed['disabled']) {
                         $match = true;
                     } elseif ($category !== 'disabled' && $tagBase === $category && !$parsed['disabled']) {
@@ -1332,7 +1104,7 @@ PROMPT;
                     
                     if ($match) {
                         $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
-                        $entry = [
+                        $list[] = [
                             'instanceName' => $device['instanceName'],
                             'room'         => $device['room'],
                             'tagBase'      => $tagBase,
@@ -1342,10 +1114,6 @@ PROMPT;
                             'ObjectID'     => $v['varID'],
                             'instanceID'   => $device['instanceID'],
                         ];
-                        if ($rowColor !== '') {
-                            $entry['rowColor'] = $rowColor;
-                        }
-                        $list[] = $entry;
                     }
                 }
             }
@@ -1387,26 +1155,8 @@ PROMPT;
     }
 
     /**
-     * Registriert alle MessageSink-Subscriptions für getaggte Variablen.
-     */
-    private function resubscribeAll(): void
-    {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
-
-        foreach ($inventory as $device) {
-            foreach ($device['variables'] as $v) {
-                if ($v['disabled']) {
-                    continue;
-                }
-                if (in_array($v['category'], self::MONITORED_CATEGORIES)) {
-                    $this->RegisterMessage($v['varID'], IPS_VARIABLEMESSAGE);
-                }
-            }
-        }
-    }
-
-    /**
      * Prüft ob eine Batterie-Variable als "niedrig" gilt.
+     * Wird für UI-Zeilenfarben und API-Filter verwendet.
      */
     private function isBatteryLow(array $v, int $threshold): bool
     {
@@ -1422,20 +1172,13 @@ PROMPT;
 
     /**
      * Prüft ob eine Variable in einem "problematischen" Zustand ist.
+     * Wird für UI-Zeilenfarben und API-Filter verwendet.
      */
     private function isProblematic(array $v): bool
     {
         $value = $v['value'];
         $parsed = $this->parseTag($v['tag']);
 
-        return $this->isValueTriggered($value, $parsed);
-    }
-
-    /**
-     * Evaluiert ob ein Erreichbarkeits-Wert als "offline" gilt.
-     */
-    private function evaluateReachability(mixed $value, array $parsed): bool
-    {
         return $this->isValueTriggered($value, $parsed);
     }
 
@@ -1480,7 +1223,6 @@ PROMPT;
         }
         if (is_string($value)) {
             $lower = strtolower($value);
-            // Typische "problematische" String-Werte
             return in_array($lower, ['offline', 'nicht erreichbar', 'offen', 'open', 'alarm', 'fehler', 'error', 'true', 'ja']);
         }
 
@@ -1488,137 +1230,17 @@ PROMPT;
     }
 
     /**
-     * Prüft ob ein Kontakt als "offen" gilt.
-     */
-    private function isContactOpen(array $v): bool
-    {
-        return $this->isProblematic($v);
-    }
-
-    /**
-     * Benachrichtigungs-State-Tracking: Nur einmal pro Zustandswechsel benachrichtigen.
-     */
-    private function shouldNotify(int $varID, bool $isProblematic): bool
-    {
-        $notified = json_decode($this->GetBuffer('NotifiedVars') ?: '[]', true);
-        $key = (string) $varID;
-
-        if ($isProblematic && !in_array($key, $notified)) {
-            $notified[] = $key;
-            $this->SetBuffer('NotifiedVars', json_encode($notified));
-            return true;
-        }
-
-        if (!$isProblematic && in_array($key, $notified)) {
-            $notified = array_values(array_diff($notified, [$key]));
-            $this->SetBuffer('NotifiedVars', json_encode($notified));
-        }
-
-        return false;
-    }
-
-    /**
-     * Sendet eine Benachrichtigung an den SmartNotifier.
-     */
-    private function notifyProblem(string $title, string $message, int $priority): void
-    {
-        $notifierID = $this->ReadPropertyInteger('NotifierID');
-        if ($notifierID === 0 || !@IPS_InstanceExists($notifierID)) {
-            $this->SendDebug('Notify', "Kein Notifier: $title - $message", 0);
-            return;
-        }
-
-        if (method_exists($this, 'SLogWarning')) {
-            $this->SLogWarning($title, $message);
-        }
-
-        // SmartNotifier API aufrufen
-        if (function_exists('NOTIFY_SendMessage')) {
-            @NOTIFY_SendMessage($notifierID, $title, $message, $priority);
-        }
-    }
-
-    /**
-     * Zähler neu berechnen (nach Wertänderung).
-     */
-    private function recalculateCounters(): void
-    {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
-        $threshold = $this->ReadPropertyInteger('BatteryThreshold');
-        $offline = 0;
-        $lowBat = 0;
-        $alarms = 0;
-        $contacts = 0;
-
-        foreach ($inventory as $device) {
-            foreach ($device['variables'] as &$v) {
-                if ($v['disabled']) {
-                    continue;
-                }
-                // Live-Wert aktualisieren
-                if (@IPS_VariableExists($v['varID'])) {
-                    $v['value'] = GetValue($v['varID']);
-                }
-                match ($v['category']) {
-                    'reachability' => $offline += $this->isProblematic($v) ? 1 : 0,
-                    'battery'      => $lowBat += $this->isBatteryLow($v, $threshold) ? 1 : 0,
-                    'alarm', 'warning' => $alarms += $this->isProblematic($v) ? 1 : 0,
-                    'contact'      => $contacts += $this->isContactOpen($v) ? 1 : 0,
-                    default        => null,
-                };
-            }
-        }
-
-        // Buffer aktualisieren
-        $this->SetBuffer('Inventory', json_encode($inventory));
-
-        if ($this->GetValue('OfflineCount') !== $offline) {
-            $this->SetValue('OfflineCount', $offline);
-        }
-        if ($this->GetValue('LowBatteryCount') !== $lowBat) {
-            $this->SetValue('LowBatteryCount', $lowBat);
-        }
-        if ($this->GetValue('ActiveAlarmCount') !== $alarms) {
-            $this->SetValue('ActiveAlarmCount', $alarms);
-        }
-        if ($this->GetValue('OpenContactCount') !== $contacts) {
-            $this->SetValue('OpenContactCount', $contacts);
-        }
-    }
-
-    /**
      * Gibt den formatierten Wert einer Variable zurück.
      */
     private function getFormattedValue(int $varID): string
     {
-        $value = GetValue($varID);
+        if (!@IPS_VariableExists($varID)) {
+            return '(gelöscht)';
+        }
+        $value = @GetValue($varID);
         if (is_bool($value)) {
             return $value ? 'true' : 'false';
         }
         return (string) $value;
-    }
-
-    /**
-     * Gibt den Instanz-Namen der Eltern-Instanz einer Variable zurück.
-     */
-    private function getParentInstanceName(int $varID): string
-    {
-        $parentID = IPS_GetParent($varID);
-        if ($parentID > 0 && @IPS_InstanceExists($parentID)) {
-            return IPS_GetName($parentID);
-        }
-        return 'Unbekannt';
-    }
-
-    /**
-     * Gibt den Raum der Eltern-Instanz einer Variable zurück.
-     */
-    private function getVarRoom(int $varID): string
-    {
-        $parentID = IPS_GetParent($varID);
-        if ($parentID > 0) {
-            return $this->resolveRoom($parentID);
-        }
-        return '';
     }
 }
