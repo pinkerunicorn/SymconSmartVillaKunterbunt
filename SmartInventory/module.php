@@ -946,6 +946,62 @@ PROMPT;
             'errors'      => $errors,
         ]);
     }
+    /**
+     * Übernimmt ALLE KI-Vorschläge aus dem Buffer auf einmal.
+     */
+    public function ApplyAllSuggestions(): string
+    {
+        $suggestions = json_decode($this->GetBuffer('AISuggestions') ?: '[]', true);
+        if (empty($suggestions)) {
+            return 'Keine KI-Vorschläge im Buffer. Zuerst KI-Tagging starten.';
+        }
+
+        $applied = 0;
+        $skipped = 0;
+        $total = count($suggestions);
+
+        foreach ($suggestions as $sel) {
+            $varID = $sel['varID'] ?? 0;
+            $tag = $sel['tag'] ?? '';
+            $room = $sel['room'] ?? '';
+
+            if ($varID === 0 || $tag === '' || $tag === 'SKIP' || $tag === 'null') {
+                $skipped++;
+                continue;
+            }
+
+            if (!@IPS_VariableExists($varID)) {
+                $skipped++;
+                continue;
+            }
+
+            // Tag setzen
+            if (!str_starts_with($tag, self::TAG_PREFIX)) {
+                $tag = self::TAG_PREFIX . $tag;
+            }
+            IPS_SetInfo($varID, $tag);
+
+            // Raum setzen
+            if ($room !== '') {
+                $parentID = IPS_GetParent($varID);
+                if ($parentID > 0) {
+                    $this->SetRoom($parentID, $room);
+                }
+            }
+
+            $applied++;
+        }
+
+        $this->SendDebug('ApplyAll', "$applied Tags gesetzt, $skipped übersprungen (von $total)", 0);
+
+        // Buffer leeren
+        $this->SetBuffer('AISuggestions', '[]');
+
+        // Inventar neu scannen
+        $scanResult = $this->Scan();
+
+        return "$applied Tags gesetzt, $skipped übersprungen. Scan-Ergebnis: $scanResult";
+    }
 
     /**
      * Wendet ausgewählte KI-Vorschläge an (Tag + Raum setzen).
@@ -1068,6 +1124,7 @@ PROMPT;
                     'items' => [
                         ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'echo SINV_Scan($id);'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging gestartet - Fortschritt in der Scan-Dauer Variable sichtbar.";'],
+                        ['type' => 'Button', 'caption' => 'KI-Vorschlaege uebernehmen (' . count(json_decode($this->GetBuffer('AISuggestions') ?: '[]', true)) . ')', 'onClick' => 'echo SINV_ApplyAllSuggestions($id);'],
                     ],
                 ],
                 // Tab: Erreichbarkeit
