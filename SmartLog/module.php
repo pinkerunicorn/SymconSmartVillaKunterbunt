@@ -563,61 +563,24 @@ class SmartLog extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        return <<<'EOT'
-{
-    "elements": [
-        {
-            "type": "Label",
-            "caption": "SmartLog — Zentrales Logging für alle Module\n\nAlle Einstellungen werden direkt in der Tile View (Kachelansicht) angezeigt."
-        },
-        {
-            "type": "NumberSpinner",
-            "name": "MaxEntries",
-            "caption": "Maximale Log-Einträge",
-            "minimum": 10,
-            "maximum": 1000
-        },
-        {
-            "type": "NumberSpinner",
-            "name": "AutoRefreshSekunden",
-            "caption": "Auto-Refresh (Sekunden, 0 = aus)",
-            "minimum": 0,
-            "maximum": 300
-        },
-        {
-            "type": "CheckBox",
-            "name": "EnableSecurityLogging",
-            "caption": "Sicherheits-Ereignisse automatisch loggen (Türen, Fenster, Schlösser)"
-        },
-        {
-            "type": "SelectModule",
-            "name": "RegistryID",
-            "caption": "Device Registry Instanz (für Sensoren)",
-            "moduleID": "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
-        },
-        {
-            "type": "CheckBox",
-            "name": "MirrorToSyslog",
-            "caption": "Logs zusätzlich ins IP-Symcon Syslog schreiben"
-        }
-    ],
-    "actions": [
-        {
-            "type": "Button",
-            "label": "🗑️ Log leeren",
-            "onClick": "SLOG_ClearLog($id);"
-        },
-        {
-            "type": "Button",
-            "label": "🔄 Visualisierung aktualisieren",
-            "onClick": "SLOG_AktualisierenVisualisierung($id);"
-        }
-    ],
-    "status": [
-        {"code": 102, "icon": "active", "caption": "Bereit — Log aktiv."},
-        {"code": 104, "icon": "inactive", "caption": "Inaktiv."}
-    ]
-}
-EOT;
+        return json_encode([
+            'elements' => [
+                ['type' => 'Label', 'caption' => 'SmartLog — Zentrales Logging fuer alle Module'],
+                ['type' => 'NumberSpinner', 'name' => 'MaxEntries',          'caption' => 'Maximale Log-Eintraege',               'minimum' => 10,  'maximum' => 1000],
+                ['type' => 'NumberSpinner', 'name' => 'AutoRefreshSekunden', 'caption' => 'Auto-Refresh (Sekunden, 0 = aus)',      'minimum' => 0,   'maximum' => 300],
+                ['type' => 'CheckBox',      'name' => 'MirrorToSyslog',      'caption' => 'Logs zusaetzlich ins Symcon Syslog schreiben'],
+                ['type' => 'Label',         'caption' => ' '],
+                ['type' => 'CheckBox',      'name' => 'EnableSecurityLogging', 'caption' => 'Sicherheits-Ereignisse automatisch loggen (Tueren, Fenster, Schloesser via SmartInventory)'],
+                ['type' => 'SelectInstance', 'name' => 'InventoryID',        'caption' => 'SmartInventory Instanz (Geraete-Quelle fuer Sicherheits-Logging)'],
+            ],
+            'actions' => [
+                ['type' => 'Button', 'caption' => 'Log leeren',                   'onClick' => 'SLOG_ClearLog($id); echo "Log geleert.";'],
+                ['type' => 'Button', 'caption' => 'Visualisierung aktualisieren', 'onClick' => 'SLOG_AktualisierenVisualisierung($id); echo "Aktualisiert.";'],
+            ],
+            'status' => [
+                ['code' => 102, 'icon' => 'active',   'caption' => 'Bereit – Log aktiv.'],
+                ['code' => 104, 'icon' => 'inactive',  'caption' => 'Inaktiv.'],
+            ],
+        ]);
     }
 }
