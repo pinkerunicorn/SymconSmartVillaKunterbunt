@@ -94,8 +94,33 @@ class SmartInventory extends IPSModuleStrict
         $deviceCount    = count($inventory);
         $taggedVarCount = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
-        // Inventar im Buffer cachen (für API-Abfragen und Formular)
-        $this->SetBuffer('Inventory', json_encode($inventory));
+        // Für externe API (GetByCategory, GetInventory etc.) schlanke Version cachen.
+        // Das volle Inventar mit valueFormatted etc. ist zu gross fuer den Symcon-Buffer (>256kB Limit).
+        $leanInventory = [];
+        foreach ($inventory as $device) {
+            $leanVars = [];
+            foreach ($device['variables'] as $v) {
+                $leanVars[] = [
+                    'varID'         => $v['varID'],
+                    'name'          => $v['name'],
+                    'tag'           => $v['tag'],
+                    'category'      => $v['category'],
+                    'subcategory'   => $v['subcategory'],
+                    'disabled'      => $v['disabled'],
+                    'normalState'   => $v['normalState'],
+                    'type'          => $v['type'],
+                    'value'         => $v['value'],
+                    'lastUpdatedTS' => $v['lastUpdatedTS'],
+                ];
+            }
+            $leanInventory[] = [
+                'instanceID'   => $device['instanceID'],
+                'instanceName' => $device['instanceName'],
+                'room'         => $device['room'],
+                'variables'    => $leanVars,
+            ];
+        }
+        $this->SetBuffer('Inventory', json_encode($leanInventory));
         $this->SetBuffer('UntaggedInstances', json_encode($untaggedInstances));
 
         // Status-Variablen aktualisieren
@@ -110,15 +135,16 @@ class SmartInventory extends IPSModuleStrict
         $this->SetValue('LastScan', date('d.m.Y H:i:s'));
         $this->SetValue('ScanDuration', $duration . ' ms');
 
-        $this->SendDebug('Scan', "Geräte: $deviceCount, Variablen: $taggedVarCount, Ungetaggt: " . count($untaggedInstances), 0);
+        $this->SendDebug('Scan', "Geraete: $deviceCount, Variablen: $taggedVarCount, Ungetaggt: " . count($untaggedInstances), 0);
 
         return json_encode([
-            'devices'    => $deviceCount,
-            'variables'  => $taggedVarCount,
-            'untagged'   => count($untaggedInstances),
-            'duration'   => $duration . ' ms',
+            'devices'   => $deviceCount,
+            'variables' => $taggedVarCount,
+            'untagged'  => count($untaggedInstances),
+            'duration'  => $duration . ' ms',
         ]);
     }
+
 
     /**
      * Baut die Inventar-Daten direkt aus dem Objektbaum auf.
@@ -831,17 +857,9 @@ PROMPT;
 
     public function GetConfigurationForm(): string
     {
-        // Gecachtes Inventar aus Buffer lesen.
-        // Falls Buffer leer (erster Start / nach Modul-Reload): einmalig aufbauen und cachen.
-        $inventoryJson = $this->GetBuffer('Inventory');
-        if ($inventoryJson === '' || $inventoryJson === false) {
-            ['inventory' => $inv, 'untagged' => $unt] = $this->buildInventoryData();
-            $inventoryJson = json_encode($inv);
-            $this->SetBuffer('Inventory', $inventoryJson);
-            $this->SetBuffer('UntaggedInstances', json_encode($unt));
-        }
-        $inventory = json_decode($inventoryJson, true) ?: [];
-        $untagged = json_decode($this->GetBuffer('UntaggedInstances'), true) ?: [];
+        // Inventar direkt aus dem Objektbaum aufbauen.
+        // Der Buffer ist nur fuer externe API-Abfragen (zu gross fuer die Form).
+        ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         // Räume sammeln für Dropdown
@@ -1063,9 +1081,8 @@ PROMPT;
 
     public function UpdateCatalogList(string $category): void
     {
-        // Gecachtes Inventar aus Buffer lesen
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
-        $untagged = json_decode($this->GetBuffer('UntaggedInstances'), true) ?: [];
+        // Inventar direkt aufbauen (Buffer ist zu gross und wird von Symcon getruncat)
+        ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
         
         $list = [];
