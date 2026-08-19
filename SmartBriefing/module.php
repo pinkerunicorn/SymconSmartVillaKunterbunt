@@ -144,7 +144,33 @@ class SmartBriefing extends IPSModuleStrict
 
         $basePrompt = trim($this->ReadPropertyString('CustomPrompt'));
         $dataStr    = "Hier sind die aktuellen Haus-Daten:\n" . json_encode($collectedData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        $prompt     = $basePrompt . "\n\n" . $dataStr;
+
+        // Automatisch SmartNotifier-Systemgesundheit anhaengen (wenn konfiguriert)
+        $notifierId = $this->ReadPropertyInteger('TargetNotifier');
+        if ($notifierId > 1 && @IPS_InstanceExists($notifierId)) {
+            $healthMap = [
+                'OfflineCount'     => 'Geraete offline',
+                'LowBatteryCount'  => 'Batterien schwach',
+                'ActiveAlarmCount' => 'Aktive Alarme',
+                'OpenContactCount' => 'Kontakte/Fenster offen',
+                'StaleCount'       => 'Sensoren ohne Update',
+            ];
+            $healthData = [];
+            foreach ($healthMap as $ident => $label) {
+                $vid = @IPS_GetObjectIDByIdent($ident, $notifierId);
+                if ($vid !== false && @IPS_VariableExists($vid)) {
+                    $val = GetValue($vid);
+                    if ($val > 0) {
+                        $healthData[$label] = $val;
+                    }
+                }
+            }
+            if (!empty($healthData)) {
+                $dataStr .= "\n\nSystem-Gesundheit (SmartNotifier):\n" . json_encode($healthData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        $prompt = $basePrompt . "\n\n" . $dataStr;
 
         $this->SetValue('LastPrompt', $prompt);
         $this->SLogInfo('Briefing Prompt gesendet');
