@@ -1145,7 +1145,7 @@ PROMPT;
                         'normalState'  => $normalStateStr,
                         'disabled'     => $v['disabled'],
                         'value'        => $v['valueFormatted'],
-                        'ObjectID'     => $v['varID'],
+                        'VariableID'     => $v['varID'],
                         'instanceID'   => $device['instanceID'],
                         'rowColor'     => $rowColor,
                     ];
@@ -1166,7 +1166,7 @@ PROMPT;
 
         $onEditScript = '
             $listData = ${$IPS_VALUE};
-            $vid = $listData["ObjectID"];
+            $vid = $listData["VariableID"];
             $iid = $listData["instanceID"];
             
             $objType = IPS_GetObject($vid)["ObjectType"];
@@ -1270,7 +1270,7 @@ PROMPT;
                                 ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled', 'caption' => 'Deaktiviert (bzw. Ignoriert)', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
-                                ['name' => 'ObjectID', 'caption' => 'ID', 'width' => '70px', 'edit' => ['type' => 'SelectObject']],
+                                ['name' => 'VariableID', 'caption' => 'ID', 'width' => '70px'],
                             ],
                             'values' => $initialCatalogList,
                         ],
@@ -1303,7 +1303,7 @@ PROMPT;
                     'normalState'  => '',
                     'disabled'     => $isDisabled,
                     'value'        => $u['moduleName'] . ' (' . $u['varCount'] . ' Variablen)',
-                    'ObjectID'     => $u['instanceID'],
+                    'VariableID'     => $u['instanceID'],
                     'instanceID'   => $u['instanceID'],
                 ];
             }
@@ -1339,7 +1339,7 @@ PROMPT;
                             'normalState'  => $normalStateStr,
                             'disabled'     => $parsed['disabled'],
                             'value'        => $this->getFormattedValue($v['varID']),
-                            'ObjectID'     => $v['varID'],
+                            'VariableID'     => $v['varID'],
                             'instanceID'   => $device['instanceID'],
                         ];
                         if ($rowColor !== '') {
