@@ -1067,7 +1067,7 @@ PROMPT;
                     'type' => 'RowLayout',
                     'items' => [
                         ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'echo SINV_Scan($id);'],
-                        ['type' => 'Button', 'caption' => 'KI-Tagging starten', 'onClick' => 'echo SINV_ClassifyWithAI($id);'],
+                        ['type' => 'Button', 'caption' => 'KI-Tagging starten', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging gestartet - Fortschritt in der Scan-Dauer Variable sichtbar.";'],
                     ],
                 ],
                 // Tab: Erreichbarkeit
