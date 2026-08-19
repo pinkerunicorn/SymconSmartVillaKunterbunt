@@ -1078,15 +1078,20 @@ PROMPT;
         // Direkt aus dem Objektbaum lesen – kein Buffer, immer aktuell
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
 
-        // Listen für die Tabs aufbauen
-        $reachabilityList = [];
-        $batteryList = [];
-        $alarmList = [];
-        $contactList = [];
-        $fullInventory = [];
+        $threshold = $this->ReadPropertyInteger('BatteryThreshold');
+
+        // Nur PROBLEMFÄLLE in die Listen – hält den Form-JSON unter 1MB
+        $offlineList  = [];
+        $lowBatList   = [];
+        $alarmList    = [];
+        $contactList  = [];
 
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
+                if ($v['disabled']) {
+                    continue;
+                }
+
                 $entry = [
                     'instanceName' => $device['instanceName'],
                     'room'         => $device['room'],
@@ -1096,34 +1101,31 @@ PROMPT;
                     'lastUpdate'   => $v['lastUpdate'],
                     'varID'        => $v['varID'],
                     'instanceID'   => $device['instanceID'],
-                    'disabled'     => $v['disabled'],
-                    'rowColor'     => $v['disabled'] ? '#808080' : '',
                 ];
 
-                // Fulllist
-                $fullInventory[] = $entry;
-
-                // Kategorie-Listen
                 match ($v['category']) {
-                    'reachability' => $reachabilityList[] = array_merge($entry, [
-                        'status' => $this->isProblematic($v) ? 'Offline' : 'Online',
-                        'rowColor' => $v['disabled'] ? '#808080' : ($this->isProblematic($v) ? '#FF4400' : ''),
-                    ]),
-                    'battery' => $batteryList[] = array_merge($entry, [
-                        'rowColor' => $v['disabled'] ? '#808080' : ($this->isBatteryLow($v, $this->ReadPropertyInteger('BatteryThreshold')) ? '#FF8800' : ''),
-                    ]),
-                    'alarm', 'warning', 'info' => $alarmList[] = array_merge($entry, [
-                        'type' => $v['subcategory'] !== '' ? ucfirst($v['subcategory']) : ucfirst($v['category']),
-                        'rowColor' => $v['disabled'] ? '#808080' : ($this->isProblematic($v) ? '#FF0000' : ''),
-                    ]),
-                    'contact' => $contactList[] = array_merge($entry, [
-                        'status' => $this->isContactOpen($v) ? 'Offen' : 'Geschlossen',
-                        'rowColor' => $v['disabled'] ? '#808080' : ($this->isContactOpen($v) ? '#FFAA00' : ''),
-                    ]),
+                    'reachability' => $this->isProblematic($v)
+                        ? $offlineList[] = array_merge($entry, ['rowColor' => '#FF4400'])
+                        : null,
+                    'battery' => $this->isBatteryLow($v, $threshold)
+                        ? $lowBatList[] = array_merge($entry, ['rowColor' => '#FF8800'])
+                        : null,
+                    'alarm', 'warning' => $this->isProblematic($v)
+                        ? $alarmList[] = array_merge($entry, [
+                            'type'     => $v['subcategory'] !== '' ? ucfirst($v['subcategory']) : ucfirst($v['category']),
+                            'rowColor' => '#FF0000',
+                          ])
+                        : null,
+                    'contact' => $this->isContactOpen($v)
+                        ? $contactList[] = array_merge($entry, ['status' => 'Offen', 'rowColor' => '#FFAA00'])
+                        : null,
                     default => null,
                 };
             }
         }
+
+        $totalDevices = count($inventory);
+        $totalVars    = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
         $form = [
             'elements' => [
@@ -1156,37 +1158,36 @@ PROMPT;
                 // Tab: Erreichbarkeit
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Erreichbarkeit (' . count($reachabilityList) . ')',
-                    'expanded' => count(array_filter($reachabilityList, fn($r) => $r['status'] === 'Offline')) > 0,
+                    'caption' => 'Erreichbarkeit (' . count($offlineList) . ' Offline)',
+                    'expanded' => count($offlineList) > 0,
                     'items' => [
                         [
                             'type' => 'List',
                             'name' => 'ReachabilityList',
                             'caption' => '',
-                            'rowCount' => min(count($reachabilityList), 20),
-                            'sort' => ['column' => 'status', 'direction' => 'descending'],
+                            'rowCount' => min(count($offlineList), 20),
+                            'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
-                                ['name' => 'status', 'caption' => 'Status', 'width' => '80px'],
                                 ['name' => 'lastUpdate', 'caption' => 'Seit', 'width' => '150px'],
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
                             ],
-                            'values' => $reachabilityList,
+                            'values' => $offlineList,
                         ],
                     ],
                 ],
                 // Tab: Batterie
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Batterie (' . count($batteryList) . ')',
-                    'expanded' => false,
+                    'caption' => 'Batterie (' . count($lowBatList) . ' Kritisch)',
+                    'expanded' => count($lowBatList) > 0,
                     'items' => [
                         [
                             'type' => 'List',
                             'name' => 'BatteryList',
                             'caption' => '',
-                            'rowCount' => min(count($batteryList), 20),
+                            'rowCount' => min(count($lowBatList), 20),
                             'sort' => ['column' => 'value', 'direction' => 'ascending'],
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
@@ -1195,22 +1196,22 @@ PROMPT;
                                 ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
                             ],
-                            'values' => $batteryList,
+                            'values' => $lowBatList,
                         ],
                     ],
                 ],
                 // Tab: Alarme & Warnungen
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Alarme & Warnungen (' . count($alarmList) . ')',
-                    'expanded' => count(array_filter($alarmList, fn($a) => str_contains($a['rowColor'] ?? '', 'FF'))) > 0,
+                    'caption' => 'Alarme & Warnungen (' . count($alarmList) . ' Aktiv)',
+                    'expanded' => count($alarmList) > 0,
                     'items' => [
                         [
                             'type' => 'List',
                             'name' => 'AlarmList',
                             'caption' => '',
                             'rowCount' => min(count($alarmList), 20),
-                            'sort' => ['column' => 'value', 'direction' => 'descending'],
+                            'sort' => ['column' => 'type', 'direction' => 'ascending'],
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
@@ -1226,15 +1227,15 @@ PROMPT;
                 // Tab: Kontakte
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Kontakte (' . count($contactList) . ')',
-                    'expanded' => count(array_filter($contactList, fn($c) => $c['status'] === 'Offen')) > 0,
+                    'caption' => 'Kontakte (' . count($contactList) . ' Offen)',
+                    'expanded' => count($contactList) > 0,
                     'items' => [
                         [
                             'type' => 'List',
                             'name' => 'ContactList',
                             'caption' => '',
                             'rowCount' => min(count($contactList), 20),
-                            'sort' => ['column' => 'status', 'direction' => 'descending'],
+                            'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px'],
@@ -1243,30 +1244,6 @@ PROMPT;
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
                             ],
                             'values' => $contactList,
-                        ],
-                    ],
-                ],
-                // Tab: Vollständiges Inventar
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Inventar (' . count($fullInventory) . ')',
-                    'expanded' => false,
-                    'items' => [
-                        [
-                            'type' => 'List',
-                            'name' => 'FullInventoryList',
-                            'caption' => '',
-                            'rowCount' => min(count($fullInventory), 30),
-                            'sort' => ['column' => 'tag', 'direction' => 'ascending'],
-                            'columns' => [
-                                ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '180px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '100px'],
-                                ['name' => 'varName', 'caption' => 'Variable', 'width' => '150px'],
-                                ['name' => 'tag', 'caption' => 'Tag', 'width' => '180px'],
-                                ['name' => 'value', 'caption' => 'Wert', 'width' => '100px'],
-                                ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '140px'],
-                            ],
-                            'values' => $fullInventory,
                         ],
                     ],
                 ],
