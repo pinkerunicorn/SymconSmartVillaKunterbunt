@@ -1114,11 +1114,7 @@ PROMPT;
             ['caption' => 'Warnung', 'value' => 'SI:warning'],
         ];
 
-        // Nur PROBLEMFÄLLE in die Listen – hält den Form-JSON unter 1MB
-        $offlineList  = [];
-        $lowBatList   = [];
-        $alarmList    = [];
-        $contactList  = [];
+        $initialCatalogList = [];
 
         $catalogCategories = [];
 
@@ -1134,45 +1130,34 @@ PROMPT;
                 if ($v['disabled']) {
                     continue;
                 }
+                
                 $normalStateStr = $parsedTag['normalState'] !== null ? $parsedTag['normalState']['value'] : '';
 
-                $entry = [
-                    'instanceName' => $device['instanceName'],
-                    'room'         => $device['room'],
-                    'varName'      => $v['name'],
-                    'tagBase'      => $tagBase,
-                    'normalState'  => $normalStateStr,
-                    'disabled'     => $v['disabled'],
-                    'tag'          => $v['tag'],
-                    'value'        => $v['valueFormatted'],
-                    'lastUpdate'   => $v['lastUpdate'],
-                    'varID'        => $v['varID'],
-                    'instanceID'   => $device['instanceID'],
-                ];
+                $rowColor = '';
+                if ($parsedTag['category'] === 'reachability' && $this->isProblematic($v)) $rowColor = '#FF4400';
+                elseif ($parsedTag['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $rowColor = '#FF8800';
+                elseif (in_array($parsedTag['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $rowColor = '#FF0000';
+                elseif ($parsedTag['category'] === 'contact' && $this->isContactOpen($v)) $rowColor = '#FFAA00';
 
-                match ($v['category']) {
-                    'reachability' => $this->isProblematic($v)
-                        ? $offlineList[] = array_merge($entry, ['rowColor' => '#FF4400'])
-                        : null,
-                    'battery' => $this->isBatteryLow($v, $threshold)
-                        ? $lowBatList[] = array_merge($entry, ['rowColor' => '#FF8800'])
-                        : null,
-                    'alarm', 'warning' => $this->isProblematic($v)
-                        ? $alarmList[] = array_merge($entry, [
-                            'type'     => $v['subcategory'] !== '' ? ucfirst($v['subcategory']) : ucfirst($v['category']),
-                            'rowColor' => '#FF0000',
-                          ])
-                        : null,
-                    'contact' => $this->isContactOpen($v)
-                        ? $contactList[] = array_merge($entry, ['status' => 'Offen', 'rowColor' => '#FFAA00'])
-                        : null,
-                    default => null,
-                };
+                if ($rowColor !== '') {
+                    $initialCatalogList[] = [
+                        'instanceName' => $device['instanceName'],
+                        'room'         => $device['room'],
+                        'tagBase'      => $tagBase,
+                        'normalState'  => $normalStateStr,
+                        'disabled'     => $v['disabled'],
+                        'value'        => $v['valueFormatted'],
+                        'varID'        => $v['varID'],
+                        'instanceID'   => $device['instanceID'],
+                        'rowColor'     => $rowColor,
+                    ];
+                }
             }
         }
 
         sort($catalogCategories);
         $catalogOptions = [];
+        $catalogOptions[] = ['caption' => '--- Aktuelle Probleme & Alarme ---', 'value' => 'problems'];
         $catalogOptions[] = ['caption' => '--- Bitte waehlen ---', 'value' => 'none'];
         $catalogOptions[] = ['caption' => '--- Alle Typen ---', 'value' => 'all'];
         $catalogOptions[] = ['caption' => '--- Nur Deaktivierte ---', 'value' => 'disabled'];
@@ -1243,111 +1228,37 @@ PROMPT;
                         ? 'Inventar leer - bitte einmal "Jetzt scannen" druecken um die Listen zu fuellen.'
                         : 'Inventar: ' . count($inventory) . ' Geraete, ' . array_sum(array_map(fn($d) => count($d['variables']), $inventory)) . ' getaggte Variablen.',
                 ],
-                // Tab: Erreichbarkeit
+                // Katalog / Pflege
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Erreichbarkeit (' . count($offlineList) . ' Offline)',
-                    'expanded' => count($offlineList) > 0,
+                    'caption' => 'Katalog / Pflege (Alle getaggten Geräte)',
+                    'expanded' => true,
                     'items' => [
                         [
+                            'type' => 'Select',
+                            'name' => 'CatalogFilter',
+                            'caption' => 'Typ-Filter',
+                            'options' => $catalogOptions,
+                            'value' => 'problems',
+                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter);'
+                        ],
+                        [
                             'type' => 'List',
-                            'name' => 'ReachabilityList',
+                            'name' => 'CatalogList',
                             'caption' => '',
-                            'rowCount' => min(count($offlineList), 20),
+                            'rowCount' => min(count($initialCatalogList) > 0 ? count($initialCatalogList) : 20, 20),
                             'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
-                            'onEdit' => str_replace('$IPS_VALUE', '"ReachabilityList"', $onEditScript),
+                            'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
                             'columns' => [
                                 ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
                                 ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
                                 ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
-                                ['name' => 'lastUpdate', 'caption' => 'Seit', 'width' => '150px'],
+                                ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
                                 ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
                             ],
-                            'values' => $offlineList,
-                        ],
-                    ],
-                ],
-        // Tab: Batterie
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Batterie (' . count($lowBatList) . ' Kritisch)',
-                    'expanded' => count($lowBatList) > 0,
-                    'items' => [
-                        [
-                            'type' => 'List',
-                            'name' => 'BatteryList',
-                            'caption' => '',
-                            'rowCount' => min(count($lowBatList), 20),
-                            'sort' => ['column' => 'value', 'direction' => 'ascending'],
-                            'onEdit' => str_replace('$IPS_VALUE', '"BatteryList"', $onEditScript),
-                            'columns' => [
-                                ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
-                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
-                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
-                                ['name' => 'value', 'caption' => 'Wert', 'width' => '100px'],
-                                ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
-                                ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
-                            ],
-                            'values' => $lowBatList,
-                        ],
-                    ],
-                ],
-                // Tab: Alarme & Warnungen
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Alarme & Warnungen (' . count($alarmList) . ' Aktiv)',
-                    'expanded' => count($alarmList) > 0,
-                    'items' => [
-                        [
-                            'type' => 'List',
-                            'name' => 'AlarmList',
-                            'caption' => '',
-                            'rowCount' => min(count($alarmList), 20),
-                            'sort' => ['column' => 'type', 'direction' => 'ascending'],
-                            'onEdit' => str_replace('$IPS_VALUE', '"AlarmList"', $onEditScript),
-                            'columns' => [
-                                ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
-                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
-                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
-                                ['name' => 'type', 'caption' => 'Typ', 'width' => '100px'],
-                                ['name' => 'value', 'caption' => 'Status', 'width' => '100px'],
-                                ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
-                                ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
-                            ],
-                            'values' => $alarmList,
-                        ],
-                    ],
-                ],
-                // Tab: Kontakte
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Kontakte (' . count($contactList) . ' Offen)',
-                    'expanded' => count($contactList) > 0,
-                    'items' => [
-                        [
-                            'type' => 'List',
-                            'name' => 'ContactList',
-                            'caption' => '',
-                            'rowCount' => min(count($contactList), 20),
-                            'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
-                            'onEdit' => str_replace('$IPS_VALUE', '"ContactList"', $onEditScript),
-                            'columns' => [
-                                ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
-                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
-                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
-                                ['name' => 'status', 'caption' => 'Zustand', 'width' => '100px'],
-                                ['name' => 'lastUpdate', 'caption' => 'Letzte Änderung', 'width' => '150px'],
-                                ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
-                            ],
-                            'values' => $contactList,
+                            'values' => $initialCatalogList,
                         ],
                     ],
                 ],
@@ -1459,6 +1370,7 @@ PROMPT;
     public function UpdateCatalogList(string $category): void
     {
         ['inventory' => $inventory] = $this->buildInventoryData();
+        $threshold = $this->ReadPropertyInteger('BatteryThreshold');
         
         $list = [];
         foreach ($inventory as $device) {
@@ -1466,8 +1378,16 @@ PROMPT;
                 $parsed = $this->parseTag($v['tag']);
                 $tagBase = 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '');
                 
+                $rowColor = '';
+                if ($parsed['category'] === 'reachability' && $this->isProblematic($v)) $rowColor = '#FF4400';
+                elseif ($parsed['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $rowColor = '#FF8800';
+                elseif (in_array($parsed['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $rowColor = '#FF0000';
+                elseif ($parsed['category'] === 'contact' && $this->isContactOpen($v)) $rowColor = '#FFAA00';
+
                 $match = false;
-                if ($category === 'disabled' && $parsed['disabled']) {
+                if ($category === 'problems') {
+                    if ($rowColor !== '') $match = true;
+                } elseif ($category === 'disabled' && $parsed['disabled']) {
                     $match = true;
                 } elseif ($category !== 'disabled' && $tagBase === $category && !$parsed['disabled']) {
                     $match = true;
@@ -1477,7 +1397,7 @@ PROMPT;
                 
                 if ($match) {
                     $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
-                    $list[] = [
+                    $entry = [
                         'instanceName' => $device['instanceName'],
                         'room'         => $device['room'],
                         'tagBase'      => $tagBase,
@@ -1487,6 +1407,10 @@ PROMPT;
                         'varID'        => $v['varID'],
                         'instanceID'   => $device['instanceID'],
                     ];
+                    if ($rowColor !== '') {
+                        $entry['rowColor'] = $rowColor;
+                    }
+                    $list[] = $entry;
                 }
             }
         }
