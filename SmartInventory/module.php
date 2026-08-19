@@ -1083,41 +1083,86 @@ PROMPT;
                 'type' => 'RowLayout',
                 'items' => [
                     [
+                        'type' => 'ValidationTextBox',
+                        'name' => 'TagInput_' . $listName,
+                        'caption' => 'Neuer Tag',
+                    ],
+                    [
                         'type' => 'Button',
-                        'caption' => 'Variable umbenennen / Tag aendern',
+                        'caption' => 'Tag speichern',
                         'onClick' => '
                             if (!isset($' . $listName . ') || !isset($' . $listName . '["varID"])) {
-                                echo "Bitte zuerst eine Variable auswaehlen.";
+                                echo "Bitte zuerst eine Variable auswählen.";
                                 return;
                             }
-                            echo "Tipp: Variable oeffnen: ID " . $' . $listName . '["varID"];
+                            $input = ${"TagInput_" . "' . $listName . '"};
+                            if ($input === "") {
+                                echo "Bitte einen Tag in das Textfeld eintragen (z.B. SI:battery).";
+                                return;
+                            }
+                            $vid = $' . $listName . '["varID"];
+                            IPS_SetInfo($vid, $input);
+                            echo "Tag für Variable " . IPS_GetName($vid) . " gespeichert.";
+                            SINV_Scan($id);
+                        ',
+                    ],
+                    [
+                        'type' => 'ValidationTextBox',
+                        'name' => 'RoomInput_' . $listName,
+                        'caption' => 'Neuer Raum',
+                    ],
+                    [
+                        'type' => 'Button',
+                        'caption' => 'Raum speichern',
+                        'onClick' => '
+                            if (!isset($' . $listName . ') || !isset($' . $listName . '["instanceID"])) {
+                                echo "Bitte zuerst ein Gerät auswählen.";
+                                return;
+                            }
+                            $input = ${"RoomInput_" . "' . $listName . '"};
+                            if ($input === "") {
+                                echo "Bitte einen Raum eintragen.";
+                                return;
+                            }
+                            $iid = $' . $listName . '["instanceID"];
+                            $vid = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
+                            if ($vid === false) {
+                                $vid = IPS_CreateVariable(3); // String
+                                IPS_SetParent($vid, $iid);
+                                IPS_SetIdent($vid, "_SI_Room");
+                                IPS_SetName($vid, "SmartInventory Raum Override");
+                                IPS_SetHidden($vid, true);
+                            }
+                            SetValue($vid, $input);
+                            echo "Raum für Gerät " . IPS_GetName($iid) . " auf \'" . $input . "\' gesetzt.";
+                            SINV_Scan($id);
                         ',
                     ],
                     [
                         'type' => 'Button',
-                        'caption' => 'Variable deaktivieren',
+                        'caption' => 'Deaktivieren',
                         'onClick' => '
                             if (!isset($' . $listName . ') || !isset($' . $listName . '["varID"])) {
-                                echo "Bitte zuerst eine Variable auswaehlen.";
+                                echo "Bitte zuerst eine Variable auswählen.";
                                 return;
                             }
                             $vid = $' . $listName . '["varID"];
                             $info = IPS_GetObject($vid)["ObjectInfo"];
                             if (!str_contains($info, ":disabled")) {
                                 IPS_SetInfo($vid, $info . ":disabled");
-                                echo "Variable " . IPS_GetName($vid) . " wurde deaktiviert.";
+                                echo "Variable " . IPS_GetName($vid) . " deaktiviert.";
                                 SINV_Scan($id);
                             } else {
-                                echo "Variable ist bereits deaktiviert.";
+                                echo "Bereits deaktiviert.";
                             }
                         ',
                     ],
                     [
                         'type' => 'Button',
-                        'caption' => 'Instanz ignorieren',
+                        'caption' => 'Ignorieren',
                         'onClick' => '
                             if (!isset($' . $listName . ') || !isset($' . $listName . '["instanceID"])) {
-                                echo "Bitte zuerst eine Variable auswaehlen.";
+                                echo "Bitte zuerst ein Gerät auswählen.";
                                 return;
                             }
                             $iid = $' . $listName . '["instanceID"];
@@ -1130,7 +1175,7 @@ PROMPT;
                                 IPS_SetHidden($vid, true);
                             }
                             SetValue($vid, true);
-                            echo IPS_GetName($iid) . " wird jetzt komplett ignoriert.";
+                            echo IPS_GetName($iid) . " komplett ignoriert.";
                             SINV_Scan($id);
                         ',
                     ],
@@ -1336,8 +1381,40 @@ PROMPT;
                             'type' => 'RowLayout',
                             'items' => [
                                 [
+                                    'type' => 'ValidationTextBox',
+                                    'name' => 'RoomInput_UntaggedList',
+                                    'caption' => 'Neuer Raum',
+                                ],
+                                [
                                     'type' => 'Button',
-                                    'caption' => 'Ausgewaehlte Instanz ignorieren',
+                                    'caption' => 'Raum speichern',
+                                    'onClick' => '
+                                        if (!isset($UntaggedList) || !isset($UntaggedList["instanceID"])) {
+                                            echo "Bitte zuerst eine Instanz auswählen.";
+                                            return;
+                                        }
+                                        $input = $RoomInput_UntaggedList;
+                                        if ($input === "") {
+                                            echo "Bitte einen Raum eintragen.";
+                                            return;
+                                        }
+                                        $iid = $UntaggedList["instanceID"];
+                                        $vid = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
+                                        if ($vid === false) {
+                                            $vid = IPS_CreateVariable(3); // String
+                                            IPS_SetParent($vid, $iid);
+                                            IPS_SetIdent($vid, "_SI_Room");
+                                            IPS_SetName($vid, "SmartInventory Raum Override");
+                                            IPS_SetHidden($vid, true);
+                                        }
+                                        SetValue($vid, $input);
+                                        echo "Raum für " . IPS_GetName($iid) . " auf \'" . $input . "\' gesetzt.";
+                                        SINV_Scan($id);
+                                    ',
+                                ],
+                                [
+                                    'type' => 'Button',
+                                    'caption' => 'Instanz ignorieren',
                                     'onClick' => '
                                         if (!isset($UntaggedList) || !isset($UntaggedList["instanceID"])) {
                                             echo "Bitte zuerst eine Instanz in der Liste auswählen.";
