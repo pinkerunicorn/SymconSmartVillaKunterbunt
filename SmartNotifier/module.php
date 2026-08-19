@@ -157,7 +157,17 @@ class SmartNotifier extends IPSModuleStrict
             return;
         }
 
+        // Quiet-Start: beim allerersten Durchlauf (leerer NotifiedProblems-Buffer)
+        // nur Counter setzen, keine Notifications. Verhindert Push-Flut nach Neustart.
+        $notifiedRaw = $this->GetBuffer('NotifiedProblems');
+        $isFirstRun  = ($notifiedRaw === '' || $notifiedRaw === false || $notifiedRaw === '{}');
+        if ($isFirstRun) {
+            // Alle aktuellen Probleme als "bereits bekannt" markieren ohne zu melden
+            $this->SendDebug('Monitor', 'Erster Durchlauf (Quiet-Start): Baseline wird gesetzt', 0);
+        }
+
         $threshold  = $this->ReadPropertyInteger('BatteryThreshold');
+
         $staleMin   = $this->ReadPropertyInteger('StaleThreshold');
         $now        = time();
 
@@ -191,7 +201,7 @@ class SmartNotifier extends IPSModuleStrict
                     if ($ageMin > $staleMin && $lastUpdate > 0) {
                         $staleCount++;
                         $ageH = round($ageMin / 60, 1);
-                        $this->NotifyIfNew('stale_' . $v['varID'], "Sensor veraltet", "$name: Kein Update seit {$ageH}h", 1);
+                        $this->NotifyIfNew('stale_' . $v['varID'], "Sensor veraltet", "$name: Kein Update seit {$ageH}h", 1, $isFirstRun);
                     }
                 }
 
@@ -201,7 +211,7 @@ class SmartNotifier extends IPSModuleStrict
                         $isOffline = $this->IsTriggered($liveValue, $v['normalState']);
                         if ($isOffline) {
                             $offlineCount++;
-                            $this->NotifyIfNew('offline_' . $v['varID'], 'Geraet offline', "$name: Nicht erreichbar", 1);
+                            $this->NotifyIfNew('offline_' . $v['varID'], 'Geraet offline', "$name: Nicht erreichbar", 1, $isFirstRun);
                         } else {
                             $this->ClearNotified('offline_' . $v['varID']);
                         }
@@ -212,7 +222,7 @@ class SmartNotifier extends IPSModuleStrict
                         if ($isLow) {
                             $lowBatCount++;
                             $valStr = is_bool($liveValue) ? ($liveValue ? 'leer' : 'OK') : $liveValue . '%';
-                            $this->NotifyIfNew('battery_' . $v['varID'], 'Batterie schwach', "$name: $valStr", 1);
+                            $this->NotifyIfNew('battery_' . $v['varID'], 'Batterie schwach', "$name: $valStr", 1, $isFirstRun);
                         } else {
                             $this->ClearNotified('battery_' . $v['varID']);
                         }
@@ -225,7 +235,7 @@ class SmartNotifier extends IPSModuleStrict
                             $alarmCount++;
                             $sub = $v['subcategory'] !== '' ? ' (' . $v['subcategory'] . ')' : '';
                             $prio = ($cat === 'alarm') ? 2 : 1;
-                            $this->NotifyIfNew('alarm_' . $v['varID'], 'Alarm' . $sub, "$name: " . IPS_GetName($v['varID']), $prio);
+                            $this->NotifyIfNew('alarm_' . $v['varID'], 'Alarm' . $sub, "$name: " . IPS_GetName($v['varID']), $prio, $isFirstRun);
                         } else {
                             $this->ClearNotified('alarm_' . $v['varID']);
                         }
@@ -235,7 +245,7 @@ class SmartNotifier extends IPSModuleStrict
                         $isOpen = $this->IsTriggered($liveValue, $v['normalState']);
                         if ($isOpen) {
                             $contactCount++;
-                            // Kontakte: nur beim Öffnen melden, kein dauerhafter Alarm
+                            // Kontakte: nur beim Oeffnen melden, kein dauerhafter Alarm
                         } else {
                             $this->ClearNotified('contact_' . $v['varID']);
                         }
@@ -373,7 +383,7 @@ class SmartNotifier extends IPSModuleStrict
      * Sendet eine Benachrichtigung nur wenn das Problem noch nicht bekannt ist.
      * Verhindert Notification-Spam für dauerhaft aktive Probleme.
      */
-    private function NotifyIfNew(string $key, string $title, string $message, int $priority): void
+    private function NotifyIfNew(string $key, string $title, string $message, int $priority, bool $quietMode = false): void
     {
         $notified = json_decode($this->GetBuffer('NotifiedProblems') ?: '{}', true);
         if (!is_array($notified)) {
@@ -388,7 +398,9 @@ class SmartNotifier extends IPSModuleStrict
         $notified[$key] = time();
         $this->SetBuffer('NotifiedProblems', json_encode($notified));
 
-        $this->ProcessEvent($title, $message, $priority, []);
+        if (!$quietMode) {
+            $this->ProcessEvent($title, $message, $priority, []);
+        }
     }
 
     /**
