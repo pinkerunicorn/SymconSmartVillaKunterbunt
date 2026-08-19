@@ -234,124 +234,22 @@ class SmartInventory extends IPSModuleStrict
     public function Scan(): string
     {
         $startTime = microtime(true);
-        $inventory = [];
-        $deviceCount = 0;
-        $taggedVarCount = 0;
-        $untaggedInstances = [];
 
-        foreach (IPS_GetInstanceList() as $instanceID) {
-            $instance = @IPS_GetInstance($instanceID);
-            if ($instance === false) {
-                continue;
-            }
+        ['inventory' => $inventory, 'untagged' => $untaggedInstances] = $this->buildInventoryData();
 
-            // Nur Device-Instanzen (ModuleType 3)
-            if ($instance['ModuleInfo']['ModuleType'] !== 3) {
-                continue;
-            }
+        $deviceCount    = count($inventory);
+        $taggedVarCount = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
-            // Sich selbst überspringen
-            if ($instanceID === $this->InstanceID) {
-                continue;
-            }
-
-            $instanceName = IPS_GetName($instanceID);
-            $moduleName = $instance['ModuleInfo']['ModuleName'];
-            $moduleGUID = $instance['ModuleInfo']['ModuleID'];
-
-            // Raum ermitteln
-            $room = $this->resolveRoom($instanceID);
-
-            // Kind-Variablen durchlaufen
-            $children = IPS_GetChildrenIDs($instanceID);
-            $instanceVars = [];
-            $hasTaggedVar = false;
-
-            foreach ($children as $childID) {
-                $obj = @IPS_GetObject($childID);
-                if ($obj === false || $obj['ObjectType'] !== 2) { // Nur Variablen
-                    continue;
-                }
-
-                // Versteckte Inventar-Variablen überspringen
-                if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
-                    continue;
-                }
-
-                $info = $obj['ObjectInfo'];
-                if (!str_starts_with($info, self::TAG_PREFIX)) {
-                    continue; // Nicht getaggt → ignorieren
-                }
-
-                $hasTaggedVar = true;
-                $taggedVarCount++;
-
-                $var = IPS_GetVariable($childID);
-                $parsed = $this->parseTag($info);
-                $value = $this->getFormattedValue($childID);
-
-                $instanceVars[] = [
-                    'varID'       => $childID,
-                    'ident'       => $obj['ObjectIdent'],
-                    'name'        => $obj['ObjectName'],
-                    'tag'         => $info,
-                    'category'    => $parsed['category'],
-                    'subcategory' => $parsed['subcategory'],
-                    'disabled'    => $parsed['disabled'],
-                    'normalState' => $parsed['normalState'],
-                    'type'        => $var['VariableType'], // 0=Bool,1=Int,2=Float,3=Str
-                    'value'       => GetValue($childID),
-                    'valueFormatted' => $value,
-                    'lastUpdate'  => date('Y-m-d H:i:s', $var['VariableUpdated']),
-                ];
-            }
-
-            if ($hasTaggedVar) {
-                $deviceCount++;
-                $inventory[] = [
-                    'instanceID'   => $instanceID,
-                    'instanceName' => $instanceName,
-                    'moduleName'   => $moduleName,
-                    'moduleGUID'   => $moduleGUID,
-                    'room'         => $room,
-                    'variables'    => $instanceVars,
-                ];
-            } else {
-                // Keine getaggten Variablen → als "ungetaggt" merken (nur wenn Kinder-Variablen existieren)
-                $varCount = 0;
-                foreach ($children as $cid) {
-                    $co = @IPS_GetObject($cid);
-                    if ($co !== false && $co['ObjectType'] === 2 && !str_starts_with($co['ObjectIdent'], '_SI_')) {
-                        $varCount++;
-                    }
-                }
-                if ($varCount > 0) {
-                    // Bewusst ignorierte Instanzen überspringen
-                    $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $instanceID);
-                    if ($ignoreVarID !== false && GetValue($ignoreVarID)) {
-                        continue;
-                    }
-                    $untaggedInstances[] = [
-                        'instanceID'   => $instanceID,
-                        'instanceName' => $instanceName,
-                        'moduleName'   => $moduleName,
-                        'varCount'     => $varCount,
-                        'room'         => $room,
-                    ];
-                }
-            }
-        }
-
-        // Inventar speichern
+        // Inventar speichern (für MessageSink-Nachschlagen)
         $this->SetBuffer('Inventory', json_encode($inventory));
         $this->SetBuffer('UntaggedInstances', json_encode($untaggedInstances));
 
         // Counters berechnen
-        $offlineCount = 0;
-        $lowBatteryCount = 0;
+        $offlineCount     = 0;
+        $lowBatteryCount  = 0;
         $activeAlarmCount = 0;
         $openContactCount = 0;
-        $threshold = $this->ReadPropertyInteger('BatteryThreshold');
+        $threshold        = $this->ReadPropertyInteger('BatteryThreshold');
 
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
@@ -359,8 +257,8 @@ class SmartInventory extends IPSModuleStrict
                     continue;
                 }
                 match ($v['category']) {
-                    'reachability' => $offlineCount += $this->isProblematic($v) ? 1 : 0,
-                    'battery'      => $lowBatteryCount += $this->isBatteryLow($v, $threshold) ? 1 : 0,
+                    'reachability' => $offlineCount     += $this->isProblematic($v) ? 1 : 0,
+                    'battery'      => $lowBatteryCount  += $this->isBatteryLow($v, $threshold) ? 1 : 0,
                     'alarm'        => $activeAlarmCount += $this->isProblematic($v) ? 1 : 0,
                     'warning'      => $activeAlarmCount += $this->isProblematic($v) ? 1 : 0,
                     'contact'      => $openContactCount += $this->isContactOpen($v) ? 1 : 0,
@@ -411,6 +309,116 @@ class SmartInventory extends IPSModuleStrict
             'duration'   => $duration . ' ms',
         ]);
     }
+
+    /**
+     * Baut die Inventar-Daten direkt aus dem Objektbaum auf (kein Buffer).
+     * Wird von Scan() UND GetConfigurationForm() aufgerufen → immer aktuell.
+     *
+     * @return array{inventory: array, untagged: array}
+     */
+    private function buildInventoryData(): array
+    {
+        $inventory         = [];
+        $untaggedInstances = [];
+
+        foreach (IPS_GetInstanceList() as $instanceID) {
+            $instance = @IPS_GetInstance($instanceID);
+            if ($instance === false) {
+                continue;
+            }
+
+            // Nur Device-Instanzen (ModuleType 3)
+            if ($instance['ModuleInfo']['ModuleType'] !== 3) {
+                continue;
+            }
+
+            // Sich selbst überspringen
+            if ($instanceID === $this->InstanceID) {
+                continue;
+            }
+
+            $instanceName = IPS_GetName($instanceID);
+            $moduleName   = $instance['ModuleInfo']['ModuleName'];
+            $moduleGUID   = $instance['ModuleInfo']['ModuleID'];
+            $room         = $this->resolveRoom($instanceID);
+
+            $children     = IPS_GetChildrenIDs($instanceID);
+            $instanceVars = [];
+            $hasTaggedVar = false;
+
+            foreach ($children as $childID) {
+                $obj = @IPS_GetObject($childID);
+                if ($obj === false || $obj['ObjectType'] !== 2) {
+                    continue;
+                }
+
+                if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
+                    continue;
+                }
+
+                $info = $obj['ObjectInfo'];
+                if (!str_starts_with($info, self::TAG_PREFIX)) {
+                    continue;
+                }
+
+                $hasTaggedVar = true;
+
+                $var    = IPS_GetVariable($childID);
+                $parsed = $this->parseTag($info);
+                $value  = $this->getFormattedValue($childID);
+
+                $instanceVars[] = [
+                    'varID'          => $childID,
+                    'ident'          => $obj['ObjectIdent'],
+                    'name'           => $obj['ObjectName'],
+                    'tag'            => $info,
+                    'category'       => $parsed['category'],
+                    'subcategory'    => $parsed['subcategory'],
+                    'disabled'       => $parsed['disabled'],
+                    'normalState'    => $parsed['normalState'],
+                    'type'           => $var['VariableType'],
+                    'value'          => GetValue($childID),
+                    'valueFormatted' => $value,
+                    'lastUpdate'     => date('Y-m-d H:i:s', $var['VariableUpdated']),
+                ];
+            }
+
+            if ($hasTaggedVar) {
+                $inventory[] = [
+                    'instanceID'   => $instanceID,
+                    'instanceName' => $instanceName,
+                    'moduleName'   => $moduleName,
+                    'moduleGUID'   => $moduleGUID,
+                    'room'         => $room,
+                    'variables'    => $instanceVars,
+                ];
+            } else {
+                $varCount = 0;
+                foreach ($children as $cid) {
+                    $co = @IPS_GetObject($cid);
+                    if ($co !== false && $co['ObjectType'] === 2 && !str_starts_with($co['ObjectIdent'], '_SI_')) {
+                        $varCount++;
+                    }
+                }
+                if ($varCount > 0) {
+                    $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $instanceID);
+                    if ($ignoreVarID !== false && GetValue($ignoreVarID)) {
+                        continue;
+                    }
+                    $untaggedInstances[] = [
+                        'instanceID'   => $instanceID,
+                        'instanceName' => $instanceName,
+                        'moduleName'   => $moduleName,
+                        'varCount'     => $varCount,
+                        'room'         => $room,
+                    ];
+                }
+            }
+        }
+
+        return ['inventory' => $inventory, 'untagged' => $untaggedInstances];
+    }
+
 
     // ─────────────────────────────────────────────────────────────────
     // Tag-Parsing
@@ -1067,8 +1075,8 @@ PROMPT;
 
     public function GetConfigurationForm(): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
-        $untagged = json_decode($this->GetBuffer('UntaggedInstances'), true) ?: [];
+        // Direkt aus dem Objektbaum lesen – kein Buffer, immer aktuell
+        ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
 
         // Listen für die Tabs aufbauen
         $reachabilityList = [];
