@@ -83,10 +83,14 @@ class SmartNotifier extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'door-open',
         ], 4);
+        $this->RegisterVariableInteger('MotionCount', 'Bewegung aktiv', [
+            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
+            'ICON'         => 'person-running',
+        ], 5);
         $this->RegisterVariableInteger('StaleCount', 'Sensoren veraltet', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'clock-rotate-left',
-        ], 5);
+        ], 6);
         $this->RegisterVariableString('LastCheck', 'Letzter Check', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'clock',
@@ -175,6 +179,7 @@ class SmartNotifier extends IPSModuleStrict
         $lowBatCount   = 0;
         $alarmCount    = 0;
         $contactCount  = 0;
+        $motionCount   = 0;
         $staleCount    = 0;
 
         foreach ($inventory as $device) {
@@ -250,6 +255,14 @@ class SmartNotifier extends IPSModuleStrict
                             $this->ClearNotified('contact_' . $v['varID']);
                         }
                         break;
+
+                    case 'motion':
+                        $isActive = $this->IsTriggered($liveValue, $v['normalState']);
+                        if ($isActive) {
+                            $motionCount++;
+                        }
+                        // Motion: kein persistenter Notified-Eintrag (Bewegung ist fluechtiger Zustand)
+                        break;
                 }
             }
         }
@@ -259,10 +272,11 @@ class SmartNotifier extends IPSModuleStrict
         $this->UpdateCounterVar('LowBatteryCount', $lowBatCount);
         $this->UpdateCounterVar('ActiveAlarmCount', $alarmCount);
         $this->UpdateCounterVar('OpenContactCount', $contactCount);
+        $this->UpdateCounterVar('MotionCount', $motionCount);
         $this->UpdateCounterVar('StaleCount', $staleCount);
         $this->SetValue('LastCheck', date('d.m.Y H:i:s'));
 
-        $this->SendDebug('Monitor', "Offline: $offlineCount, Batterie: $lowBatCount, Alarme: $alarmCount, Kontakte: $contactCount, Stale: $staleCount", 0);
+        $this->SendDebug('Monitor', "Offline: $offlineCount, Batterie: $lowBatCount, Alarme: $alarmCount, Kontakte: $contactCount, Motion: $motionCount, Stale: $staleCount", 0);
     }
 
     /**
@@ -287,8 +301,8 @@ class SmartNotifier extends IPSModuleStrict
         $inventory = $this->LoadInventory();
         $count = 0;
 
-        // Echtzeit-Kategorien abonnieren (Alarm, Warning, Kontakt, Reachability)
-        $realtimeCategories = ['alarm', 'warning', 'contact', 'reachability'];
+        // Echtzeit-Kategorien abonnieren (Alarm, Warning, Kontakt, Reachability, Motion)
+        $realtimeCategories = ['alarm', 'warning', 'contact', 'reachability', 'motion'];
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
                 if ($v['disabled']) {
@@ -392,6 +406,16 @@ class SmartNotifier extends IPSModuleStrict
                     if ($this->ClearNotifiedAndWasSet('offline_' . $varID)) {
                         $this->UpdateCounterDelta('OfflineCount', -1);
                     }
+                }
+                break;
+
+            case 'motion':
+                $isActive = $this->IsTriggered($newValue, $parsed['normalState']);
+                // MotionCount: +1 wenn aktiv, -1 wenn inaktiv (kein Notify – fluechtiger Zustand)
+                if ($isActive) {
+                    $this->UpdateCounterDelta('MotionCount', +1);
+                } else {
+                    $this->UpdateCounterDelta('MotionCount', -1);
                 }
                 break;
         }

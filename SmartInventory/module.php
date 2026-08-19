@@ -94,10 +94,10 @@ class SmartInventory extends IPSModuleStrict
         $deviceCount    = count($inventory);
         $taggedVarCount = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
-        // Fuer externe API nur Monitoring-relevante Variablen cachen (battery, reachability, alarm, warning, contact).
+        // Fuer externe API nur Monitoring-relevante Variablen cachen (battery, reachability, alarm, warning, contact, motion).
         // Sensor/Actor/Info braucht SmartNotifier nicht -> deutlich kleinerer Buffer.
         // Kurzschluessel (v/c/s/d/n/r/t/u) sparen weitere ~40% Bytes.
-        $monitorCategories = ['battery', 'reachability', 'alarm', 'warning', 'contact'];
+        $monitorCategories = ['battery', 'reachability', 'alarm', 'warning', 'contact', 'motion'];
         $leanInventory = [];
         foreach ($inventory as $device) {
             $leanVars = [];
@@ -904,6 +904,7 @@ PROMPT;
             ['caption' => 'Kontakt (Generisch)', 'value' => 'SI:contact'],
             ['caption' => 'Kontakt (Fenster)', 'value' => 'SI:contact:window'],
             ['caption' => 'Kontakt (Tür)', 'value' => 'SI:contact:door'],
+            ['caption' => 'Bewegungsmelder', 'value' => 'SI:motion'],
             ['caption' => 'Alarm (Generisch)', 'value' => 'SI:alarm'],
             ['caption' => 'Alarm (Wasser)', 'value' => 'SI:alarm:water'],
             ['caption' => 'Alarm (Rauch)', 'value' => 'SI:alarm:smoke'],
