@@ -1120,13 +1120,20 @@ PROMPT;
         $alarmList    = [];
         $contactList  = [];
 
+        $catalogCategories = [];
+
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
+                $parsedTag = $this->parseTag($v['tag']);
+                $tagBase = 'SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '');
+                
+                if (!in_array($tagBase, $catalogCategories)) {
+                    $catalogCategories[] = $tagBase;
+                }
+
                 if ($v['disabled']) {
                     continue;
                 }
-                $parsedTag = $this->parseTag($v['tag']);
-                $tagBase = 'SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '');
                 $normalStateStr = $parsedTag['normalState'] !== null ? $parsedTag['normalState']['value'] : '';
 
                 $entry = [
@@ -1162,6 +1169,15 @@ PROMPT;
                     default => null,
                 };
             }
+        }
+
+        sort($catalogCategories);
+        $catalogOptions = [];
+        $catalogOptions[] = ['caption' => '--- Bitte waehlen ---', 'value' => 'none'];
+        $catalogOptions[] = ['caption' => '--- Alle Typen ---', 'value' => 'all'];
+        $catalogOptions[] = ['caption' => '--- Nur Deaktivierte ---', 'value' => 'disabled'];
+        foreach ($catalogCategories as $cat) {
+            $catalogOptions[] = ['caption' => $cat, 'value' => $cat];
         }
 
         $totalDevices = count($inventory);
@@ -1335,6 +1351,39 @@ PROMPT;
                         ],
                     ],
                 ],
+                // Katalog / Pflege
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Katalog / Pflege (Alle getaggten Geräte)',
+                    'expanded' => false,
+                    'items' => [
+                        [
+                            'type' => 'Select',
+                            'name' => 'CatalogFilter',
+                            'caption' => 'Typ-Filter',
+                            'options' => $catalogOptions,
+                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter);'
+                        ],
+                        [
+                            'type' => 'List',
+                            'name' => 'CatalogList',
+                            'caption' => '',
+                            'rowCount' => 20,
+                            'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
+                            'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
+                            'columns' => [
+                                ['name' => 'instanceName', 'caption' => 'Gerät', 'width' => '200px'],
+                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
+                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
+                                ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
+                                ['name' => 'varID', 'caption' => 'VarID', 'width' => '60px'],
+                            ],
+                            'values' => [],
+                        ],
+                    ],
+                ],
                 // Nicht getaggte Instanzen
                 [
                     'type' => 'ExpansionPanel',
@@ -1405,6 +1454,45 @@ PROMPT;
         ];
 
         return json_encode($form);
+    }
+
+    public function UpdateCatalogList(string $category): void
+    {
+        ['inventory' => $inventory] = $this->buildInventoryData();
+        
+        $list = [];
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                $parsed = $this->parseTag($v['tag']);
+                $tagBase = 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '');
+                
+                $match = false;
+                if ($category === 'disabled' && $parsed['disabled']) {
+                    $match = true;
+                } elseif ($category !== 'disabled' && $tagBase === $category && !$parsed['disabled']) {
+                    $match = true;
+                } elseif ($category === 'all') {
+                    $match = true;
+                }
+                
+                if ($match) {
+                    $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
+                    $list[] = [
+                        'instanceName' => $device['instanceName'],
+                        'room'         => $device['room'],
+                        'tagBase'      => $tagBase,
+                        'normalState'  => $normalStateStr,
+                        'disabled'     => $parsed['disabled'],
+                        'value'        => $this->getFormattedValue($v['varID']),
+                        'varID'        => $v['varID'],
+                        'instanceID'   => $device['instanceID'],
+                    ];
+                }
+            }
+        }
+        
+        // UpdateFormField ist in IPSModule definiert
+        $this->UpdateFormField('CatalogList', 'values', json_encode($list));
     }
 
     // ─────────────────────────────────────────────────────────────────
