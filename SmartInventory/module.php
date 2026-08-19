@@ -324,9 +324,10 @@ class SmartInventory extends IPSModuleStrict
         if ($json !== '' && $json !== false) {
             return $json;
         }
-        // Buffer leer (nach Neustart): Inventar direkt aufbauen und lean cachen
-        $this->Scan();
-        return $this->GetBuffer('Inventory') ?: '[]';
+        // Buffer leer (nach Neustart): Scan asynchron anstoessen, diesmal leer zurueckgeben.
+        // Synchroner Scan hier wuerde den PHP-Engine blockieren (396+ Instanzen).
+        IPS_RunScriptText('SINV_Scan(' . $this->InstanceID . ');');
+        return '[]';
     }
 
     /**
