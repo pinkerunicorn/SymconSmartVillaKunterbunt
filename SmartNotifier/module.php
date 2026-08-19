@@ -312,6 +312,7 @@ class SmartNotifier extends IPSModuleStrict
 
     /**
      * Echtzeit-Handler: wird von MessageSink bei Variablenänderung aufgerufen.
+     * KEIN RunMonitor() hier – nur inkrementeller Counter-Update.
      */
     private function HandleVariableUpdate(int $varID, mixed $newValue): void
     {
@@ -324,59 +325,77 @@ class SmartNotifier extends IPSModuleStrict
             return;
         }
 
-        $parsed      = $this->ParseTag($tag);
-        $cat         = $parsed['category'];
-        $instanceID  = IPS_GetParent($varID);
-        $instName    = @IPS_GetName($instanceID);
-        $room        = '';
-        $roomVarID   = @IPS_GetObjectIDByIdent('_SI_Room', $instanceID);
-        if ($roomVarID !== false) {
-            $room = GetValue($roomVarID);
-        }
-        $name = $instName . ($room !== '' ? ' (' . $room . ')' : '');
+        $parsed = $this->ParseTag($tag);
+        $cat    = $parsed['category'];
+
+        // Name nur einmal holen wenn wirklich gebraucht
+        $getName = function() use ($varID): string {
+            $instanceID = IPS_GetParent($varID);
+            $instName   = @IPS_GetName($instanceID) ?: 'Unbekannt';
+            $room       = '';
+            $catID      = @IPS_GetParent($instanceID);
+            if ($catID && @IPS_ObjectExists($catID)) {
+                $room = @IPS_GetName($catID) ?: '';
+            }
+            return $instName . ($room !== '' ? ' (' . $room . ')' : '');
+        };
 
         switch ($cat) {
             case 'alarm':
                 $isActive = $this->IsTriggered($newValue, $parsed['normalState']);
                 if ($isActive) {
-                    $sub = $parsed['subcategory'] !== '' ? ' (' . $parsed['subcategory'] . ')' : '';
+                    $sub  = $parsed['subcategory'] !== '' ? ' (' . $parsed['subcategory'] . ')' : '';
+                    $name = IPS_GetName(IPS_GetParent($varID));
                     $this->NotifyIfNew('alarm_' . $varID, 'Alarm' . $sub, "$name: " . IPS_GetName($varID), 2);
+                    $this->UpdateCounterDelta('ActiveAlarmCount', +1);
                 } else {
-                    $this->ClearNotified('alarm_' . $varID);
+                    if ($this->ClearNotifiedAndWasSet('alarm_' . $varID)) {
+                        $this->UpdateCounterDelta('ActiveAlarmCount', -1);
+                    }
                 }
                 break;
 
             case 'warning':
                 $isActive = $this->IsTriggered($newValue, $parsed['normalState']);
                 if ($isActive) {
+                    $name = IPS_GetName(IPS_GetParent($varID));
                     $this->NotifyIfNew('alarm_' . $varID, 'Warnung', "$name: " . IPS_GetName($varID), 1);
+                    $this->UpdateCounterDelta('ActiveAlarmCount', +1);
                 } else {
-                    $this->ClearNotified('alarm_' . $varID);
+                    if ($this->ClearNotifiedAndWasSet('alarm_' . $varID)) {
+                        $this->UpdateCounterDelta('ActiveAlarmCount', -1);
+                    }
                 }
                 break;
 
             case 'contact':
                 $isOpen = $this->IsTriggered($newValue, $parsed['normalState']);
                 if ($isOpen) {
-                    $sub = $parsed['subcategory'] !== '' ? ' (' . $parsed['subcategory'] . ')' : '';
+                    $sub  = $parsed['subcategory'] !== '' ? ' (' . $parsed['subcategory'] . ')' : '';
+                    $name = IPS_GetName(IPS_GetParent($varID));
                     $this->NotifyIfNew('contact_' . $varID, 'Kontakt offen' . $sub, "$name: " . IPS_GetName($varID), 0);
+                    $this->UpdateCounterDelta('OpenContactCount', +1);
                 } else {
-                    $this->ClearNotified('contact_' . $varID);
+                    if ($this->ClearNotifiedAndWasSet('contact_' . $varID)) {
+                        $this->UpdateCounterDelta('OpenContactCount', -1);
+                    }
                 }
                 break;
 
             case 'reachability':
                 $isOffline = $this->IsTriggered($newValue, $parsed['normalState']);
                 if ($isOffline) {
+                    $name = IPS_GetName(IPS_GetParent($varID));
                     $this->NotifyIfNew('offline_' . $varID, 'Geraet offline', "$name: Nicht erreichbar", 1);
+                    $this->UpdateCounterDelta('OfflineCount', +1);
                 } else {
-                    $this->ClearNotified('offline_' . $varID);
+                    if ($this->ClearNotifiedAndWasSet('offline_' . $varID)) {
+                        $this->UpdateCounterDelta('OfflineCount', -1);
+                    }
                 }
                 break;
         }
-
-        // Counter nach Echtzeit-Update aktualisieren
-        $this->RunMonitor();
+        // Kein RunMonitor() hier! Timer macht periodische Vollsynchronisation.
     }
 
     /**
@@ -415,6 +434,33 @@ class SmartNotifier extends IPSModuleStrict
         if (isset($notified[$key])) {
             unset($notified[$key]);
             $this->SetBuffer('NotifiedProblems', json_encode($notified));
+        }
+    }
+
+    /**
+     * Wie ClearNotified, gibt true zurueck wenn der Key vorher gesetzt war.
+     * Fuer inkrementelle Counter-Updates in HandleVariableUpdate.
+     */
+    private function ClearNotifiedAndWasSet(string $key): bool
+    {
+        $notified = json_decode($this->GetBuffer('NotifiedProblems') ?: '{}', true);
+        if (!is_array($notified) || !isset($notified[$key])) {
+            return false;
+        }
+        unset($notified[$key]);
+        $this->SetBuffer('NotifiedProblems', json_encode($notified));
+        return true;
+    }
+
+    /**
+     * Addiert $delta auf eine Counter-Variable, mindestens 0.
+     */
+    private function UpdateCounterDelta(string $ident, int $delta): void
+    {
+        $current = $this->GetValue($ident);
+        $new     = max(0, $current + $delta);
+        if ($current !== $new) {
+            $this->SetValue($ident, $new);
         }
     }
 

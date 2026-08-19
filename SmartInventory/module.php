@@ -141,6 +141,12 @@ class SmartInventory extends IPSModuleStrict
 
         $this->SendDebug('Scan', "Geraete: $deviceCount, Variablen: $taggedVarCount, Ungetaggt: " . count($untaggedInstances), 0);
 
+        // Notifier asynchron benachrichtigen, Subscriptions zu aktualisieren
+        $notifierID = $this->ReadPropertyInteger('NotifierID');
+        if ($notifierID > 0 && @IPS_InstanceExists($notifierID)) {
+            IPS_RunScriptText('NOTIFY_RefreshSubscriptions(' . $notifierID . ');');
+        }
+
         return json_encode([
             'devices'   => $deviceCount,
             'variables' => $taggedVarCount,
