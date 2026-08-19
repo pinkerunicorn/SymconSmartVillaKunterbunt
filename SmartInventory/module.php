@@ -1137,9 +1137,14 @@ PROMPT;
                     'type' => 'RowLayout',
                     'items' => [
                         ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'echo SINV_Scan($id);'],
-                        ['type' => 'Button', 'caption' => 'KI-Tagging starten', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging gestartet - Fortschritt in der Scan-Dauer Variable sichtbar.";'],
-                        ['type' => 'Button', 'caption' => 'KI-Vorschlaege uebernehmen (' . count(json_decode($this->ReadAttributeString('AISuggestions') ?: '[]', true)) . ')', 'onClick' => 'echo SINV_ApplyAllSuggestions($id);'],
+                        ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund - Scan-Dauer zeigt Fortschritt...";'],
                     ],
+                ],
+                [
+                    'type' => 'Label',
+                    'caption' => count($inventory) === 0
+                        ? 'Inventar leer - bitte einmal "Jetzt scannen" druecken um die Listen zu fuellen.'
+                        : 'Inventar: ' . count($inventory) . ' Geraete, ' . array_sum(array_map(fn($d) => count($d['variables']), $inventory)) . ' getaggte Variablen.',
                 ],
                 // Tab: Erreichbarkeit
                 [
