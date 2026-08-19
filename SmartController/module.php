@@ -30,6 +30,7 @@ class SmartController extends IPSModuleStrict
     {
         parent::Create();
         $this->RegisterPropertyInteger('RegistryID', 0);
+        $this->RegisterPropertyInteger('SmartNotifierID', 0); // Fuer Motion-Alarm-Erkennung
 
         // === Main Axes ===
         $this->registerModeVariables();
@@ -231,9 +232,19 @@ class SmartController extends IPSModuleStrict
         if ($brightnessId > 1 && @IPS_VariableExists($brightnessId)) {
             $this->RegisterReference($brightnessId);
             $this->RegisterMessage($brightnessId, VM_UPDATE);
-            
+
             // Set initial state
             $this->CalculateDarkness(GetValue($brightnessId));
+        }
+
+        // SmartNotifier: MotionCount abonnieren fuer Motion-Alarm-Logik
+        $notifierId = $this->ReadPropertyInteger('SmartNotifierID');
+        if ($notifierId > 1 && @IPS_InstanceExists($notifierId)) {
+            $this->RegisterReference($notifierId);
+            $motionCountId = @IPS_GetObjectIDByIdent('MotionCount', $notifierId);
+            if ($motionCountId) {
+                $this->RegisterMessage($motionCountId, VM_UPDATE);
+            }
         }
         
         $this->CalculateSystemStatus();
@@ -264,6 +275,20 @@ class SmartController extends IPSModuleStrict
                 $this->CalculateDarkness($Data[0]);
                 return;
             }
+
+            // MotionCount vom SmartNotifier → Motion-Alarm-Logik
+            $notifierId = $this->ReadPropertyInteger('SmartNotifierID');
+            if ($notifierId > 1) {
+                $motionCountId = @IPS_GetObjectIDByIdent('MotionCount', $notifierId);
+                if ($motionCountId && $SenderID === $motionCountId) {
+                    $newCount = (int)($Data[0] ?? 0);
+                    if ($newCount > 0) {
+                        $this->HandleMotionAlarm($newCount);
+                    }
+                    return;
+                }
+            }
+
             $this->CalculateSystemStatus();
         }
     }
@@ -276,6 +301,40 @@ class SmartController extends IPSModuleStrict
             $this->SetValue('IsDark', $isDark);
             $this->SLogInfo('Dunkelheit', $isDark ? 'Es ist dunkel geworden.' : 'Es ist hell geworden.');
         }
+    }
+
+    /**
+     * Reagiert auf MotionCount > 0 vom SmartNotifier.
+     * Loest einen Alarm aus wenn niemand zuhause ist (AWAY oder VACATION).
+     */
+    private function HandleMotionAlarm(int $motionCount): void
+    {
+        $presence = (int)$this->GetValue('PresenceMode');
+
+        // Zuhause → keine Aktion, normale Bewegung
+        if ($presence === self::PRESENCE_HOME) {
+            return;
+        }
+
+        $notifierId = $this->ReadPropertyInteger('SmartNotifierID');
+        if ($notifierId < 1 || !@IPS_InstanceExists($notifierId)) {
+            return;
+        }
+
+        $presenceLabel = match($presence) {
+            self::PRESENCE_AWAY     => 'Abwesend',
+            self::PRESENCE_VACATION => 'Urlaub',
+            default                 => 'Unbekannt',
+        };
+
+        $msg = "Bewegung erkannt ($motionCount Melder aktiv) – Haus ist auf '$presenceLabel'!";
+        $this->SLogInfo('Motion-Alarm', $msg);
+
+        @NOTIFY_SendEvent($notifierId, json_encode([
+            'Title'    => 'Bewegungsalarm',
+            'Message'  => $msg,
+            'Priority' => 2, // Hoch
+        ]));
     }
 
     private function CalculateSystemStatus(): void
