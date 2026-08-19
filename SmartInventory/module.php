@@ -326,6 +326,11 @@ class SmartInventory extends IPSModuleStrict
                     }
                 }
                 if ($varCount > 0) {
+                    // Bewusst ignorierte Instanzen überspringen
+                    $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $instanceID);
+                    if ($ignoreVarID !== false && GetValue($ignoreVarID)) {
+                        continue;
+                    }
                     $untaggedInstances[] = [
                         'instanceID'   => $instanceID,
                         'instanceName' => $instanceName,
@@ -1270,6 +1275,33 @@ PROMPT;
                                 ['name' => 'instanceID', 'caption' => 'ID', 'width' => '60px'],
                             ],
                             'values' => $untagged,
+                        ],
+                        [
+                            'type' => 'RowLayout',
+                            'items' => [
+                                [
+                                    'type' => 'Button',
+                                    'caption' => 'Ausgewaehlte Instanz ignorieren',
+                                    'onClick' => '
+                                        if (!isset($UntaggedList) || !isset($UntaggedList["instanceID"])) {
+                                            echo "Bitte zuerst eine Instanz in der Liste auswählen.";
+                                            return;
+                                        }
+                                        $iid = $UntaggedList["instanceID"];
+                                        $vid = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
+                                        if ($vid === false) {
+                                            $vid = IPS_CreateVariable(0);
+                                            IPS_SetParent($vid, $iid);
+                                            IPS_SetIdent($vid, "_SI_Ignore");
+                                            IPS_SetName($vid, "SmartInventory Ignoriert");
+                                            IPS_SetHidden($vid, true);
+                                        }
+                                        SetValue($vid, true);
+                                        echo IPS_GetName($iid) . " wird jetzt ignoriert.";
+                                        SINV_Scan($id);
+                                    ',
+                                ],
+                            ],
                         ],
                     ],
                 ],
