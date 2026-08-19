@@ -1272,7 +1272,7 @@ PROMPT;
                                 ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled', 'caption' => 'Deaktiviert (bzw. Ignoriert)', 'width' => '100px', 'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
-                                ['name' => 'ObjectID', 'caption' => 'ID', 'width' => '70px'],
+                                ['name' => 'ObjectID', 'caption' => 'ID', 'width' => '70px', 'edit' => ['type' => 'SelectObject']],
                             ],
                             'values' => $initialCatalogList,
                         ],
