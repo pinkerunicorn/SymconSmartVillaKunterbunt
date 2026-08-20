@@ -672,16 +672,23 @@ class SmartInventory extends IPSModuleStrict
         $results = [];
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
-                if (in_array($v['category'], ['alarm', 'warning']) && !$v['disabled'] && $this->isProblematic($v)) {
-                    $results[] = [
-                        'instanceID'   => $device['instanceID'],
-                        'instanceName' => $device['instanceName'],
-                        'room'         => $device['room'],
-                        'varID'        => $v['varID'],
-                        'varName'      => $v['name'],
-                        'tag'          => $v['tag'],
-                        'value'        => $v['value'],
-                    ];
+                if (in_array($v['category'], ['alarm', 'warning']) && !$v['disabled']) {
+                    $vid = (int)$v['varID'];
+                    if ($vid > 0 && @IPS_VariableExists($vid)) {
+                        $liveVal = GetValue($vid);
+                        $parsed = $this->parseTag($v['tag']);
+                        if ($this->isValueTriggered($liveVal, $parsed)) {
+                            $results[] = [
+                                'instanceID'   => $device['instanceID'],
+                                'instanceName' => $device['instanceName'],
+                                'room'         => $device['room'],
+                                'varID'        => $vid,
+                                'varName'      => $v['name'],
+                                'tag'          => $v['tag'],
+                                'value'        => $liveVal,
+                            ];
+                        }
+                    }
                 }
             }
         }

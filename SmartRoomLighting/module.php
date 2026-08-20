@@ -1173,11 +1173,11 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     // =====================================================================
-    // === DeviceRegistry Integration ===
+    // === SmartInventory Integration ===
     // =====================================================================
 
     /**
-     * Query the DeviceRegistry (SDR) for light devices.
+     * Query the SmartInventory for light devices.
      * Returns Select-compatible options array.
      */
     private function getRegistryLightOptions(int $regId): array
@@ -1235,7 +1235,7 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     /**
-     * Query the DeviceRegistry (SDR) for motion sensors.
+     * Query the SmartInventory for motion sensors.
      */
     private function getRegistryMotionSensorOptions(int $regId): array
     {
@@ -1264,7 +1264,7 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     /**
-     * Query the DeviceRegistry (SDR) for contact sensors.
+     * Query the SmartInventory for contact sensors.
      */
     private function getRegistryContactSensorOptions(int $regId): array
     {
@@ -1293,7 +1293,7 @@ class SmartRoomLighting extends IPSModuleStrict
     }
 
     /**
-     * Query the DeviceRegistry (SDR) for lux sensors on motion sensors.
+     * Query the SmartInventory for lux sensors on motion sensors.
      */
     private function getRegistryLuxSensorOptions(int $regId): array
     {
