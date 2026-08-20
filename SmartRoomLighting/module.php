@@ -125,10 +125,23 @@ class SmartRoomLighting extends IPSModuleStrict
             // Wall Switches
             $devices = json_decode(@SINV_GetByCategory($regId, 'sensor:button'), true) ?: [];
             if (is_array($devices)) {
+                $instCounts = [];
                 foreach ($devices as $dev) {
-                    $key = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                    $iid = $dev['instanceID'] ?? 0;
+                    if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
+                }
+                foreach ($devices as $dev) {
+                    $iid = $dev['instanceID'] ?? 0;
+                    $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+                    $varName = $dev['varName'] ?? '';
+                    $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                    $key = $baseKey . ($isMulti ? ('::' . $varName) : '');
+                    
                     $varId = (int)($dev['varID'] ?? 0);
-                    if ($varId > 0) $deviceMap[$key] = $varId;
+                    if ($varId > 0) {
+                        $deviceMap[$key] = $varId;
+                        if ($isMulti && !isset($deviceMap[$baseKey])) $deviceMap[$baseKey] = $varId;
+                    }
                     
                     $closedVal = trim((string)($dev['ClosedValue'] ?? ''));
                     if ($varId > 0 && $closedVal !== '') {
@@ -140,22 +153,46 @@ class SmartRoomLighting extends IPSModuleStrict
             // Motion Sensors
             $devices = json_decode(@SINV_GetByCategory($regId, 'motion'), true) ?: [];
             if (is_array($devices)) {
+                $instCounts = [];
                 foreach ($devices as $dev) {
-                    $key = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                    $iid = $dev['instanceID'] ?? 0;
+                    if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
+                }
+                foreach ($devices as $dev) {
+                    $iid = $dev['instanceID'] ?? 0;
+                    $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+                    $varName = $dev['varName'] ?? '';
+                    $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                    $key = $baseKey . ($isMulti ? ('::' . $varName) : '');
+                    
                     $varId = (int)($dev['varID'] ?? 0);
-                    if ($varId > 0) $deviceMap[$key] = $varId;
-                    $luxVarId = 0; // Legacy lux mapping inside motion removed
-                    if ($luxVarId > 0) $deviceMap[$key . '::Lux'] = $luxVarId;
+                    if ($varId > 0) {
+                        $deviceMap[$key] = $varId;
+                        if ($isMulti && !isset($deviceMap[$baseKey])) $deviceMap[$baseKey] = $varId;
+                    }
                 }
             }
 
             // Contact Sensors
             $devices = json_decode(@SINV_GetByCategory($regId, 'contact'), true) ?: [];
             if (is_array($devices)) {
+                $instCounts = [];
                 foreach ($devices as $dev) {
-                    $key = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                    $iid = $dev['instanceID'] ?? 0;
+                    if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
+                }
+                foreach ($devices as $dev) {
+                    $iid = $dev['instanceID'] ?? 0;
+                    $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+                    $varName = $dev['varName'] ?? '';
+                    $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                    $key = $baseKey . ($isMulti ? ('::' . $varName) : '');
+                    
                     $varId = (int)($dev['varID'] ?? 0);
-                    if ($varId > 0) $deviceMap[$key] = $varId;
+                    if ($varId > 0) {
+                        $deviceMap[$key] = $varId;
+                        if ($isMulti && !isset($deviceMap[$baseKey])) $deviceMap[$baseKey] = $varId;
+                    }
                 }
             }
             
@@ -685,13 +722,27 @@ class SmartRoomLighting extends IPSModuleStrict
         if (!is_array($devices)) {
             return $options;
         }
+        
+        $instCounts = [];
         foreach ($devices as $dev) {
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
+            $iid = $dev['instanceID'] ?? 0;
+            if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
+        }
+        
+        foreach ($devices as $dev) {
+            $iid = $dev['instanceID'] ?? 0;
+            $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+            $varName = $dev['varName'] ?? '';
+            $nameSuffix = $isMulti ? (' - ' . $varName) : '';
+            $keySuffix = $isMulti ? ('::' . $varName) : '';
+            
+            $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt') . $nameSuffix;
+            $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . $keySuffix;
+            
             $varId = (int)($dev['varID'] ?? 0);
-            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
-            if ($varId > 0 && !in_array($deviceKey, $addedVarIds)) {
-                $addedVarIds[] = $deviceKey;
-                $dynamicOptions[] = ['label' => $name . ' (Taster)', 'value' => $deviceKey];
+            if ($varId > 0 && !in_array($baseKey, $addedVarIds)) {
+                $addedVarIds[] = $baseKey;
+                $dynamicOptions[] = ['label' => $baseName . ' (Taster)', 'value' => $baseKey];
             }
         }
         
@@ -1268,21 +1319,39 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $dynamicOptions = [];
+        $addedVarIds = [];
         $devices = json_decode(@SINV_GetByCategory($regId, 'motion'), true) ?: [];
         if (!is_array($devices)) {
             return $options;
         }
-
+        
+        $instCounts = [];
         foreach ($devices as $dev) {
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
+            $iid = $dev['instanceID'] ?? 0;
+            if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
+        }
+        
+        foreach ($devices as $dev) {
+            $iid = $dev['instanceID'] ?? 0;
+            $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+            $varName = $dev['varName'] ?? '';
+            $nameSuffix = $isMulti ? (' - ' . $varName) : '';
+            $keySuffix = $isMulti ? ('::' . $varName) : '';
+            
+            $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt') . $nameSuffix;
+            $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . $keySuffix;
+            
             $varId = (int)($dev['varID'] ?? 0);
-            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
-            if ($varId > 0) {
-                $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
+            if ($varId > 0 && !in_array($baseKey, $addedVarIds)) {
+                $addedVarIds[] = $baseKey;
+                $dynamicOptions[] = ['label' => $baseName . '', 'value' => $baseKey];
             }
         }
+        
+        usort($dynamicOptions, function ($a, $b) {
+            return strcasecmp($a['label'], $b['label']);
+        });
 
-        usort($dynamicOptions, fn($a, $b) => strcasecmp($a['label'], $b['label']));
         return array_merge($options, $dynamicOptions);
     }
 
@@ -1297,21 +1366,39 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $dynamicOptions = [];
+        $addedVarIds = [];
         $devices = json_decode(@SINV_GetByCategory($regId, 'contact'), true) ?: [];
         if (!is_array($devices)) {
             return $options;
         }
-
+        
+        $instCounts = [];
         foreach ($devices as $dev) {
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
+            $iid = $dev['instanceID'] ?? 0;
+            if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
+        }
+        
+        foreach ($devices as $dev) {
+            $iid = $dev['instanceID'] ?? 0;
+            $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+            $varName = $dev['varName'] ?? '';
+            $nameSuffix = $isMulti ? (' - ' . $varName) : '';
+            $keySuffix = $isMulti ? ('::' . $varName) : '';
+            
+            $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt') . $nameSuffix;
+            $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . $keySuffix;
+            
             $varId = (int)($dev['varID'] ?? 0);
-            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
-            if ($varId > 0) {
-                $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
+            if ($varId > 0 && !in_array($baseKey, $addedVarIds)) {
+                $addedVarIds[] = $baseKey;
+                $dynamicOptions[] = ['label' => $baseName . '', 'value' => $baseKey];
             }
         }
+        
+        usort($dynamicOptions, function ($a, $b) {
+            return strcasecmp($a['label'], $b['label']);
+        });
 
-        usort($dynamicOptions, fn($a, $b) => strcasecmp($a['label'], $b['label']));
         return array_merge($options, $dynamicOptions);
     }
 
