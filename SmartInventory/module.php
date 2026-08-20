@@ -170,6 +170,7 @@ class SmartInventory extends IPSModuleStrict
     {
         $inventory         = [];
         $untaggedInstances = [];
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
 
         foreach (IPS_GetInstanceList() as $instanceID) {
             $instance = @IPS_GetInstance($instanceID);
@@ -189,7 +190,6 @@ class SmartInventory extends IPSModuleStrict
 
             $instanceName = IPS_GetName($instanceID);
             $moduleName   = $instance['ModuleInfo']['ModuleName'];
-            $moduleGUID   = $instance['ModuleInfo']['ModuleID'];
             $room         = $this->resolveRoom($instanceID);
 
             $children     = IPS_GetChildrenIDs($instanceID);
@@ -206,12 +206,12 @@ class SmartInventory extends IPSModuleStrict
                     continue;
                 }
 
-                $info = $obj['ObjectInfo'];
-                if (!str_starts_with($info, self::TAG_PREFIX)) {
-                    continue;
-                }
+                $tagData = $db[$childID] ?? [];
+                $info = $tagData['tag'] ?? '';
 
-                $hasTaggedVar = true;
+                if (str_starts_with($info, self::TAG_PREFIX)) {
+                    $hasTaggedVar = true;
+                }
 
                 $var    = IPS_GetVariable($childID);
                 $parsed = $this->parseTag($info);
@@ -234,13 +234,27 @@ class SmartInventory extends IPSModuleStrict
                 ];
             }
 
-            if ($hasTaggedVar) {
-                $health = $this->calculateDeviceHealth($instanceVars);
-                $inventory[] = [
+            // Wenn keine Variablen gefunden wurden, ignorieren
+            if (count($instanceVars) === 0) {
+                continue;
+            }
+
+            // Wir nehmen jetzt ALLE Geräte ins Inventory auf, damit sie in "Alle Geräte & Variablen" auftauchen!
+            $health = $this->calculateDeviceHealth($instanceVars);
+            $inventory[] = [
+                'instanceID'   => $instanceID,
+                'instanceName' => $instanceName,
+                'room'         => $room,
+                'health'       => $health['status'],
+                'healthDetail' => $health['detail'],
+                'variables'    => $instanceVars,
+            ];
+            
+            if (!$hasTaggedVar) {
+                $untaggedInstances[] = [
                     'instanceID'   => $instanceID,
                     'instanceName' => $instanceName,
                     'moduleName'   => $moduleName,
-                    'moduleGUID'   => $moduleGUID,
                     'room'         => $room,
                     'health'       => $health['status'],
                     'healthDetail' => $health['detail'],
@@ -1318,7 +1332,7 @@ PROMPT;
                 if ($listData["disabled"]) {
                     $newTag .= ":disabled";
                 }
-                IPS_SetInfo($vid, $newTag);
+                $this->SetTag($vid, $newTag);
             } elseif ($objType === 3) {
                 // Instanz (Nicht getaggt) -> Ignore setzen
                 $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
