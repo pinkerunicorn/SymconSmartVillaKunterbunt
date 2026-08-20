@@ -506,29 +506,34 @@ class SmartInventory extends IPSModuleStrict
         $results = [];
 
         foreach ($inventory as $device) {
-            foreach ($device['variables'] as $v) {
-                if ($v['disabled']) {
-                    continue;
+            $vars = $device['v'] ?? ($device['variables'] ?? []);
+            foreach ($vars as $v) {
+                $cat = $v['c'] ?? ($v['category'] ?? '');
+                $sub = $v['s'] ?? ($v['subcategory'] ?? '');
+                
+                $matchTag = $cat;
+                if ($sub !== '') {
+                    $matchTag .= ':' . $sub;
                 }
-                $matchTag = $v['category'];
-                if ($v['subcategory'] !== '') {
-                    $matchTag .= ':' . $v['subcategory'];
-                }
-                if ($category === $v['category'] || $category === $matchTag) {
+
+                if ($category === $cat || $category === $matchTag) {
+                    $varID = $v['v'] ?? ($v['varID'] ?? 0);
+                    if ($varID === 0 || !@IPS_VariableExists($varID)) continue;
+                    
                     $results[] = [
-                        'instanceID'    => $device['instanceID'],
-                        'instanceName'  => $device['instanceName'],
-                        'room'          => $device['room'],
-                        'varID'         => $v['varID'],
-                        'varName'       => $v['name'],
-                        'tag'           => $v['tag'],
-                        'category'      => $v['category'],
-                        'subcategory'   => $v['subcategory'],
-                        'type'          => $v['type'],
-                        'value'         => $v['value'],
-                        'valueFormatted' => $v['valueFormatted'],
-                        'normalState'   => $v['normalState'],
-                        'lastUpdatedTS' => $v['lastUpdatedTS'] ?? 0,
+                        'instanceID'    => $device['i'] ?? ($device['instanceID'] ?? 0),
+                        'instanceName'  => $device['n'] ?? ($device['instanceName'] ?? ''),
+                        'room'          => $device['r'] ?? ($device['room'] ?? ''),
+                        'varID'         => $varID,
+                        'varName'       => @IPS_GetName($varID) ?: 'Unbekannt',
+                        'tag'           => 'SI:' . $matchTag,
+                        'category'      => $cat,
+                        'subcategory'   => $sub,
+                        'type'          => $v['t'] ?? ($v['type'] ?? 0),
+                        'value'         => GetValue($varID),
+                        'valueFormatted' => $this->getFormattedValue($varID),
+                        'normalState'   => $v['n'] ?? ($v['normalState'] ?? null),
+                        'lastUpdatedTS' => $v['u'] ?? ($v['lastUpdatedTS'] ?? 0),
                     ];
                 }
             }
