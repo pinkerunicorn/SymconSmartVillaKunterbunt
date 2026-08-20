@@ -346,14 +346,12 @@ class SmartController extends IPSModuleStrict
         $notifierId = $this->ReadPropertyInteger('SmartNotifierID');
         if ($notifierId > 1 && @IPS_InstanceExists($notifierId)) {
             $alarmVid   = @IPS_GetObjectIDByIdent('ActiveAlarmCount',  $notifierId);
-            $offlineVid = @IPS_GetObjectIDByIdent('OfflineCount',      $notifierId);
-            $batVid     = @IPS_GetObjectIDByIdent('LowBatteryCount',   $notifierId);
+            $devProbVid = @IPS_GetObjectIDByIdent('DeviceProblems',    $notifierId);
             $contactVid = @IPS_GetObjectIDByIdent('OpenContactCount',  $notifierId);
 
-            $alarms  = ($alarmVid   && @IPS_VariableExists($alarmVid))   ? (int)GetValue($alarmVid)   : 0;
-            $offline = ($offlineVid && @IPS_VariableExists($offlineVid)) ? (int)GetValue($offlineVid) : 0;
-            $bat     = ($batVid     && @IPS_VariableExists($batVid))     ? (int)GetValue($batVid)     : 0;
-            $contacts= ($contactVid && @IPS_VariableExists($contactVid)) ? (int)GetValue($contactVid) : 0;
+            $alarms   = ($alarmVid   && @IPS_VariableExists($alarmVid))   ? (int)GetValue($alarmVid)   : 0;
+            $devProbs = ($devProbVid && @IPS_VariableExists($devProbVid)) ? (int)GetValue($devProbVid) : 0;
+            $contacts = ($contactVid && @IPS_VariableExists($contactVid)) ? (int)GetValue($contactVid) : 0;
 
             if ($alarms > 0) {
                 $statusLevel = 3;
@@ -363,10 +361,9 @@ class SmartController extends IPSModuleStrict
                 if ($statusLevel < 2) $statusLevel = 2;
                 $messages[] = "$contacts Kontakte offen";
             }
-            if ($offline > 0 || $bat > 0) {
+            if ($devProbs > 0) {
                 if ($statusLevel < 1) $statusLevel = 1;
-                if ($offline > 0) $messages[] = "$offline Geraete offline";
-                if ($bat > 0)     $messages[] = "$bat Batterien schwach";
+                $messages[] = "$devProbs Geraete-Probleme";
             }
         }
 

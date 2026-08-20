@@ -67,30 +67,22 @@ class SmartNotifier extends IPSModuleStrict
         $this->RegisterPropertyString('RoutingRules', json_encode($defaultRouting));
 
         // ── Status-Variablen ────────────────────────────────────────
-        $this->RegisterVariableInteger('OfflineCount', 'Geraete offline', [
+        $this->RegisterVariableInteger('DeviceProblems', 'Geraete-Probleme', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'wifi-slash',
+            'ICON'         => 'heart-pulse',
         ], 1);
-        $this->RegisterVariableInteger('LowBatteryCount', 'Batterien kritisch', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'battery-quarter',
-        ], 2);
         $this->RegisterVariableInteger('ActiveAlarmCount', 'Alarme aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'bell',
-        ], 3);
+        ], 2);
         $this->RegisterVariableInteger('OpenContactCount', 'Kontakte offen', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'door-open',
-        ], 4);
+        ], 3);
         $this->RegisterVariableInteger('MotionCount', 'Bewegung aktiv', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'person-running',
-        ], 5);
-        $this->RegisterVariableInteger('StaleCount', 'Sensoren veraltet', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'clock-rotate-left',
-        ], 6);
+        ], 4);
         $this->RegisterVariableString('LastCheck', 'Letzter Check', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'clock',
@@ -104,6 +96,11 @@ class SmartNotifier extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+
+        // Migration: alte Einzel-Counter entfernen (ersetzt durch DeviceProblems)
+        $this->UnregisterVariable('OfflineCount');
+        $this->UnregisterVariable('LowBatteryCount');
+        $this->UnregisterVariable('StaleCount');
 
         $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode']);
 
@@ -166,23 +163,26 @@ class SmartNotifier extends IPSModuleStrict
         $notifiedRaw = $this->GetBuffer('NotifiedProblems');
         $isFirstRun  = ($notifiedRaw === '' || $notifiedRaw === false || $notifiedRaw === '{}');
         if ($isFirstRun) {
-            // Alle aktuellen Probleme als "bereits bekannt" markieren ohne zu melden
             $this->SendDebug('Monitor', 'Erster Durchlauf (Quiet-Start): Baseline wird gesetzt', 0);
         }
 
         $threshold  = $this->ReadPropertyInteger('BatteryThreshold');
-
         $staleMin   = $this->ReadPropertyInteger('StaleThreshold');
         $now        = time();
 
-        $offlineCount  = 0;
-        $lowBatCount   = 0;
-        $alarmCount    = 0;
-        $contactCount  = 0;
-        $motionCount   = 0;
-        $staleCount    = 0;
+        $deviceProblems = 0;
+        $alarmCount     = 0;
+        $contactCount   = 0;
+        $motionCount    = 0;
 
         foreach ($inventory as $device) {
+            // ── Device Health Score (dedupliziert) ──
+            // Nutze den Health-Status aus dem SmartInventory Lean Buffer
+            $health = $device['health'] ?? 'healthy';
+            if ($health !== 'healthy') {
+                $deviceProblems++;
+            }
+
             foreach ($device['variables'] as $v) {
                 if ($v['disabled']) {
                     continue;
@@ -199,23 +199,20 @@ class SmartNotifier extends IPSModuleStrict
                 $cat = $v['category'];
                 $name = $device['instanceName'] . ($device['room'] !== '' ? ' (' . $device['room'] . ')' : '');
 
-                // ── Stale-Check ─────────────────────────────────────
-                // Nur Sensoren die regelmässig senden sollten
+                // ── Notifications (unabhaengig vom Counter) ──
+                // Stale, Offline und Battery melden weiterhin, aber zaehlen nur als DeviceProblems
                 if (in_array($cat, ['battery', 'reachability', 'sensor']) && $staleMin > 0) {
                     $ageMin = ($now - $lastUpdate) / 60;
                     if ($ageMin > $staleMin && $lastUpdate > 0) {
-                        $staleCount++;
                         $ageH = round($ageMin / 60, 1);
                         $this->NotifyIfNew('stale_' . $v['varID'], "Sensor veraltet", "$name: Kein Update seit {$ageH}h", 1, $isFirstRun);
                     }
                 }
 
-                // ── Kategorie-Checks ────────────────────────────────
                 switch ($cat) {
                     case 'reachability':
                         $isOffline = $this->IsTriggered($liveValue, $v['normalState']);
                         if ($isOffline) {
-                            $offlineCount++;
                             $this->NotifyIfNew('offline_' . $v['varID'], 'Geraet offline', "$name: Nicht erreichbar", 1, $isFirstRun);
                         } else {
                             $this->ClearNotified('offline_' . $v['varID']);
@@ -225,7 +222,6 @@ class SmartNotifier extends IPSModuleStrict
                     case 'battery':
                         $isLow = $this->IsBatteryLow($liveValue, $varInfo['VariableType'], $threshold);
                         if ($isLow) {
-                            $lowBatCount++;
                             $valStr = is_bool($liveValue) ? ($liveValue ? 'leer' : 'OK') : $liveValue . '%';
                             $this->NotifyIfNew('battery_' . $v['varID'], 'Batterie schwach', "$name: $valStr", 1, $isFirstRun);
                         } else {
@@ -250,7 +246,6 @@ class SmartNotifier extends IPSModuleStrict
                         $isOpen = $this->IsTriggered($liveValue, $v['normalState']);
                         if ($isOpen) {
                             $contactCount++;
-                            // Kontakte: nur beim Oeffnen melden, kein dauerhafter Alarm
                         } else {
                             $this->ClearNotified('contact_' . $v['varID']);
                         }
@@ -261,22 +256,19 @@ class SmartNotifier extends IPSModuleStrict
                         if ($isActive) {
                             $motionCount++;
                         }
-                        // Motion: kein persistenter Notified-Eintrag (Bewegung ist fluechtiger Zustand)
                         break;
                 }
             }
         }
 
         // Counter-Variablen aktualisieren
-        $this->UpdateCounterVar('OfflineCount', $offlineCount);
-        $this->UpdateCounterVar('LowBatteryCount', $lowBatCount);
+        $this->UpdateCounterVar('DeviceProblems', $deviceProblems);
         $this->UpdateCounterVar('ActiveAlarmCount', $alarmCount);
         $this->UpdateCounterVar('OpenContactCount', $contactCount);
         $this->UpdateCounterVar('MotionCount', $motionCount);
-        $this->UpdateCounterVar('StaleCount', $staleCount);
         $this->SetValue('LastCheck', date('d.m.Y H:i:s'));
 
-        $this->SendDebug('Monitor', "Offline: $offlineCount, Batterie: $lowBatCount, Alarme: $alarmCount, Kontakte: $contactCount, Motion: $motionCount, Stale: $staleCount", 0);
+        $this->SendDebug('Monitor', "DeviceProblems: $deviceProblems, Alarme: $alarmCount, Kontakte: $contactCount, Motion: $motionCount", 0);
     }
 
     /**
@@ -401,12 +393,10 @@ class SmartNotifier extends IPSModuleStrict
                 if ($isOffline) {
                     $name = IPS_GetName(IPS_GetParent($varID));
                     $this->NotifyIfNew('offline_' . $varID, 'Geraet offline', "$name: Nicht erreichbar", 1);
-                    $this->UpdateCounterDelta('OfflineCount', +1);
                 } else {
-                    if ($this->ClearNotifiedAndWasSet('offline_' . $varID)) {
-                        $this->UpdateCounterDelta('OfflineCount', -1);
-                    }
+                    $this->ClearNotifiedAndWasSet('offline_' . $varID);
                 }
+                // Kein Counter-Delta: DeviceProblems wird im Scan-Zyklus aktualisiert
                 break;
 
             case 'motion':
@@ -535,6 +525,7 @@ class SmartNotifier extends IPSModuleStrict
                 'instanceID'   => $device['i'],
                 'instanceName' => $device['n'],
                 'room'         => $device['r'] ?? '',
+                'health'       => $device['h'] ?? 'healthy',
                 'variables'    => $vars,
             ];
         }
