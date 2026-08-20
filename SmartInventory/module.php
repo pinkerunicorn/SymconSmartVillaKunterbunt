@@ -43,7 +43,7 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterAttributeString('TagDatabase', '{}');
 
         // Persistenter Speicher für KI-Vorschläge (überlebt Modul-Updates)
-        $this->RegisterAttributeString('TagDatabase', '{}');
+        
         $this->RegisterAttributeString('AISuggestions', '[]');
 
         // Timer für periodischen Scan
