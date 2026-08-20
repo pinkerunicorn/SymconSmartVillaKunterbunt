@@ -6,7 +6,7 @@ declare(strict_types=1);
  * InventoryAware Trait - Zentraler Service-Locator für das Smart Home Ökosystem.
  *
  * Bietet Multi-House-fähige Discovery für:
- * - SmartInventory (pro Haus, über SmartInventoryID Property)
+ * - SmartInventory (pro Haus, über RegistryID Property)
  * - SmartController (pro Haus, über SmartInventory oder GUID-Fallback)
  * - SmartNotifier (global, GUID-Singleton)
  * - SmartLog (global, GUID-Singleton)
@@ -21,7 +21,7 @@ declare(strict_types=1);
  *       $notifyID = $this->SINV_GetNotifierID();
  *   }
  *
- * Voraussetzung: Das Modul MUSS RegisterPropertyInteger('SmartInventoryID', 0) in Create() aufrufen,
+ * Voraussetzung: Das Modul MUSS RegisterPropertyInteger('RegistryID', 0) in Create() aufrufen,
  * damit der Fallback bei mehreren Inventories funktioniert.
  * Bei genau einer Inventory im System greift der automatische Fallback.
  *
@@ -32,7 +32,7 @@ if (!trait_exists('InventoryAware_Trait')) {
     trait InventoryAware_Trait
     {
         /**
-         * Gibt die konfigurierte SmartInventoryID zurück.
+         * Gibt die konfigurierte RegistryID zurück.
          * Fallback: Wenn nicht gesetzt und genau 1 Inventory existiert -> diese verwenden.
          *
          * @return int InstanceID der SmartInventory, oder 0 wenn nicht gefunden
@@ -41,7 +41,7 @@ if (!trait_exists('InventoryAware_Trait')) {
         {
             // 1. Explizit konfigurierte Property
             try {
-                $configured = $this->ReadPropertyInteger('SmartInventoryID');
+                $configured = $this->ReadPropertyInteger('RegistryID');
                 if ($configured > 0 && @IPS_InstanceExists($configured)) {
                     return $configured;
                 }

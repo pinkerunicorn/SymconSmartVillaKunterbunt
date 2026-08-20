@@ -31,7 +31,7 @@ class SmartBriefing extends IPSModuleStrict
         $this->RegisterPropertyString('VariablesList', '[]');
 
         // Legacy-Property (migration compat)
-        $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('RegistryID', 0);
 
         // Variablen
         $this->RegisterVariableBoolean('GenerateBriefing', 'Briefing jetzt generieren', [

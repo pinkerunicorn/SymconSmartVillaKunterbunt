@@ -26,7 +26,7 @@ class SmartGarage extends IPSModuleStrict
     {
         parent::Create();
         
-        $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('RegistryID', 0);
         $this->DA_RegisterAvailability(900);
 
         // Properties

@@ -22,7 +22,7 @@ class SmartHeating extends IPSModuleStrict
         
         $this->DA_RegisterAvailability(900);
 
-        $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('RegistryID', 0);
         $this->RegisterPropertyBoolean('SimulationMode', false);
 
         // Target temperature during absence (Fallback)
@@ -159,7 +159,7 @@ class SmartHeating extends IPSModuleStrict
             $this->UnregisterReference($refID);
         }
         
-        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        $invId = $this->ReadPropertyInteger('RegistryID');
         if ($invId > 1 && IPS_InstanceExists($invId)) {
             $this->RegisterReference($invId);
         }
@@ -1000,7 +1000,7 @@ class SmartHeating extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        $invId = $this->ReadPropertyInteger('RegistryID');
         $thermostatOptions = $this->getRegistryThermostatOptions($invId);
         
         $roomOptions = [['caption' => '(Nicht zugewiesen)', 'value' => '']];
@@ -1020,7 +1020,7 @@ class SmartHeating extends IPSModuleStrict
             "elements" => [
                 [
                     "type" => "SelectModule",
-                    "name" => "SmartInventoryID",
+                    "name" => "RegistryID",
                     "caption" => "SmartInventory",
                     "moduleID" => "{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}"
                 ],

@@ -24,7 +24,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // === Properties ===
         // Device Registry integration (optional)
-        $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('RegistryID', 0);
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
         $this->RegisterPropertyInteger('SunriseVariableID', 0);
         // Scene mode: map a name to a SmartSequencer instance
@@ -71,9 +71,9 @@ class SmartRoomLighting extends IPSModuleStrict
             $this->UnregisterReference($refID);
         }
 
-        $this->registerPropertyReference('SmartInventoryID');
+        $this->registerPropertyReference('RegistryID');
         
-        $regId = (int)@$this->ReadPropertyInteger('SmartInventoryID');
+        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
         if ($regId > 1 && @IPS_InstanceExists($regId)) {
             $sunsetId = (int)$this->ReadPropertyInteger('SunsetVariableID');
             $sunriseId = (int)$this->ReadPropertyInteger('SunriseVariableID');
@@ -119,7 +119,7 @@ class SmartRoomLighting extends IPSModuleStrict
         // -------------------------------------------------------------
         $switchDefaults = [];
         $deviceMap = [];
-        $regId = (int)@$this->ReadPropertyInteger('SmartInventoryID');
+        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
         
         if ($regId > 0 && @IPS_InstanceExists($regId)) {
             // Wall Switches
@@ -835,7 +835,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true) ?: [];
-        $regId = (int)@$this->ReadPropertyInteger('SmartInventoryID');
+        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
         $sunsetId = 0;
         $sunriseId = 0;
         if ($regId > 1 && @IPS_InstanceExists($regId)) {
@@ -1437,7 +1437,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         $hasRegistry = ($regId > 0 && @IPS_InstanceExists($regId));
 
         $definedScenes = $this->safeJsonDecode($this->ReadPropertyString('Scenes'), true) ?: [];
@@ -1544,7 +1544,7 @@ class SmartRoomLighting extends IPSModuleStrict
                     'items' => [
                         [
                             'type' => 'SelectModule',
-                            'name' => 'SmartInventoryID',
+                            'name' => 'RegistryID',
                             'caption' => 'SmartInventory Instanz (optional)',
                             'moduleID' => '{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}'
                         ],

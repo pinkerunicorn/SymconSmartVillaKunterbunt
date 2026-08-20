@@ -21,7 +21,7 @@ class SmartShading extends IPSModuleStrict
         parent::Create();
         
         // SmartInventory
-        $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('RegistryID', 0);
         
         $this->DA_RegisterAvailability(900);
 
@@ -143,7 +143,7 @@ class SmartShading extends IPSModuleStrict
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
             $this->RegisterReference($ref_SunsetVariableID);
         }
-        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        $invId = $this->ReadPropertyInteger('RegistryID');
         if ($invId > 1 && @IPS_ObjectExists($invId)) {
             $this->RegisterReference($invId);
         }
@@ -462,7 +462,7 @@ class SmartShading extends IPSModuleStrict
 
         private function ResolveBlindVariables(array $blind): array
     {
-        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        $invId = $this->ReadPropertyInteger('RegistryID');
         $vid = 0;
         $contactID = 0;
         $name = '';
@@ -670,7 +670,7 @@ class SmartShading extends IPSModuleStrict
                 ],
                 [
                     "type" => "SelectModule",
-                    "name" => "SmartInventoryID",
+                    "name" => "RegistryID",
                     "caption" => "SmartInventory",
                     "moduleID" => "{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}"
                 ],
@@ -741,7 +741,7 @@ class SmartShading extends IPSModuleStrict
         $blindOptions = [["caption" => "-", "value" => 0]];
         $contactOptions = [["caption" => "-", "value" => 0]];
         
-        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        $invId = $this->ReadPropertyInteger('RegistryID');
         if ($invId > 1 && @IPS_ObjectExists($invId) && function_exists('SINV_GetByCategory')) {
             $blindsJson = @SINV_GetByCategory($invId, 'actor:blind');
             $blinds = is_string($blindsJson) ? json_decode($blindsJson, true) : [];

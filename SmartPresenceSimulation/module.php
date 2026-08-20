@@ -18,7 +18,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
         // Gemini API-Key und Modell werden zentral über SmartGeminiIO konfiguriert.
         $this->RegisterPropertyInteger('SunsetVariableID', 0);
         $this->RegisterPropertyInteger('ArchiveControlID', 0);
-        $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('RegistryID', 0);
 
         $this->RegisterAttributeString('LightSchedule', '[]');
 
@@ -86,7 +86,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
         if ($ref_ArchiveControlID > 1 && @IPS_ObjectExists($ref_ArchiveControlID)) {
             $this->RegisterReference($ref_ArchiveControlID);
         }
-        $ref_RegistryID = $this->ReadPropertyInteger('SmartInventoryID');
+        $ref_RegistryID = $this->ReadPropertyInteger('RegistryID');
         if ($ref_RegistryID > 1 && @IPS_ObjectExists($ref_RegistryID)) {
             $this->RegisterReference($ref_RegistryID);
         }
@@ -99,7 +99,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             return;
         }
 
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SINV_GetInventory')) {
             $allDevices = $this->GetAllSimulationDevices($regId);
             if (is_array($allDevices)) {
@@ -155,7 +155,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
     private function CalculateActiveLights(): void
     {
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         $count = 0;
         $activeNames = [];
         
@@ -308,7 +308,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             }
         }
 
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId <= 1 || !@IPS_ObjectExists($regId) || !function_exists('SINV_GetInventory')) return;
         $allDevices = $this->GetAllSimulationDevices($regId);
         if (!is_array($allDevices) || count($allDevices) == 0) return;
@@ -385,7 +385,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $this->SetValue('GeminiError', false);
 
             $lightNames = [];
-            $regId = $this->ReadPropertyInteger('SmartInventoryID');
+            $regId = $this->ReadPropertyInteger('RegistryID');
             if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SINV_GetInventory')) {
                 $allDevices = $this->GetAllSimulationDevices($regId);
                 if (is_array($allDevices)) {
@@ -435,7 +435,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
         // Gerätenamen-Lookup für lesbares Logging aufbauen
         $lightNames = [];
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SINV_GetInventory')) {
             $allDevices = $this->GetAllSimulationDevices($regId);
             if (is_array($allDevices)) {
@@ -488,7 +488,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $this->WriteAttributeString('LightSchedule', json_encode($remainingSchedule));
             
             $lightNames = [];
-            $regId = $this->ReadPropertyInteger('SmartInventoryID');
+            $regId = $this->ReadPropertyInteger('RegistryID');
             if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SINV_GetInventory')) {
                 $allDevices = $this->GetAllSimulationDevices($regId);
                 if (is_array($allDevices)) {
@@ -542,7 +542,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             }
         }
 
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SINV_GetInventory')) {
             $allDevices = $this->GetAllSimulationDevices($regId);
             if (is_array($allDevices)) {
@@ -707,7 +707,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
 
         // Dynamic Read-Only List of Monitored Lights
         $monitoredList = [];
-        $registryId = $this->ReadPropertyInteger('SmartInventoryID');
+        $registryId = $this->ReadPropertyInteger('RegistryID');
         if ($registryId > 1 && @IPS_ObjectExists($registryId) && function_exists('SINV_GetInventory')) {
             $allDevices = $this->GetAllSimulationDevices($registryId);
             if (is_array($allDevices)) {
@@ -783,7 +783,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             return;
         }
 
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         if ($regId <= 1 || !@IPS_ObjectExists($regId) || !function_exists('SINV_GetInventory')) return;
         $allDevices = $this->GetAllSimulationDevices($regId);
         if (!is_array($allDevices)) return;
@@ -863,7 +863,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             @IPS_DeleteInstance($oldCatID);
         }
 
-        $regId = $this->ReadPropertyInteger('SmartInventoryID');
+        $regId = $this->ReadPropertyInteger('RegistryID');
         $idx = 0;
         if ($regId > 1 && @IPS_ObjectExists($regId) && function_exists('SINV_GetInventory')) {
             $allDevices = $this->GetAllSimulationDevices($regId);

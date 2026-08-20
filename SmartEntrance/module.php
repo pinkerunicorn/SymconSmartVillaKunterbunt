@@ -26,7 +26,7 @@ class SmartEntrance extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('RegistryID', 0);
         
         $this->DA_RegisterAvailability(900);
 
