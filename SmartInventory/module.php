@@ -1357,6 +1357,26 @@ PROMPT;
                     'type' => 'Label',
                     'caption' => $summaryText,
                 ],
+                                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Statistik: Getaggte Kategorien',
+                    'items' => [
+                        [
+                            'type' => 'List',
+                            'name' => 'CatStats',
+                            'caption' => '',
+                            'rowCount' => min(max(count($catListValues), 3), 15),
+                            'add' => false,
+                            'delete' => false,
+                            'columns' => [
+                                ['name' => 'caption', 'caption' => 'Kategorie', 'width' => '250px'],
+                                ['name' => 'tag', 'caption' => 'Tag', 'width' => '150px'],
+                                ['name' => 'count', 'caption' => 'Anzahl Variablen', 'width' => '150px']
+                            ],
+                            'values' => $catListValues
+                        ]
+                    ]
+                ],
                 // ── Einzige Hauptliste (Geraete + Variablen) ──
                 [
                     'type' => 'ExpansionPanel',
