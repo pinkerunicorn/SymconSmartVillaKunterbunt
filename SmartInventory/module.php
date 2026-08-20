@@ -171,6 +171,7 @@ class SmartInventory extends IPSModuleStrict
         $inventory         = [];
         $untaggedInstances = [];
         $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        $dbUpdated = false;
 
         foreach (IPS_GetInstanceList() as $instanceID) {
             $instance = @IPS_GetInstance($instanceID);
@@ -193,6 +194,15 @@ class SmartInventory extends IPSModuleStrict
 
                 $tagData = $db[$childID] ?? [];
                 $info = $tagData['tag'] ?? '';
+                
+                // Transparent auto-migration from legacy ObjectInfo
+                if ($info === '' && str_starts_with($obj['ObjectInfo'], self::TAG_PREFIX)) {
+                    $info = $obj['ObjectInfo'];
+                    $db[$childID] = ['tag' => $info, 'room' => ''];
+                    $dbUpdated = true;
+                    @IPS_SetInfo($childID, ''); // Clear old info to protect HCU
+                }
+
                 if (str_starts_with($info, self::TAG_PREFIX)) {
                     $hasTaggedVar = true;
                 }
@@ -240,6 +250,11 @@ class SmartInventory extends IPSModuleStrict
                 ];
             }
         }
+        
+        if ($dbUpdated) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
+        
         return ['inventory' => $inventory, 'untagged' => $untaggedInstances];
     }
 
