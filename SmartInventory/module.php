@@ -477,6 +477,10 @@ class SmartInventory extends IPSModuleStrict
     public function GetByCategory(string $category): string
     {
         $buffer = (string)$this->GetBuffer('Inventory');
+        if ($buffer === '') {
+            $this->Scan();
+            $buffer = (string)$this->GetBuffer('Inventory');
+        }
         $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
 
