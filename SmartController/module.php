@@ -29,7 +29,7 @@ class SmartController extends IPSModuleStrict
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterPropertyInteger('RegistryID', 0);
+        $this->RegisterPropertyInteger('SmartInventoryID', 0);
         $this->RegisterPropertyInteger('SmartNotifierID', 0); // Fuer Motion-Alarm-Erkennung
 
         // === Main Axes ===

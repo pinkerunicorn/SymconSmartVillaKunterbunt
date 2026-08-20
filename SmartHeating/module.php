@@ -6,7 +6,7 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
-require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
+require_once __DIR__ . '/../libs/Trait_InventoryAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartHeating extends IPSModuleStrict
@@ -15,7 +15,7 @@ class SmartHeating extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
-    use RegistryAware_Trait;
+    use InventoryAware_Trait;
     use DeviceRegistration_Trait;
 
     public function Create(): void
@@ -24,7 +24,7 @@ class SmartHeating extends IPSModuleStrict
         
         $this->DA_RegisterAvailability(900);
 
-        $this->RegisterPropertyInteger('RegistryID', 0);
+        $this->RegisterPropertyInteger('SmartInventoryID', 0);
         $this->RegisterPropertyBoolean('SimulationMode', false);
 
         // Target temperature during absence (Fallback)
@@ -160,40 +160,58 @@ class SmartHeating extends IPSModuleStrict
         
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
-        $this->DR_Register('DevicesThermostat');
         }
         
-        $regId = $this->ReadPropertyInteger('RegistryID');
-        if ($regId > 1 && IPS_InstanceExists($regId)) {
-            $this->RegisterReference($regId);
+        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        if ($invId > 1 && IPS_InstanceExists($invId)) {
+            $this->RegisterReference($invId);
         }
         
         // Build Device Map Cache and Contact Sensor Cache
         $deviceMap = [];
         $contactMap = [];
-        if ($regId > 0 && IPS_InstanceExists($regId)) {
-            if (function_exists('SDR_GetDevicesByType')) {
-                $devices = (array)@SDR_GetDevicesByType($regId, 'DevicesThermostat');
-                foreach ($devices as $dev) {
-                    if (empty($dev['id'])) continue;
-                    $key = $dev['id'];
-                    $deviceMap[$key] = [
-                        'ActualTemp' => (int)($dev['ActualTemp_VarID'] ?? 0),
-                        'TempSet'    => (int)($dev['TempSet_VarID'] ?? 0),
-                        'ControlMode'=> (int)($dev['ControlMode_VarID'] ?? 0),
-                        'BoostMode'  => (int)($dev['BoostMode_VarID'] ?? 0),
-                        'Humidity'   => (int)($dev['Humidity_VarID'] ?? 0),
-                        'Room'       => $dev['room'] ?? ''
-                    ];
-                }
-                
-                $contacts = (array)@SDR_GetDevicesByType($regId, 'DevicesContactSensor');
-                foreach ($contacts as $c) {
-                    $room = $c['room'] ?? '';
-                    $varId = (int)($c['Status_VarID'] ?? 0);
-                    $closedVal = $c['ClosedValue'] ?? 'CLOSED';
-                    if ($room !== '' && $varId > 0) {
-                        $contactMap[$room][] = ['varId' => $varId, 'closedValue' => $closedVal];
+        if ($invId > 0 && IPS_InstanceExists($invId) && function_exists('SINV_GetInventory')) {
+            $invJson = @SINV_GetInventory($invId);
+            $inventory = is_string($invJson) ? json_decode($invJson, true) : [];
+            
+            if (is_array($inventory)) {
+                foreach ($inventory as $device) {
+                    $hasThermostat = false;
+                    $vars = [];
+                    foreach ($device['variables'] as $v) {
+                        $vars[$v['tag']] = $v['varID'];
+                        if (str_starts_with($v['tag'], 'SI:actor:thermostat')) {
+                            $hasThermostat = true;
+                        }
+                    }
+                    
+                    if ($hasThermostat) {
+                        $key = $device['instanceID'];
+                        $deviceMap[$key] = [
+                            'ActualTemp' => (int)($vars['SI:sensor:temp'] ?? 0),
+                            'TempSet'    => (int)($vars['SI:actor:thermostat'] ?? 0),
+                            'ControlMode'=> (int)($vars['SI:mode:thermostat'] ?? 0),
+                            'BoostMode'  => (int)($vars['SI:actor:boost'] ?? 0),
+                            'Humidity'   => (int)($vars['SI:sensor:humidity'] ?? 0),
+                            'Room'       => $device['room'] ?? ''
+                        ];
+                    }
+                    
+                    // Contacts
+                    foreach ($device['variables'] as $v) {
+                        if (str_starts_with($v['tag'], 'SI:contact')) {
+                            $closedVal = 'CLOSED';
+                            $parts = explode(':ok=', $v['tag']);
+                            if (count($parts) > 1) {
+                                $closedVal = $parts[1];
+                            }
+                            
+                            $room = $device['room'] ?? '';
+                            $varId = $v['varID'];
+                            if ($room !== '' && $varId > 0) {
+                                $contactMap[$room][] = ['varId' => $varId, 'closedValue' => $closedVal];
+                            }
+                        }
                     }
                 }
             }
@@ -985,15 +1003,18 @@ class SmartHeating extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        $regId = $this->ReadPropertyInteger('RegistryID');
-        $thermostatOptions = $this->getRegistryThermostatOptions($regId);
+        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        $thermostatOptions = $this->getRegistryThermostatOptions($invId);
         
         $roomOptions = [['caption' => '(Nicht zugewiesen)', 'value' => '']];
-        if ($regId > 0 && IPS_InstanceExists($regId) && function_exists('SDR_GetRooms')) {
-            $rooms = (array)@SDR_GetRooms($regId);
-            foreach ($rooms as $r) {
-                if (!empty($r['name'])) {
-                    $roomOptions[] = ['caption' => $r['name'], 'value' => $r['name']];
+        if ($invId > 0 && IPS_InstanceExists($invId) && function_exists('SINV_GetRooms')) {
+            $roomsJson = @SINV_GetRooms($invId);
+            $rooms = is_string($roomsJson) ? json_decode($roomsJson, true) : [];
+            if (is_array($rooms)) {
+                foreach ($rooms as $r) {
+                    if (!empty($r)) {
+                        $roomOptions[] = ['caption' => $r, 'value' => $r];
+                    }
                 }
             }
         }
@@ -1002,9 +1023,9 @@ class SmartHeating extends IPSModuleStrict
             "elements" => [
                 [
                     "type" => "SelectModule",
-                    "name" => "RegistryID",
-                    "caption" => "Device Registry",
-                    "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
+                    "name" => "SmartInventoryID",
+                    "caption" => "SmartInventory",
+                    "moduleID" => "{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}"
                 ],
                 [
                     "type" => "CheckBox",
@@ -1185,27 +1206,36 @@ class SmartHeating extends IPSModuleStrict
         return json_encode($form);
     }
     
-    private function getRegistryThermostatOptions(int $regId): array
+    private function getRegistryThermostatOptions(int $invId): array
     {
         $options = [['caption' => '(Nicht zugewiesen)', 'value' => '']];
-        if ($regId > 0 && IPS_InstanceExists($regId)) {
-            if (function_exists('SDR_GetDevicesByType')) {
-                $devices = (array)@SDR_GetDevicesByType($regId, 'DevicesThermostat');
+        if ($invId > 0 && IPS_InstanceExists($invId)) {
+            if (function_exists('SINV_GetByCategory')) {
+                $devicesJson = @SINV_GetByCategory($invId, 'actor:thermostat');
+                $devices = is_string($devicesJson) ? json_decode($devicesJson, true) : [];
                 
-                $dynamicOptions = [];
-                foreach ($devices as $dev) {
-                    if (empty($dev['id'])) continue;
-                    $room = !empty($dev['room']) ? $dev['room'] : 'Unbekannt';
-                    $name = !empty($dev['name']) ? $dev['name'] : 'Unbenannt';
-                    $caption = "$room: $name";
-                    $dynamicOptions[] = ['caption' => $caption, 'value' => $dev['id']];
+                if (is_array($devices)) {
+                    $dynamicOptions = [];
+                    // SINV_GetByCategory returns variable level, we group by instance
+                    $seenInstances = [];
+                    
+                    foreach ($devices as $dev) {
+                        $instId = $dev['instanceID'] ?? 0;
+                        if ($instId === 0 || isset($seenInstances[$instId])) continue;
+                        $seenInstances[$instId] = true;
+                        
+                        $room = !empty($dev['room']) ? $dev['room'] : 'Unbekannt';
+                        $name = !empty($dev['instanceName']) ? $dev['instanceName'] : 'Unbenannt';
+                        $caption = "$room: $name";
+                        $dynamicOptions[] = ['caption' => $caption, 'value' => $instId];
+                    }
+                    
+                    usort($dynamicOptions, function ($a, $b) {
+                        return strnatcasecmp($a['caption'], $b['caption']);
+                    });
+                    
+                    $options = array_merge($options, $dynamicOptions);
                 }
-                
-                usort($dynamicOptions, function ($a, $b) {
-                    return strnatcasecmp($a['caption'], $b['caption']);
-                });
-                
-                $options = array_merge($options, $dynamicOptions);
             }
         }
         return $options;

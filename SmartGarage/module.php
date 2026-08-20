@@ -6,7 +6,7 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
-require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
+require_once __DIR__ . '/../libs/Trait_InventoryAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartGarage extends IPSModuleStrict
@@ -15,7 +15,7 @@ class SmartGarage extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
-    use RegistryAware_Trait;
+    use InventoryAware_Trait;
     use DeviceRegistration_Trait;
 
     private const STATE_CLOSED = 0;
@@ -28,7 +28,7 @@ class SmartGarage extends IPSModuleStrict
     {
         parent::Create();
         
-        $this->RegisterPropertyInteger('RegistryID', 0);
+        $this->RegisterPropertyInteger('SmartInventoryID', 0);
         $this->DA_RegisterAvailability(900);
 
         // Properties

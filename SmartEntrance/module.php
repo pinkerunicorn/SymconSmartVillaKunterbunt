@@ -6,7 +6,7 @@ require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
-require_once __DIR__ . '/../libs/Trait_RegistryAware.php';
+require_once __DIR__ . '/../libs/Trait_InventoryAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 /**
@@ -22,13 +22,13 @@ class SmartEntrance extends IPSModuleStrict
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
-    use RegistryAware_Trait;
+    use InventoryAware_Trait;
     use DeviceRegistration_Trait;
 
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterPropertyInteger('RegistryID', 0);
+        $this->RegisterPropertyInteger('SmartInventoryID', 0);
         
         $this->DA_RegisterAvailability(900);
 
@@ -212,7 +212,7 @@ class SmartEntrance extends IPSModuleStrict
             }
         }
 
-        $notifierId = $this->DR_GetNotifierID();
+        $notifierId = $this->SINV_GetNotifierID();
         if ($notifierId > 1 && @IPS_ObjectExists($notifierId)) {
             $this->RegisterReference($notifierId);
         }
@@ -420,7 +420,7 @@ class SmartEntrance extends IPSModuleStrict
 
     private function SendToNotifier(string $title, string $message, int $priority): void
     {
-        $notifierId = $this->DR_GetNotifierID();
+        $notifierId = $this->SINV_GetNotifierID();
         if ($notifierId > 0 && @IPS_InstanceExists($notifierId)) {
             $payload = json_encode([
                 'Title' => $title,

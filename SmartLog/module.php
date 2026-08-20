@@ -51,7 +51,7 @@ class SmartLog extends IPSModuleStrict
         $this->RegisterPropertyInteger('InventoryID', 0);
 
         // Legacy (Migration compat)
-        $this->RegisterPropertyInteger('RegistryID', 0);
+        $this->RegisterPropertyInteger('SmartInventoryID', 0);
 
         // Attribute (persistenter Speicher)
         $this->RegisterAttributeString('SecurityDeviceMap', '{}');
