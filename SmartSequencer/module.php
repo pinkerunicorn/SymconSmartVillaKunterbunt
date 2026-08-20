@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
-require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartSequencer extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
-    use DeviceRegistration_Trait;
 
     private const ACTION_SCRIPT = 0;
     private const ACTION_DEVICE = 1;
@@ -34,7 +32,6 @@ class SmartSequencer extends IPSModuleStrict
 
     public function Destroy(): void
     {
-        $this->DR_Unregister();
         parent::Destroy();
     }
 
@@ -42,7 +39,6 @@ class SmartSequencer extends IPSModuleStrict
     {
         parent::ApplyChanges();
         $this->ProcessQueue();
-        $this->DR_Register('DevicesGenericSensor');
     }
 
     public function RunSequence(): void

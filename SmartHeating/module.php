@@ -7,7 +7,6 @@ require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 require_once __DIR__ . '/../libs/Trait_InventoryAware.php';
-require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartHeating extends IPSModuleStrict
 {
@@ -16,7 +15,6 @@ class SmartHeating extends IPSModuleStrict
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
     use InventoryAware_Trait;
-    use DeviceRegistration_Trait;
 
     public function Create(): void
     {
@@ -147,7 +145,6 @@ class SmartHeating extends IPSModuleStrict
 
     public function Destroy(): void
     {
-        $this->DR_Unregister();
         parent::Destroy();
     }
 

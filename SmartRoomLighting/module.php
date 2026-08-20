@@ -25,6 +25,8 @@ class SmartRoomLighting extends IPSModuleStrict
         // === Properties ===
         // Device Registry integration (optional)
         $this->RegisterPropertyInteger('SmartInventoryID', 0);
+        $this->RegisterPropertyInteger('SunsetVariableID', 0);
+        $this->RegisterPropertyInteger('SunriseVariableID', 0);
         // Scene mode: map a name to a SmartSequencer instance
         $this->RegisterPropertyString('Scenes', '[]');
         // Direct scene lamps: map a scene name to a set of lamps
@@ -73,8 +75,8 @@ class SmartRoomLighting extends IPSModuleStrict
         
         $regId = (int)@$this->ReadPropertyInteger('SmartInventoryID');
         if ($regId > 1 && @IPS_InstanceExists($regId)) {
-            $sunsetId = (int)@IPS_GetProperty($regId, 'SunsetVariableID');
-            $sunriseId = (int)@IPS_GetProperty($regId, 'SunriseVariableID');
+            $sunsetId = (int)$this->ReadPropertyInteger('SunsetVariableID');
+            $sunriseId = (int)$this->ReadPropertyInteger('SunriseVariableID');
             if ($sunsetId > 1 && @IPS_VariableExists($sunsetId)) {
                 $this->RegisterReference($sunsetId);
             }
@@ -765,8 +767,8 @@ class SmartRoomLighting extends IPSModuleStrict
         $sunsetId = 0;
         $sunriseId = 0;
         if ($regId > 1 && @IPS_InstanceExists($regId)) {
-            $sunsetId = (int)@IPS_GetProperty($regId, 'SunsetVariableID');
-            $sunriseId = (int)@IPS_GetProperty($regId, 'SunriseVariableID');
+            $sunsetId = (int)$this->ReadPropertyInteger('SunsetVariableID');
+            $sunriseId = (int)$this->ReadPropertyInteger('SunriseVariableID');
         }
 
         $sunsetTime = ($sunsetId > 0 && @IPS_VariableExists($sunsetId)) ? (int)GetValue($sunsetId) : 0;
@@ -1435,6 +1437,16 @@ class SmartRoomLighting extends IPSModuleStrict
                             'name' => 'SmartInventoryID',
                             'caption' => 'SmartInventory Instanz (optional)',
                             'moduleID' => '{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}'
+                        ],
+                        [
+                            'type' => 'SelectVariable',
+                            'name' => 'SunsetVariableID',
+                            'caption' => 'Sonnenuntergang (Variable)'
+                        ],
+                        [
+                            'type' => 'SelectVariable',
+                            'name' => 'SunriseVariableID',
+                            'caption' => 'Sonnenaufgang (Variable)'
                         ],
                         [
                             'type' => 'Label',

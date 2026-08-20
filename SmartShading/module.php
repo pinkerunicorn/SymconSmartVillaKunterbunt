@@ -7,7 +7,6 @@ require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 require_once __DIR__ . '/../libs/Trait_InventoryAware.php';
-require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartShading extends IPSModuleStrict
 {
@@ -16,7 +15,6 @@ class SmartShading extends IPSModuleStrict
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
     use InventoryAware_Trait;
-    use DeviceRegistration_Trait;
 
     public function Create(): void
     {
@@ -107,7 +105,6 @@ class SmartShading extends IPSModuleStrict
 
     public function Destroy(): void
     {
-        $this->DR_Unregister();
         parent::Destroy();
     }
 
@@ -121,7 +118,6 @@ class SmartShading extends IPSModuleStrict
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
-        $this->DR_Register('DevicesBlind');
         }
         $ref_AzimuthVariableID = $this->ReadPropertyInteger('AzimuthVariableID');
         if ($ref_AzimuthVariableID > 1 && @IPS_ObjectExists($ref_AzimuthVariableID)) {
@@ -147,9 +143,9 @@ class SmartShading extends IPSModuleStrict
         if ($ref_SunsetVariableID > 1 && @IPS_ObjectExists($ref_SunsetVariableID)) {
             $this->RegisterReference($ref_SunsetVariableID);
         }
-        $registryID = $this->ReadPropertyInteger('RegistryID');
-        if ($registryID > 1 && @IPS_ObjectExists($registryID)) {
-            $this->RegisterReference($registryID);
+        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        if ($invId > 1 && @IPS_ObjectExists($invId)) {
+            $this->RegisterReference($invId);
         }
         $list_BlindVariables = json_decode($this->ReadPropertyString('BlindVariables'), true);
         $activeModeIdents = [];
@@ -466,28 +462,34 @@ class SmartShading extends IPSModuleStrict
 
         private function ResolveBlindVariables(array $blind): array
     {
-        $registryID = $this->ReadPropertyInteger('RegistryID');
+        $invId = $this->ReadPropertyInteger('SmartInventoryID');
         $vid = 0;
         $contactID = 0;
         $name = '';
         
-        if ($registryID > 1 && @IPS_ObjectExists($registryID) && function_exists('SDR_GetDevicesByType')) {
+        if ($invId > 1 && @IPS_ObjectExists($invId) && function_exists('SINV_GetByCategory')) {
             if (isset($blind['DeviceID']) && $blind['DeviceID'] !== '' && $blind['DeviceID'] !== '0') {
-                $blindsMap = @SDR_GetDevicesByType($registryID, 'DevicesBlind');
-                foreach ($blindsMap as $b) {
-                    if ($b['id'] === $blind['DeviceID']) {
-                        $vid = (int)($b['OpenClose_VarID'] ?? 0);
-                        $name = (string)($b['name'] ?? '');
-                        break;
+                $blindsJson = @SINV_GetByCategory($invId, 'actor:blind');
+                $blindsMap = is_string($blindsJson) ? json_decode($blindsJson, true) : [];
+                if (is_array($blindsMap)) {
+                    foreach ($blindsMap as $b) {
+                        if ((string)($b['instanceID'] ?? '') === (string)$blind['DeviceID']) {
+                            $vid = (int)($b['varID'] ?? 0);
+                            $name = (string)($b['instanceName'] ?? '');
+                            break;
+                        }
                     }
                 }
             }
             if (isset($blind['ContactID']) && !is_numeric($blind['ContactID']) && $blind['ContactID'] !== '') {
-                $contactsMap = @SDR_GetDevicesByType($registryID, 'DevicesContactSensor');
-                foreach ($contactsMap as $c) {
-                    if ($c['id'] === $blind['ContactID']) {
-                        $contactID = (int)($c['Status_VarID'] ?? 0);
-                        break;
+                $contactsJson = @SINV_GetByCategory($invId, 'contact');
+                $contactsMap = is_string($contactsJson) ? json_decode($contactsJson, true) : [];
+                if (is_array($contactsMap)) {
+                    foreach ($contactsMap as $c) {
+                        if ((string)($c['instanceID'] ?? '') === (string)$blind['ContactID']) {
+                            $contactID = (int)($c['varID'] ?? 0);
+                            break;
+                        }
                     }
                 }
             }
@@ -668,9 +670,9 @@ class SmartShading extends IPSModuleStrict
                 ],
                 [
                     "type" => "SelectModule",
-                    "name" => "RegistryID",
-                    "caption" => "Device Registry (Geräteverwaltung)",
-                    "moduleID" => "{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}"
+                    "name" => "SmartInventoryID",
+                    "caption" => "SmartInventory",
+                    "moduleID" => "{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}"
                 ],
                 [
                     "type" => "Label",
@@ -739,19 +741,29 @@ class SmartShading extends IPSModuleStrict
         $blindOptions = [["caption" => "-", "value" => 0]];
         $contactOptions = [["caption" => "-", "value" => 0]];
         
-        $registryID = $this->ReadPropertyInteger('RegistryID');
-        if ($registryID > 1 && @IPS_ObjectExists($registryID) && function_exists('SDR_GetDevicesByType')) {
-            $blinds = @SDR_GetDevicesByType($registryID, 'DevicesBlind');
+        $invId = $this->ReadPropertyInteger('SmartInventoryID');
+        if ($invId > 1 && @IPS_ObjectExists($invId) && function_exists('SINV_GetByCategory')) {
+            $blindsJson = @SINV_GetByCategory($invId, 'actor:blind');
+            $blinds = is_string($blindsJson) ? json_decode($blindsJson, true) : [];
             if (is_array($blinds)) {
+                $seen = [];
                 foreach ($blinds as $b) {
-                    $blindOptions[] = ["caption" => ($b['room'] ?? '') . " - " . ($b['name'] ?? ''), "value" => $b['id']];
+                    $instId = $b['instanceID'] ?? 0;
+                    if ($instId === 0 || isset($seen[$instId])) continue;
+                    $seen[$instId] = true;
+                    $blindOptions[] = ["caption" => ($b['room'] ?? '') . " - " . ($b['instanceName'] ?? ''), "value" => $instId];
                 }
             }
             
-            $contacts = @SDR_GetDevicesByType($registryID, 'DevicesContactSensor');
+            $contactsJson = @SINV_GetByCategory($invId, 'contact');
+            $contacts = is_string($contactsJson) ? json_decode($contactsJson, true) : [];
             if (is_array($contacts)) {
+                $seen = [];
                 foreach ($contacts as $c) {
-                    $contactOptions[] = ["caption" => ($c['room'] ?? '') . " - " . ($c['name'] ?? ''), "value" => $c['id']];
+                    $instId = $c['instanceID'] ?? 0;
+                    if ($instId === 0 || isset($seen[$instId])) continue;
+                    $seen[$instId] = true;
+                    $contactOptions[] = ["caption" => ($c['room'] ?? '') . " - " . ($c['instanceName'] ?? ''), "value" => $instId];
                 }
             }
         }

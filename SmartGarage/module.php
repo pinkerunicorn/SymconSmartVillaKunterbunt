@@ -7,7 +7,6 @@ require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
 require_once __DIR__ . '/../libs/Trait_DeviceAvailability.php';
 require_once __DIR__ . '/../libs/Trait_InventoryAware.php';
-require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartGarage extends IPSModuleStrict
 {
@@ -16,7 +15,6 @@ class SmartGarage extends IPSModuleStrict
     use CentralStateAware_Trait;
     use DeviceAvailability_Trait;
     use InventoryAware_Trait;
-    use DeviceRegistration_Trait;
 
     private const STATE_CLOSED = 0;
     private const STATE_OPEN = 1;
@@ -135,7 +133,6 @@ class SmartGarage extends IPSModuleStrict
 
     public function Destroy(): void
     {
-        $this->DR_Unregister();
         parent::Destroy();
     }
 
@@ -148,7 +145,6 @@ class SmartGarage extends IPSModuleStrict
         // --- Auto-generated References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
-        $this->DR_Register('DevicesContactSensor');
         }
         $ref_MotorVariableID = $this->ReadPropertyInteger('MotorVariableID');
         if ($ref_MotorVariableID > 1 && @IPS_ObjectExists($ref_MotorVariableID)) {
