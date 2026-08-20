@@ -297,12 +297,12 @@ class SmartLog extends IPSModuleStrict
                     $normalState = $dev['normalState'] ?? null;
                     $isOpen = ($normalState !== null) ? ($val != $normalState) : (bool)$val;
                     $stateStr = $isOpen ? 'geoeffnet' : 'geschlossen';
-                    $msg = "{$dev['instanceName']} ({$dev['room']}) wurde {$stateStr}.";
+                    $msg = "{$dev['name']} ({$dev['room']}) wurde {$stateStr}.";
                 } elseif ($dev['type'] === 'Lock') {
                     $normalState = $dev['normalState'] ?? null;
                     $isLocked = ($normalState !== null) ? ($val == $normalState) : !(bool)$val;
                     $stateStr = $isLocked ? 'zugesperrt' : 'aufgeschlossen';
-                    $msg = "{$dev['instanceName']} ({$dev['room']}) wurde {$stateStr}.";
+                    $msg = "{$dev['name']} ({$dev['room']}) wurde {$stateStr}.";
                 }
 
                 if ($msg !== '') {
