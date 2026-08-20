@@ -164,12 +164,32 @@ class SmartRoomLighting extends IPSModuleStrict
             foreach ($lightTypes as $type) {
                 $devices = json_decode(@SINV_GetByCategory($regId, $type), true) ?: [];
                 if (is_array($devices)) {
+                    $instCounts = [];
                     foreach ($devices as $dev) {
+                        $iid = $dev['instanceID'] ?? 0;
+                        if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
+                    }
+                    foreach ($devices as $dev) {
+                        $iid = $dev['instanceID'] ?? 0;
+                        $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+                        $varName = $dev['varName'] ?? '';
                         $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                        $key = $baseKey . ($isMulti ? ('::' . $varName) : '');
                         $varId = (int)($dev['varID'] ?? 0);
-                        if ($type === 'actor:color' && $varId > 0) $deviceMap[$baseKey . '::Color'] = $varId;
-                        if ($type === 'actor:dimmer' && $varId > 0) $deviceMap[$baseKey . '::Dimmer'] = $varId;
-                        if ($type === 'actor:switch' && $varId > 0) $deviceMap[$baseKey . '::Switch'] = $varId;
+                        if ($varId > 0) {
+                            if ($type === 'actor:color') {
+                                $deviceMap[$key . '::Color'] = $varId;
+                                if ($isMulti && !isset($deviceMap[$baseKey . '::Color'])) $deviceMap[$baseKey . '::Color'] = $varId;
+                            }
+                            if ($type === 'actor:dimmer') {
+                                $deviceMap[$key . '::Dimmer'] = $varId;
+                                if ($isMulti && !isset($deviceMap[$baseKey . '::Dimmer'])) $deviceMap[$baseKey . '::Dimmer'] = $varId;
+                            }
+                            if ($type === 'actor:switch') {
+                                $deviceMap[$key . '::Switch'] = $varId;
+                                if ($isMulti && !isset($deviceMap[$baseKey . '::Switch'])) $deviceMap[$baseKey . '::Switch'] = $varId;
+                            }
+                        }
                     }
                 }
             }
@@ -1193,36 +1213,39 @@ class SmartRoomLighting extends IPSModuleStrict
         $lightTypes = ['actor:color', 'actor:dimmer', 'actor:switch'];
         foreach ($lightTypes as $type) {
             $devices = json_decode(@SINV_GetByCategory($regId, $type), true) ?: [];
-            if (!is_array($devices)) {
-                continue;
+            if (!is_array($devices)) continue;
+            
+            $instCounts = [];
+            foreach ($devices as $dev) {
+                $iid = $dev['instanceID'] ?? 0;
+                if ($iid > 0) $instCounts[$iid] = ($instCounts[$iid] ?? 0) + 1;
             }
             foreach ($devices as $dev) {
-                $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
+                $iid = $dev['instanceID'] ?? 0;
+                $isMulti = ($iid > 0 && ($instCounts[$iid] ?? 0) > 1);
+                $varName = $dev['varName'] ?? '';
+                $nameSuffix = $isMulti ? (' - ' . $varName) : '';
+                $keySuffix = $isMulti ? ('::' . $varName) : '';
                 
-                // Add Color option
+                $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt') . $nameSuffix;
+                $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . $keySuffix;
+                
                 if ($type === 'actor:color') {
-                    $varId = (int)($dev['varID'] ?? 0);
-                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . '::Color';
+                    $deviceKey = $baseKey . '::Color';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
                         $dynamicOptions[] = ['label' => $baseName . ' (Farbe)', 'value' => $deviceKey];
                     }
                 }
-                
-                // Add Dimmer option
                 if ($type === 'actor:dimmer') {
-                    $varId = (int)($dev['varID'] ?? 0);
-                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . '::Dimmer';
+                    $deviceKey = $baseKey . '::Dimmer';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
                         $dynamicOptions[] = ['label' => $baseName . ' (Dimmer)', 'value' => $deviceKey];
                     }
                 }
-                
-                // Add Switch option
                 if ($type === 'actor:switch') {
-                    $varId = (int)($dev['varID'] ?? 0);
-                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . '::Switch';
+                    $deviceKey = $baseKey . '::Switch';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
                         $dynamicOptions[] = ['label' => $baseName . ' (Schalter)', 'value' => $deviceKey];
@@ -1230,7 +1253,6 @@ class SmartRoomLighting extends IPSModuleStrict
                 }
             }
         }
-
         usort($dynamicOptions, fn($a, $b) => strcasecmp($a['label'], $b['label']));
         return array_merge($options, $dynamicOptions);
     }
