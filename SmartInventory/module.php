@@ -476,7 +476,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetCategories(): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $categories = [];
 
         foreach ($inventory as $device) {
@@ -501,7 +502,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetByCategory(string $category): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
 
         foreach ($inventory as $device) {
@@ -541,7 +543,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function Query(string $tag, string $room = ''): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
 
         foreach ($inventory as $device) {
@@ -576,7 +579,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetRooms(): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $rooms = [];
         foreach ($inventory as $device) {
             if ($device['room'] !== '' && !in_array($device['room'], $rooms)) {
@@ -592,7 +596,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetByRoom(string $room): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
         foreach ($inventory as $device) {
             if (strcasecmp($device['room'], $room) === 0) {
@@ -610,7 +615,8 @@ class SmartInventory extends IPSModuleStrict
         if ($threshold <= 0) {
             $threshold = $this->ReadPropertyInteger('BatteryThreshold');
         }
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
 
         foreach ($inventory as $device) {
@@ -635,7 +641,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetOffline(): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
 
         foreach ($inventory as $device) {
@@ -660,7 +667,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetActiveAlarms(): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
@@ -688,7 +696,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetProblems(): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $severity  = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1];
         $results   = [];
 
@@ -718,7 +727,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetDeviceHealth(int $instanceID): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         foreach ($inventory as $device) {
             $id = $device['i'] ?? ($device['instanceID'] ?? 0);
             if ($id === $instanceID) {
@@ -736,7 +746,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetRoomSummary(): string
     {
-        $inventory = json_decode($this->GetBuffer('Inventory'), true) ?: [];
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $rooms     = [];
 
         foreach ($inventory as $device) {
