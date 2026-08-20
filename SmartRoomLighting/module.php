@@ -123,11 +123,11 @@ class SmartRoomLighting extends IPSModuleStrict
         
         if ($regId > 0 && @IPS_InstanceExists($regId)) {
             // Wall Switches
-            $devices = @SDR_GetDevicesByType($regId, 'DevicesWallSwitch');
+            $devices = json_decode(@SINV_GetByCategory($regId, 'sensor:button'), true) ?: [];
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
                     $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
-                    $varId = (int)($dev['OnOff_VarID'] ?? 0);
+                    $varId = (int)($dev['varID'] ?? 0);
                     if ($varId > 0) $deviceMap[$key] = $varId;
                     
                     $closedVal = trim((string)($dev['ClosedValue'] ?? ''));
@@ -138,37 +138,37 @@ class SmartRoomLighting extends IPSModuleStrict
             }
             
             // Motion Sensors
-            $devices = @SDR_GetDevicesByType($regId, 'DevicesMotionSensor');
+            $devices = json_decode(@SINV_GetByCategory($regId, 'motion'), true) ?: [];
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
                     $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
-                    $varId = (int)($dev['Status_VarID'] ?? 0);
+                    $varId = (int)($dev['varID'] ?? 0);
                     if ($varId > 0) $deviceMap[$key] = $varId;
-                    $luxVarId = (int)($dev['Lux_VarID'] ?? 0);
+                    $luxVarId = 0; // Legacy lux mapping inside motion removed
                     if ($luxVarId > 0) $deviceMap[$key . '::Lux'] = $luxVarId;
                 }
             }
 
             // Contact Sensors
-            $devices = @SDR_GetDevicesByType($regId, 'DevicesContactSensor');
+            $devices = json_decode(@SINV_GetByCategory($regId, 'contact'), true) ?: [];
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
                     $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
-                    $varId = (int)($dev['Status_VarID'] ?? 0);
+                    $varId = (int)($dev['varID'] ?? 0);
                     if ($varId > 0) $deviceMap[$key] = $varId;
                 }
             }
             
             // Lights
-            $lightTypes = ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'];
+            $lightTypes = ['actor:color', 'actor:dimmer', 'actor:switch'];
             foreach ($lightTypes as $type) {
-                $devices = @SDR_GetDevicesByType($regId, $type);
+                $devices = json_decode(@SINV_GetByCategory($regId, $type), true) ?: [];
                 if (is_array($devices)) {
                     foreach ($devices as $dev) {
                         $baseKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
-                        if (!empty($dev['ColorRGB_VarID'])) $deviceMap[$baseKey . '::Color'] = (int)$dev['ColorRGB_VarID'];
-                        if (!empty($dev['Brightness_VarID'])) $deviceMap[$baseKey . '::Dimmer'] = (int)$dev['Brightness_VarID'];
-                        if (!empty($dev['OnOff_VarID'])) $deviceMap[$baseKey . '::Switch'] = (int)$dev['OnOff_VarID'];
+                        if ($type === 'actor:color' && $varId > 0) $deviceMap[$baseKey . '::Color'] = $varId;
+                        if ($type === 'actor:dimmer' && $varId > 0) $deviceMap[$baseKey . '::Dimmer'] = $varId;
+                        if ($type === 'actor:switch' && $varId > 0) $deviceMap[$baseKey . '::Switch'] = $varId;
                     }
                 }
             }
@@ -519,14 +519,14 @@ class SmartRoomLighting extends IPSModuleStrict
         // 1. Check Manual Override
         $respectOverride = $trigger['RespectOverride'] ?? true;
         if ($respectOverride && $this->isManualOverride()) {
-            $this->SendDebug('Motion', 'Manual Override aktiv ? ignoriert', 0);
+            $this->SendDebug('Motion', 'Manual Override aktiv — ignoriert', 0);
             return;
         }
 
         // 2. Check Darkness
         $onlyWhenDark = $trigger['OnlyWhenDark'] ?? false;
         if ($onlyWhenDark && !$this->GetCentralState('IsDark')) {
-            $this->SendDebug('Motion', 'Es ist hell ? ignoriert', 0);
+            $this->SendDebug('Motion', 'Es ist hell — ignoriert', 0);
             return;
         }
 
@@ -615,7 +615,7 @@ class SmartRoomLighting extends IPSModuleStrict
                 }
                 $this->setManualOverride(false);
                 $this->cancelAllMotionTimers();
-                $this->SLogInfo('Schalter Toggle', 'AUS ? Manual Override aufgehoben');
+                $this->SLogInfo('Schalter Toggle', 'AUS — Manual Override aufgehoben');
                 return;
             }
         }
@@ -629,7 +629,7 @@ class SmartRoomLighting extends IPSModuleStrict
         if ($setsOverride) {
             $this->setManualOverride(true);
             $this->cancelAllMotionTimers();
-            $this->SLogInfo('Schalter', "Szene: $sceneName ? Manual Override gesetzt");
+            $this->SLogInfo('Schalter', "Szene: $sceneName — Manual Override gesetzt");
         }
     }
 
@@ -660,13 +660,13 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $dynamicOptions = [];
         $addedVarIds = [];
-        $devices = @SDR_GetDevicesByType($regId, 'DevicesWallSwitch');
+        $devices = json_decode(@SINV_GetByCategory($regId, 'sensor:button'), true) ?: [];
         if (!is_array($devices)) {
             return $options;
         }
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
-            $varId = (int)($dev['OnOff_VarID'] ?? 0);
+            $varId = (int)($dev['varID'] ?? 0);
             $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
             if ($varId > 0 && !in_array($deviceKey, $addedVarIds)) {
                 $addedVarIds[] = $deviceKey;
@@ -723,7 +723,7 @@ class SmartRoomLighting extends IPSModuleStrict
             if ($occupancyLock) {
                 // Wasp-in-a-box: lock occupancy
                 $this->SetBuffer('OccupancyLocked', 'true');
-                $this->SLogInfo('Wasp-in-a-Box', 'Raum als belegt markiert ? Licht bleibt an');
+                $this->SLogInfo('Wasp-in-a-Box', 'Raum als belegt markiert — Licht bleibt an');
                 return;
             }
 
@@ -1189,9 +1189,9 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $dynamicOptions = [];
         $addedVarIds = [];
-        $lightTypes = ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'];
+        $lightTypes = ['actor:color', 'actor:dimmer', 'actor:switch'];
         foreach ($lightTypes as $type) {
-            $devices = @SDR_GetDevicesByType($regId, $type);
+            $devices = json_decode(@SINV_GetByCategory($regId, $type), true) ?: [];
             if (!is_array($devices)) {
                 continue;
             }
@@ -1199,8 +1199,8 @@ class SmartRoomLighting extends IPSModuleStrict
                 $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
                 
                 // Add Color option
-                if (!empty($dev['ColorRGB_VarID']) && (int)$dev['ColorRGB_VarID'] > 0) {
-                    $varId = (int)$dev['ColorRGB_VarID'];
+                if ($type === 'actor:color') {
+                    $varId = (int)($dev['varID'] ?? 0);
                     $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Color';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
@@ -1209,8 +1209,8 @@ class SmartRoomLighting extends IPSModuleStrict
                 }
                 
                 // Add Dimmer option
-                if (!empty($dev['Brightness_VarID']) && (int)$dev['Brightness_VarID'] > 0) {
-                    $varId = (int)$dev['Brightness_VarID'];
+                if ($type === 'actor:dimmer') {
+                    $varId = (int)($dev['varID'] ?? 0);
                     $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Dimmer';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
@@ -1219,8 +1219,8 @@ class SmartRoomLighting extends IPSModuleStrict
                 }
                 
                 // Add Switch option
-                if (!empty($dev['OnOff_VarID']) && (int)$dev['OnOff_VarID'] > 0) {
-                    $varId = (int)$dev['OnOff_VarID'];
+                if ($type === 'actor:switch') {
+                    $varId = (int)($dev['varID'] ?? 0);
                     $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Switch';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
@@ -1245,14 +1245,14 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $dynamicOptions = [];
-        $devices = @SDR_GetDevicesByType($regId, 'DevicesMotionSensor');
+        $devices = json_decode(@SINV_GetByCategory($regId, 'motion'), true) ?: [];
         if (!is_array($devices)) {
             return $options;
         }
 
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
-            $varId = (int)($dev['Status_VarID'] ?? 0);
+            $varId = (int)($dev['varID'] ?? 0);
             $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
             if ($varId > 0) {
                 $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
@@ -1274,14 +1274,14 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $dynamicOptions = [];
-        $devices = @SDR_GetDevicesByType($regId, 'DevicesContactSensor');
+        $devices = json_decode(@SINV_GetByCategory($regId, 'contact'), true) ?: [];
         if (!is_array($devices)) {
             return $options;
         }
 
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
-            $varId = (int)($dev['Status_VarID'] ?? 0);
+            $varId = (int)($dev['varID'] ?? 0);
             $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
             if ($varId > 0) {
                 $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
@@ -1303,14 +1303,14 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $dynamicOptions = [];
-        $devices = @SDR_GetDevicesByType($regId, 'DevicesMotionSensor');
+        $devices = json_decode(@SINV_GetByCategory($regId, 'motion'), true) ?: [];
         if (!is_array($devices)) {
             return $options;
         }
 
         foreach ($devices as $dev) {
             $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
-            $luxVarId = (int)($dev['Lux_VarID'] ?? 0);
+            $luxVarId = 0; // Legacy lux mapping inside motion removed
             $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Lux';
             if ($luxVarId > 0) {
                 $dynamicOptions[] = ['label' => $name . ' (Helligkeit)', 'value' => $deviceKey];
@@ -1369,7 +1369,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $sceneDevicesColumns[] = ['caption' => 'Wert (AN)', 'name' => 'ActionValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']];
         $sceneDevicesColumns[] = ['caption' => 'Wert (AUS)', 'name' => 'DeactivateValue', 'width' => '100px', 'add' => 'false', 'edit' => ['type' => 'ValidationTextBox']];
-        $sceneDevicesColumns[] = ['caption' => 'L?st Szene aus', 'name' => 'ReverseTrigger', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']];
+        $sceneDevicesColumns[] = ['caption' => 'Löst Szene aus', 'name' => 'ReverseTrigger', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']];
 
         // --- MotionTriggers columns (dynamic based on registry) ---
         $motionTriggersColumns = [];
@@ -1464,7 +1464,7 @@ class SmartRoomLighting extends IPSModuleStrict
                     'items' => [
                         [
                             'type' => 'Label',
-                            'caption' => 'Hier legst du alle Namen deiner Szenen f?r diesen Raum fest (z.B. "Standard", "Kino"). Du kannst optional direkt einen SmartSequencer verkn?pfen, musst das aber nicht (0 lassen).',
+                            'caption' => 'Hier legst du alle Namen deiner Szenen für diesen Raum fest (z.B. "Standard", "Kino"). Du kannst optional direkt einen SmartSequencer verknüpfen, musst das aber nicht (0 lassen).',
                         ],
                         [
                             'type' => 'List',
