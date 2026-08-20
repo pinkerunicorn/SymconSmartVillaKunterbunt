@@ -68,29 +68,7 @@ class SmartInventory extends IPSModuleStrict
         ], 901);
     }
 
-        private function MigrateTags(): void
-    {
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
-        $modified = false;
-        foreach (IPS_GetInstanceList() as $instID) {
-            foreach (IPS_GetChildrenIDs($instID) as $childID) {
-                if (IPS_ObjectExists($childID) && IPS_GetObject($childID)['ObjectType'] === 2) {
-                    $info = IPS_GetObject($childID)['ObjectInfo'];
-                    if (str_starts_with($info, 'SI:')) {
-                        if (!isset($db[$childID])) $db[$childID] = [];
-                        $db[$childID]['tag'] = $info;
-                        IPS_SetInfo($childID, '');
-                        $modified = true;
-                    }
-                }
-            }
-        }
-        if ($modified) {
-            $this->WriteAttributeString('TagDatabase', json_encode($db));
-        }
-    }
-
-    public function ApplyChanges(): void
+        public function ApplyChanges(): void
     {
         parent::ApplyChanges();
         $this->MigrateTags();
@@ -874,11 +852,6 @@ class SmartInventory extends IPSModuleStrict
             $db[$varID]['tag'] = $tag;
         }
         $this->WriteAttributeString('TagDatabase', json_encode($db));
-        
-        // Cleanup old ObjectInfo
-        if (str_starts_with(IPS_GetObject($varID)['ObjectInfo'], 'SI:')) {
-            IPS_SetInfo($varID, '');
-        }
         return true;
     }
 
