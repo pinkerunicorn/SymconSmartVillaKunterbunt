@@ -1014,6 +1014,15 @@ PROMPT;
             if (!str_starts_with($tag, self::TAG_PREFIX)) {
                 $tag = self::TAG_PREFIX . $tag;
             }
+
+            // Automatisch deaktivieren, wenn das Objekt im Baum versteckt ist ("Objekt nicht anzeigen")
+            $objInfo = @IPS_GetObject($varID);
+            if ($objInfo !== false && isset($objInfo['ObjectIsHidden']) && $objInfo['ObjectIsHidden']) {
+                if (!str_ends_with($tag, ':disabled')) {
+                    $tag .= ':disabled';
+                }
+            }
+
             IPS_SetInfo($varID, $tag);
 
             // Raum setzen
