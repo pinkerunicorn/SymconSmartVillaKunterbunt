@@ -1182,15 +1182,6 @@ PROMPT;
         }
 
         sort($catalogCategories);
-        $catalogOptions = [];
-        $catalogOptions[] = ['caption' => '--- Aktuelle Probleme & Alarme ---', 'value' => 'problems'];
-        $catalogOptions[] = ['caption' => '--- Bitte waehlen ---', 'value' => 'none'];
-        $catalogOptions[] = ['caption' => '--- Alle Typen ---', 'value' => 'all'];
-        $catalogOptions[] = ['caption' => '--- Nicht getaggte ---', 'value' => 'untagged'];
-        $catalogOptions[] = ['caption' => '--- Nur Deaktivierte ---', 'value' => 'disabled'];
-        foreach ($catalogCategories as $cat) {
-            $catalogOptions[] = ['caption' => $cat, 'value' => $cat];
-        }
 
         $onEditScript = '
             $listData = ${$IPS_VALUE};
@@ -1245,36 +1236,67 @@ PROMPT;
             SINV_Scan($id);
         ';
 
-        // ── Probleme-Tab Daten aufbauen ──
+        // ── Filter-Optionen aufbauen (Health-Filter + Sonder-Filter + Typen) ──
+        $catalogOptions = [];
+        // Health-Filter oben
+        $catalogOptions[] = ['caption' => 'Alle Probleme',          'value' => 'problems'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Alarm',       'value' => 'health:alarm'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Batterie leer (offline)', 'value' => 'health:battery_dead'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Nicht erreichbar', 'value' => 'health:offline'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Batterie schwach', 'value' => 'health:battery_low'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Kein Update', 'value' => 'health:stale'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Alle gesunden', 'value' => 'health:healthy'];
+        // Sonder-Filter
+        $catalogOptions[] = ['caption' => 'Alle Geraete & Variablen', 'value' => 'all'];
+        $catalogOptions[] = ['caption' => 'Nicht getaggte',           'value' => 'untagged'];
+        $catalogOptions[] = ['caption' => 'Nur deaktivierte',         'value' => 'disabled'];
+        // Typ-Filter (nach SI:-Kategorien)
+        sort($catalogCategories);
+        foreach ($catalogCategories as $cat) {
+            $catalogOptions[] = ['caption' => $cat, 'value' => $cat];
+        }
+
+        // ── Initiale Liste: Alle Probleme (health != healthy) pro Geraet ──
         $healthLabels = [
             'alarm'        => 'Alarm',
             'battery_dead' => 'Batterie leer (offline)',
             'offline'      => 'Nicht erreichbar',
             'battery_low'  => 'Batterie schwach',
             'stale'        => 'Kein Update',
+            'healthy'      => 'Gesund',
         ];
-        $healthSeverity = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1];
+        $healthSeverity = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1, 'healthy' => 0];
 
-        $problemList = [];
-        $healthyCount = 0;
+        $initialCatalogList = [];
         foreach ($inventory as $device) {
             $h = $device['health'] ?? 'healthy';
-            if ($h === 'healthy') {
-                $healthyCount++;
-                continue;
+            if ($h === 'healthy') continue;
+            // Erste Problematische Variable fuer Tag-Anzeige finden
+            $firstVar = null;
+            foreach ($device['variables'] as $v) {
+                if (!($v['disabled'] ?? false)) { $firstVar = $v; break; }
             }
-            $problemList[] = [
+            $parsedTag = $firstVar ? $this->parseTag($firstVar['tag']) : null;
+            $tagBase = $parsedTag ? ('SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '')) : '';
+            $normalStateStr = ($parsedTag && $parsedTag['normalState'] !== null) ? $parsedTag['normalState']['value'] : '';
+            $initialCatalogList[] = [
                 'instanceName' => $device['instanceName'],
                 'room'         => $device['room'],
                 'health'       => $healthLabels[$h] ?? $h,
                 'detail'       => $device['healthDetail'] ?? '',
                 'severity'     => $healthSeverity[$h] ?? 0,
+                'tagBase'      => $tagBase,
+                'normalState'  => $normalStateStr,
+                'disabled'     => false,
+                'value'        => $firstVar ? $this->getFormattedValue($firstVar['varID'] ?? 0) : '',
+                'ObjectID'     => $firstVar['varID'] ?? ($device['instanceID']),
                 'instanceID'   => $device['instanceID'],
             ];
         }
-        usort($problemList, fn($a, $b) => $b['severity'] <=> $a['severity']);
+        usort($initialCatalogList, fn($a, $b) => $b['severity'] <=> $a['severity']);
 
-        $problemCount = count($problemList);
+        $problemCount = count($initialCatalogList);
+        $healthyCount = count($inventory) - $problemCount;
         $totalDevices = count($inventory);
         $totalVars    = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
@@ -1301,67 +1323,46 @@ PROMPT;
                 [
                     'type' => 'RowLayout',
                     'items' => [
-                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); if (isset($CatalogFilter)) { SINV_UpdateCatalogList($id, $CatalogFilter); } echo "Scan abgeschlossen.";'],
-                        ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.\nFortschritt: Scan-Dauer Variable beobachten.\nWenn fertig: \'Jetzt scannen\' druecken um Listen zu aktualisieren.";'],
+                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\'); echo "Scan abgeschlossen.";'],
+                        ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.";'],
                     ],
                 ],
                 [
                     'type' => 'Label',
                     'caption' => $summaryText,
                 ],
-                // ── Tab 1: Geraete-Gesundheit (Default, offen) ──
+                // ── Einzige Hauptliste (Geraete + Variablen) ──
                 [
                     'type' => 'ExpansionPanel',
-                    'caption' => 'Geraete-Gesundheit (' . $problemCount . ' Probleme, ' . $healthyCount . ' gesund)',
+                    'caption' => 'Inventar & Pflege',
                     'expanded' => true,
-                    'items' => [
-                        [
-                            'type' => 'List',
-                            'name' => 'ProblemList',
-                            'caption' => '',
-                            'rowCount' => min($problemCount > 0 ? $problemCount : 5, 20),
-                            'sort' => ['column' => 'severity', 'direction' => 'descending'],
-                            'columns' => [
-                                ['name' => 'health',       'caption' => 'Status',    'width' => '180px'],
-                                ['name' => 'instanceName', 'caption' => 'Geraet',    'width' => '200px'],
-                                ['name' => 'room',         'caption' => 'Raum',      'width' => '120px'],
-                                ['name' => 'detail',       'caption' => 'Detail',    'width' => 'auto'],
-                                ['name' => 'severity',     'caption' => 'Prio',      'width' => '50px', 'visible' => false],
-                                ['name' => 'instanceID',   'caption' => 'ID',        'width' => '70px'],
-                            ],
-                            'values' => $problemList,
-                        ],
-                    ],
-                ],
-                // ── Tab 2: Katalog / Pflege ──
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Katalog / Pflege',
-                    'expanded' => false,
                     'items' => [
                         [
                             'type' => 'Select',
                             'name' => 'CatalogFilter',
-                            'caption' => 'Typ-Filter',
+                            'caption' => 'Filter',
                             'options' => $catalogOptions,
                             'value' => 'problems',
-                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter);'
+                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter);',
                         ],
                         [
                             'type' => 'List',
                             'name' => 'CatalogList',
                             'caption' => '',
-                            'rowCount' => min(count($initialCatalogList) > 0 ? count($initialCatalogList) : 20, 20),
-                            'sort' => ['column' => 'instanceName', 'direction' => 'ascending'],
+                            'rowCount' => min(max(count($initialCatalogList), 5), 25),
+                            'sort' => ['column' => 'severity', 'direction' => 'descending'],
                             'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
                             'columns' => [
-                                ['name' => 'instanceName', 'caption' => 'Geraet', 'width' => '200px'],
-                                ['name' => 'room', 'caption' => 'Raum', 'width' => '120px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
-                                ['name' => 'tagBase', 'caption' => 'Kategorie', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
-                                ['name' => 'normalState', 'caption' => 'OK bei (z.B. true/false)', 'width' => '150px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['name' => 'disabled', 'caption' => 'Deaktiviert', 'width' => '80px', 'edit' => ['type' => 'CheckBox']],
-                                ['name' => 'value', 'caption' => 'Aktueller Wert', 'width' => '150px'],
-                                ['name' => 'ObjectID', 'caption' => 'ID', 'width' => '70px', 'edit' => ['type' => 'SelectObject']],
+                                ['name' => 'health',       'caption' => 'Gesundheit',   'width' => '180px'],
+                                ['name' => 'detail',       'caption' => 'Detail',        'width' => '200px'],
+                                ['name' => 'instanceName', 'caption' => 'Geraet',        'width' => '180px'],
+                                ['name' => 'room',         'caption' => 'Raum',          'width' => '110px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
+                                ['name' => 'tagBase',      'caption' => 'Kategorie',     'width' => '140px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
+                                ['name' => 'normalState',  'caption' => 'OK-Wert',       'width' => '100px', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['name' => 'disabled',     'caption' => 'Deaktiviert',   'width' => '80px',  'edit' => ['type' => 'CheckBox']],
+                                ['name' => 'value',        'caption' => 'Aktuell',       'width' => '120px'],
+                                ['name' => 'ObjectID',     'caption' => 'ID',            'width' => '65px',  'edit' => ['type' => 'SelectObject']],
+                                ['name' => 'severity',     'caption' => 'Prio',          'width' => '50px',  'visible' => false],
                             ],
                             'values' => $initialCatalogList,
                         ],
@@ -1375,19 +1376,66 @@ PROMPT;
 
     public function UpdateCatalogList(string $category): void
     {
-        // Inventar direkt aufbauen (Buffer ist zu gross und wird von Symcon getruncat)
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
-        
+
+        $healthLabels = [
+            'alarm'        => 'Alarm',
+            'battery_dead' => 'Batterie leer (offline)',
+            'offline'      => 'Nicht erreichbar',
+            'battery_low'  => 'Batterie schwach',
+            'stale'        => 'Kein Update',
+            'healthy'      => 'Gesund',
+        ];
+        $healthSeverity = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1, 'healthy' => 0];
+
         $list = [];
 
-        if ($category === 'untagged') {
-            foreach ($untagged as $u) {
-                // Ignore-Status ermitteln
-                $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $u['instanceID']);
-                $isDisabled = ($ignoreVarID !== false && GetValue($ignoreVarID));
+        // ── Geraete-zentrische Filter (health:*, problems) ──
+        $isHealthFilter  = str_starts_with($category, 'health:');
+        $filterHealth    = $isHealthFilter ? substr($category, 7) : null;
+        $isProblemsFilter = ($category === 'problems');
+
+        if ($isHealthFilter || $isProblemsFilter) {
+            foreach ($inventory as $device) {
+                $h = $device['health'] ?? 'healthy';
+                $match = $isProblemsFilter ? ($h !== 'healthy') : ($h === $filterHealth);
+                if (!$match) continue;
+
+                // Erste nicht-deaktivierte Variable fuer Tag-Anzeige
+                $firstVar = null;
+                foreach ($device['variables'] as $v) {
+                    if (!($v['disabled'] ?? false)) { $firstVar = $v; break; }
+                }
+                $parsedTag = $firstVar ? $this->parseTag($firstVar['tag']) : null;
+                $tagBase = $parsedTag ? ('SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '')) : '';
+                $normalStateStr = ($parsedTag && $parsedTag['normalState'] !== null) ? $parsedTag['normalState']['value'] : '';
 
                 $list[] = [
+                    'health'       => $healthLabels[$h] ?? $h,
+                    'detail'       => $device['healthDetail'] ?? '',
+                    'severity'     => $healthSeverity[$h] ?? 0,
+                    'instanceName' => $device['instanceName'],
+                    'room'         => $device['room'],
+                    'tagBase'      => $tagBase,
+                    'normalState'  => $normalStateStr,
+                    'disabled'     => false,
+                    'value'        => $firstVar ? $this->getFormattedValue($firstVar['varID'] ?? 0) : '',
+                    'ObjectID'     => $firstVar['varID'] ?? $device['instanceID'],
+                    'instanceID'   => $device['instanceID'],
+                ];
+            }
+            usort($list, fn($a, $b) => $b['severity'] <=> $a['severity']);
+
+        } elseif ($category === 'untagged') {
+            // ── Nicht getaggte Instanzen ──
+            foreach ($untagged as $u) {
+                $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $u['instanceID']);
+                $isDisabled = ($ignoreVarID !== false && GetValue($ignoreVarID));
+                $list[] = [
+                    'health'       => '',
+                    'detail'       => '',
+                    'severity'     => 0,
                     'instanceName' => $u['instanceName'],
                     'room'         => $u['room'],
                     'tagBase'      => '',
@@ -1398,32 +1446,34 @@ PROMPT;
                     'instanceID'   => $u['instanceID'],
                 ];
             }
+
         } else {
+            // ── Variablen-zentrische Filter (all, disabled, SI:...) ──
             foreach ($inventory as $device) {
+                $h = $device['health'] ?? 'healthy';
+                $deviceHealth  = $healthLabels[$h] ?? '';
+                $deviceDetail  = $device['healthDetail'] ?? '';
+                $deviceSeverity = $healthSeverity[$h] ?? 0;
+
                 foreach ($device['variables'] as $v) {
-                    $parsed = $this->parseTag($v['tag']);
+                    $parsed  = $this->parseTag($v['tag']);
                     $tagBase = 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '');
-                    
-                    $isProblem = false;
-                    if ($parsed['category'] === 'reachability' && $this->isProblematic($v)) $isProblem = true;
-                    elseif ($parsed['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $isProblem = true;
-                    elseif (in_array($parsed['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $isProblem = true;
-                    elseif ($parsed['category'] === 'contact' && $this->isProblematic($v)) $isProblem = true;
 
                     $match = false;
-                    if ($category === 'problems') {
-                        if ($isProblem) $match = true;
-                    } elseif ($category === 'disabled' && $parsed['disabled']) {
+                    if ($category === 'disabled' && $parsed['disabled']) {
                         $match = true;
                     } elseif ($category !== 'disabled' && $tagBase === $category && !$parsed['disabled']) {
                         $match = true;
                     } elseif ($category === 'all') {
                         $match = true;
                     }
-                    
+
                     if ($match) {
                         $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
                         $list[] = [
+                            'health'       => $deviceHealth,
+                            'detail'       => $deviceDetail,
+                            'severity'     => $deviceSeverity,
                             'instanceName' => $device['instanceName'],
                             'room'         => $device['room'],
                             'tagBase'      => $tagBase,
@@ -1437,8 +1487,9 @@ PROMPT;
                 }
             }
         }
-        
+
         $this->UpdateFormField('CatalogList', 'values', json_encode($list));
+        $this->UpdateFormField('CatalogList', 'rowCount', min(max(count($list), 5), 25));
     }
 
     // ─────────────────────────────────────────────────────────────────
