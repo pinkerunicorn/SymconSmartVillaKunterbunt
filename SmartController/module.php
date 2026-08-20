@@ -134,9 +134,6 @@ class SmartController extends IPSModuleStrict
         ], 11);
 
         // Monitor Links
-        $this->RegisterPropertyInteger('MonitorAlarmID', 0);
-        $this->RegisterPropertyInteger('MonitorDeviceID', 0);
-        $this->RegisterPropertyInteger('MonitorEventID', 0);
         $this->RegisterPropertyInteger('MonitorPresenceID', 0);
         // === Sequencer Properties ===
         $this->RegisterPropertyString('PresenceSequencers', json_encode([
@@ -799,34 +796,26 @@ class SmartController extends IPSModuleStrict
                 }
             ]
         },
-        {
+                {
             "type": "ExpansionPanel",
-            "caption": "🔎 Smart Monitore (System Status)",
+            "caption": "🔔 Benachrichtigungen & Status",
             "expanded": true,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Verknüpfe hier die Monitore. Daraus wird automatisch die System-Ampel und die aktuelle Status-Meldung generiert."
+                    "caption": "Verknüpfe hier den SmartNotifier und den Anwesenheits-Monitor (Presence Simulation)."
                 },
                 {
                     "type": "SelectInstance",
-                    "name": "MonitorAlarmID",
-                    "caption": "Alarm-Monitor"
-                },
-                {
-                    "type": "SelectInstance",
-                    "name": "MonitorDeviceID",
-                    "caption": "Geräte-Monitor"
-                },
-                {
-                    "type": "SelectInstance",
-                    "name": "MonitorEventID",
-                    "caption": "Ereignis-Monitor"
+                    "name": "SmartNotifierID",
+                    "caption": "SmartNotifier",
+                    "moduleID": "{B8A7F31D-E1D8-49A4-B9A9-5E9D5B4A1C8F}"
                 },
                 {
                     "type": "SelectInstance",
                     "name": "MonitorPresenceID",
-                    "caption": "Anwesenheits-Monitor"
+                    "caption": "SmartPresenceSimulation",
+                    "moduleID": "{E3405EEF-3ECA-4105-9658-47103378E206}"
                 }
             ]
         },
