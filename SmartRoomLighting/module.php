@@ -1351,7 +1351,7 @@ class SmartRoomLighting extends IPSModuleStrict
             ['caption' => 'Szenen-Name', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
         ];
 
-        if ($hasRegistry && count($lightOptions) > 1) {
+        if ($hasRegistry) {
             $sceneDevicesColumns[] = [
                 'caption' => 'Lampe / Dimmer (Registry)', 'name' => 'TargetID', 'width' => '250px',
                 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $lightOptions]
@@ -1373,7 +1373,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // --- MotionTriggers columns (dynamic based on registry) ---
         $motionTriggersColumns = [];
-        if ($hasRegistry && count($motionOptions) > 1) {
+        if ($hasRegistry) {
             $motionTriggersColumns[] = ['caption' => 'Sensor (Registry)', 'name' => 'SensorID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $motionOptions]];
             $motionTriggersColumns[] = ['caption' => 'Oder manuell', 'name' => 'ManualSensorID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
         } else {
@@ -1392,7 +1392,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // --- DoorRules columns (dynamic based on registry) ---
         $doorRulesColumns = [];
-        if ($hasRegistry && count($contactOptions) > 1) {
+        if ($hasRegistry) {
             $doorRulesColumns = [
                 ['caption' => 'Kontakt (Registry)', 'name' => 'DoorSensorID', 'width' => '180px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $contactOptions]],
                 ['caption' => 'Oder manuell', 'name' => 'ManualDoorVariableID', 'width' => '150px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
