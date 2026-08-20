@@ -198,12 +198,28 @@ class SmartController extends IPSModuleStrict
         }
 
         // === Restore Tariff Variables ===
-        $this->RegisterVariableFloat('VarPriceElectricity', 'Strompreis', '', 50);
-        $this->RegisterVariableFloat('VarBasePriceElectricity', 'Strom Grundpreis', '', 51);
-        $this->RegisterVariableFloat('VarPriceWater', 'Wasserpreis', '', 52);
-        $this->RegisterVariableFloat('VarBasePriceWater', 'Wasser Grundpreis', '', 53);
-        $this->RegisterVariableFloat('VarPriceGas', 'Gaspreis', '', 54);
-        $this->RegisterVariableFloat('VarBasePriceGas', 'Gas Grundpreis', '', 55);
+        if (!IPS_VariableProfileExists('SmartTariff.CentKwh')) {
+            IPS_CreateVariableProfile('SmartTariff.CentKwh', 2);
+            IPS_SetVariableProfileText('SmartTariff.CentKwh', '', ' Cent/kWh');
+            IPS_SetVariableProfileDigits('SmartTariff.CentKwh', 2);
+        }
+        if (!IPS_VariableProfileExists('SmartTariff.CentM3')) {
+            IPS_CreateVariableProfile('SmartTariff.CentM3', 2);
+            IPS_SetVariableProfileText('SmartTariff.CentM3', '', ' Cent/m³');
+            IPS_SetVariableProfileDigits('SmartTariff.CentM3', 2);
+        }
+        if (!IPS_VariableProfileExists('SmartTariff.EuroYear')) {
+            IPS_CreateVariableProfile('SmartTariff.EuroYear', 2);
+            IPS_SetVariableProfileText('SmartTariff.EuroYear', '', ' €/Jahr');
+            IPS_SetVariableProfileDigits('SmartTariff.EuroYear', 2);
+        }
+
+        $this->RegisterVariableFloat('VarPriceElectricity', 'Strompreis', 'SmartTariff.CentKwh', 50);
+        $this->RegisterVariableFloat('VarBasePriceElectricity', 'Strom Grundpreis', 'SmartTariff.EuroYear', 51);
+        $this->RegisterVariableFloat('VarPriceWater', 'Wasserpreis', 'SmartTariff.CentM3', 52);
+        $this->RegisterVariableFloat('VarBasePriceWater', 'Wasser Grundpreis', 'SmartTariff.EuroYear', 53);
+        $this->RegisterVariableFloat('VarPriceGas', 'Gaspreis', 'SmartTariff.CentKwh', 54);
+        $this->RegisterVariableFloat('VarBasePriceGas', 'Gas Grundpreis', 'SmartTariff.EuroYear', 55);
         
         $this->SetValue('VarPriceElectricity', $this->ReadPropertyFloat('PriceElectricity'));
         $this->SetValue('VarBasePriceElectricity', $this->ReadPropertyFloat('BasePriceElectricity'));
