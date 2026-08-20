@@ -849,6 +849,8 @@ class SmartInventory extends IPSModuleStrict
             }
         }
 
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
         // Ungetaggte Variablen sammeln
         $batches = [];
         $totalVars = 0;
@@ -871,7 +873,7 @@ class SmartInventory extends IPSModuleStrict
                 if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
                     continue;
                 }
-                if (str_starts_with($obj['ObjectInfo'], self::TAG_PREFIX)) {
+                if (!empty($db[$childID]['tag'])) {
                     continue;
                 }
 
