@@ -34,6 +34,13 @@ class SmartController extends IPSModuleStrict
 
         // === Main Axes ===
         $this->registerModeVariables();
+        
+        $this->RegisterPropertyFloat('PriceElectricity', 0.32);
+        $this->RegisterPropertyFloat('BasePriceElectricity', 0.0);
+        $this->RegisterPropertyFloat('PriceWater', 4.80);
+        $this->RegisterPropertyFloat('BasePriceWater', 0.0);
+        $this->RegisterPropertyFloat('PriceGas', 0.12);
+        $this->RegisterPropertyFloat('BasePriceGas', 0.0);
 
         // Google Home / Alexa Interface (Boolean Toggle)
         $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
@@ -193,13 +200,20 @@ class SmartController extends IPSModuleStrict
             IPS_SetDisabled($this->GetIDForIdent('ActivityMode'), true);
         }
 
-        // === Remove old legacy variables ===
-        $this->UnregisterVariable('VarPriceElectricity');
-        $this->UnregisterVariable('VarBasePriceElectricity');
-        $this->UnregisterVariable('VarPriceWater');
-        $this->UnregisterVariable('VarBasePriceWater');
-        $this->UnregisterVariable('VarPriceGas');
-        $this->UnregisterVariable('VarBasePriceGas');
+        // === Restore Tariff Variables ===
+        $this->RegisterVariableFloat('VarPriceElectricity', 'Strompreis', '', 50);
+        $this->RegisterVariableFloat('VarBasePriceElectricity', 'Strom Grundpreis', '', 51);
+        $this->RegisterVariableFloat('VarPriceWater', 'Wasserpreis', '', 52);
+        $this->RegisterVariableFloat('VarBasePriceWater', 'Wasser Grundpreis', '', 53);
+        $this->RegisterVariableFloat('VarPriceGas', 'Gaspreis', '', 54);
+        $this->RegisterVariableFloat('VarBasePriceGas', 'Gas Grundpreis', '', 55);
+        
+        $this->SetValue('VarPriceElectricity', $this->ReadPropertyFloat('PriceElectricity'));
+        $this->SetValue('VarBasePriceElectricity', $this->ReadPropertyFloat('BasePriceElectricity'));
+        $this->SetValue('VarPriceWater', $this->ReadPropertyFloat('PriceWater'));
+        $this->SetValue('VarBasePriceWater', $this->ReadPropertyFloat('BasePriceWater'));
+        $this->SetValue('VarPriceGas', $this->ReadPropertyFloat('PriceGas'));
+        $this->SetValue('VarBasePriceGas', $this->ReadPropertyFloat('BasePriceGas'));
         
         $this->UnregisterVariable('FireplaceActive');
         $this->UnregisterVariable('MediaPlaying');
@@ -742,6 +756,49 @@ class SmartController extends IPSModuleStrict
         $json = <<<'EOT'
 {
     "elements": [
+                {
+            "type": "ExpansionPanel",
+            "caption": "💰 Verbrauchs-Tarife",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "NumberSpinner",
+                    "name": "PriceElectricity",
+                    "caption": "Strompreis (Cent/kWh)",
+                    "digits": 4
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "BasePriceElectricity",
+                    "caption": "Strom Grundpreis (€/Jahr)",
+                    "digits": 2
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PriceWater",
+                    "caption": "Wasserpreis (Cent/m³)",
+                    "digits": 4
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "BasePriceWater",
+                    "caption": "Wasser Grundpreis (€/Jahr)",
+                    "digits": 2
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "PriceGas",
+                    "caption": "Gaspreis (Cent/kWh)",
+                    "digits": 4
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "BasePriceGas",
+                    "caption": "Gas Grundpreis (€/Jahr)",
+                    "digits": 2
+                }
+            ]
+        },
         {
             "type": "ExpansionPanel",
             "caption": "🔎 Smart Monitore (System Status)",
