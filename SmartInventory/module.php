@@ -1127,9 +1127,66 @@ PROMPT;
 
     public function GetConfigurationForm(): string
     {
-        // Inventar direkt aus dem Objektbaum aufbauen.
-        // Der Buffer ist nur fuer externe API-Abfragen (zu gross fuer die Form).
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
+
+        $catCounts = [];
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                if ($v['disabled'] ?? false) continue;
+                $parsed = $this->parseTag($v['tag']);
+                if ($parsed['category'] !== '') {
+                    $cat = 'SI:' . $parsed['category'];
+                    if ($parsed['subcategory'] !== '') {
+                        $cat .= ':' . $parsed['subcategory'];
+                    }
+                    $catCounts[$cat] = ($catCounts[$cat] ?? 0) + 1;
+                }
+            }
+        }
+        
+        $catListValues = [];
+        // We need tagOptions manually here if we do it early
+        $earlyTagOpts = [
+              ['caption' => 'Batterie', 'value' => 'SI:battery'],
+              ['caption' => 'Erreichbarkeit (Offline/Online)', 'value' => 'SI:reachability'],
+              ['caption' => 'Kontakt (Generisch)', 'value' => 'SI:contact'],
+              ['caption' => 'Kontakt (Fenster)', 'value' => 'SI:contact:window'],
+              ['caption' => 'Kontakt (Tuer)', 'value' => 'SI:contact:door'],
+              ['caption' => 'Bewegungsmelder', 'value' => 'SI:motion'],
+              ['caption' => 'Alarm (Generisch)', 'value' => 'SI:alarm'],
+              ['caption' => 'Alarm (Wasser)', 'value' => 'SI:alarm:water'],
+              ['caption' => 'Alarm (Rauch)', 'value' => 'SI:alarm:smoke'],
+              ['caption' => 'Alarm (Hitze)', 'value' => 'SI:alarm:heat'],
+              ['caption' => 'Alarm (Gas)', 'value' => 'SI:alarm:gas'],
+              ['caption' => 'Alarm (Bewegung)', 'value' => 'SI:alarm:motion'],
+              ['caption' => 'Warnung', 'value' => 'SI:warning'],
+              ['caption' => 'Sensor (Temperatur)', 'value' => 'SI:sensor:temp'],
+              ['caption' => 'Sensor (Luftfeuchte)', 'value' => 'SI:sensor:humidity'],
+              ['caption' => 'Sensor (Helligkeit)', 'value' => 'SI:sensor:lux'],
+              ['caption' => 'Sensor (Leistung W)', 'value' => 'SI:sensor:power'],
+              ['caption' => 'Sensor (Energie kWh)', 'value' => 'SI:sensor:energy'],
+              ['caption' => 'Aktor (Schalter)', 'value' => 'SI:actor:switch'],
+              ['caption' => 'Aktor (Dimmer)', 'value' => 'SI:actor:dimmer'],
+              ['caption' => 'Aktor (Rollladen)', 'value' => 'SI:actor:blind'],
+              ['caption' => 'Aktor (Thermostat)', 'value' => 'SI:actor:thermostat'],
+              ['caption' => 'Aktor (Schloss)', 'value' => 'SI:actor:lock'],
+              ['caption' => 'Diagnostik', 'value' => 'SI:diagnostic']
+        ];
+        foreach ($catCounts as $c => $count) {
+            $caption = $c;
+            foreach ($earlyTagOpts as $opt) {
+                if ($opt['value'] === $c) {
+                    $caption = $opt['caption'];
+                    break;
+                }
+            }
+            $catListValues[] = [
+                'tag' => $c,
+                'caption' => $caption,
+                'count' => (string)$count
+            ];
+        }
+        usort($catListValues, function($a, $b) { return strcmp($a['tag'], $b['tag']); });
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         // Räume sammeln für Dropdown
