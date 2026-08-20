@@ -39,7 +39,11 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterPropertyInteger('NotifierID', 0);              // Legacy – wird nicht mehr verwendet
         $this->RegisterPropertyInteger('GeminiIOID', 0);              // SmartGeminiIO Instanz
 
+        // Datenbank
+        $this->RegisterAttributeString('TagDatabase', '{}');
+
         // Persistenter Speicher für KI-Vorschläge (überlebt Modul-Updates)
+        $this->RegisterAttributeString('TagDatabase', '{}');
         $this->RegisterAttributeString('AISuggestions', '[]');
 
         // Timer für periodischen Scan
@@ -64,9 +68,32 @@ class SmartInventory extends IPSModuleStrict
         ], 901);
     }
 
+        private function MigrateTags(): void
+    {
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        $modified = false;
+        foreach (IPS_GetInstanceList() as $instID) {
+            foreach (IPS_GetChildrenIDs($instID) as $childID) {
+                if (IPS_ObjectExists($childID) && IPS_GetObject($childID)['ObjectType'] === 2) {
+                    $info = IPS_GetObject($childID)['ObjectInfo'];
+                    if (str_starts_with($info, 'SI:')) {
+                        if (!isset($db[$childID])) $db[$childID] = [];
+                        $db[$childID]['tag'] = $info;
+                        IPS_SetInfo($childID, '');
+                        $modified = true;
+                    }
+                }
+            }
+        }
+        if ($modified) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
+    }
+
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->MigrateTags();
 
         // Timer setzen
         $interval = $this->ReadPropertyInteger('ScanInterval');
@@ -806,29 +833,28 @@ class SmartInventory extends IPSModuleStrict
     /**
      * Setzt den Raum einer Instanz manuell.
      */
-    public function SetRoom(int $instanceID, string $room): bool
+        public function SetRoom(int $id, string $room): bool
     {
-        if (!@IPS_InstanceExists($instanceID)) {
-            return false;
+        if (!@IPS_ObjectExists($id)) return false;
+        
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        if ($room === '') {
+            if (isset($db[$id])) {
+                unset($db[$id]['room']);
+                if (empty($db[$id])) unset($db[$id]);
+            }
+        } else {
+            if (!isset($db[$id])) $db[$id] = [];
+            $db[$id]['room'] = $room;
         }
-
-        $roomVarID = @IPS_GetObjectIDByIdent('_SI_Room', $instanceID);
-        if ($roomVarID === false) {
-            $roomVarID = IPS_CreateVariable(3); // String
-            IPS_SetParent($roomVarID, $instanceID);
-            IPS_SetIdent($roomVarID, '_SI_Room');
-            IPS_SetName($roomVarID, 'Raum (SmartInventory)');
-            IPS_SetHidden($roomVarID, true);
-        }
-
-        SetValue($roomVarID, $room);
+        $this->WriteAttributeString('TagDatabase', json_encode($db));
         return true;
     }
 
     /**
      * Setzt den Tag einer Variable.
      */
-    public function SetTag(int $varID, string $tag): bool
+        public function SetTag(int $varID, string $tag): bool
     {
         if (!@IPS_VariableExists($varID)) {
             return false;
@@ -836,7 +862,23 @@ class SmartInventory extends IPSModuleStrict
         if ($tag !== '' && !str_starts_with($tag, self::TAG_PREFIX)) {
             $tag = self::TAG_PREFIX . $tag;
         }
-        IPS_SetInfo($varID, $tag);
+        
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        if ($tag === '') {
+            if (isset($db[$varID])) {
+                unset($db[$varID]['tag']);
+                if (empty($db[$varID])) unset($db[$varID]);
+            }
+        } else {
+            if (!isset($db[$varID])) $db[$varID] = [];
+            $db[$varID]['tag'] = $tag;
+        }
+        $this->WriteAttributeString('TagDatabase', json_encode($db));
+        
+        // Cleanup old ObjectInfo
+        if (str_starts_with(IPS_GetObject($varID)['ObjectInfo'], 'SI:')) {
+            IPS_SetInfo($varID, '');
+        }
         return true;
     }
 
@@ -1057,7 +1099,7 @@ PROMPT;
                 }
             }
 
-            IPS_SetInfo($varID, $tag);
+            $this->SetTag($varID, $tag);
 
             // Raum setzen
             if ($room !== '') {
@@ -1105,7 +1147,7 @@ PROMPT;
             if (!str_starts_with($tag, self::TAG_PREFIX)) {
                 $tag = self::TAG_PREFIX . $tag;
             }
-            IPS_SetInfo($varID, $tag);
+            $this->SetTag($varID, $tag);
 
             // Raum setzen
             if ($room !== '') {
@@ -1621,28 +1663,38 @@ PROMPT;
     /**
      * Ermittelt den Raum einer Instanz (_SI_Room Override oder Objektbaum-Pfad).
      */
-    private function resolveRoom(int $instanceID): string
+        private function resolveRoom(int $id): string
     {
-        // 1. Override prüfen
-        $roomVarID = @IPS_GetObjectIDByIdent('_SI_Room', $instanceID);
-        if ($roomVarID !== false && IPS_VariableExists($roomVarID)) {
-            $userRoom = GetValue($roomVarID);
-            if ($userRoom !== '') {
-                return $userRoom;
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        if (isset($db[$id]) && !empty($db[$id]['room'])) {
+            return $db[$id]['room'];
+        }
+        
+        // Fallback for Variables: Check parent instance
+        $obj = IPS_GetObject($id);
+        if ($obj['ObjectType'] === 2) { // Variable
+            $parentId = $obj['ParentID'];
+            if (isset($db[$parentId]) && !empty($db[$parentId]['room'])) {
+                return $db[$parentId]['room'];
             }
+            $id = $parentId;
         }
 
-        // 2. Aus Objektbaum-Pfad ableiten
-        $path = IPS_GetLocation($instanceID);
+        // Fallback: _SI_Room (Legacy)
+        $roomVarID = @IPS_GetObjectIDByIdent('_SI_Room', $id);
+        if ($roomVarID !== false && IPS_VariableExists($roomVarID)) {
+            $userRoom = GetValue($roomVarID);
+            if ($userRoom !== '') return $userRoom;
+        }
+
+        // Fallback: Path
+        $path = IPS_GetLocation($id);
         $segments = explode('\\', $path);
         $segmentIndex = $this->ReadPropertyInteger('RoomPathSegment');
-
-        // Von rechts zählen: Segment 1 = Instanz selbst, 2 = Parent-Kategorie, etc.
         $idx = count($segments) - $segmentIndex;
         if ($idx >= 0 && $idx < count($segments)) {
             return $segments[$idx];
         }
-
         return '';
     }
 
