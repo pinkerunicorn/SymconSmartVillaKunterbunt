@@ -166,7 +166,7 @@ class SmartInventory extends IPSModuleStrict
      *
      * @return array{inventory: array, untagged: array}
      */
-    private function buildInventoryData(): array
+        private function buildInventoryData(): array
     {
         $inventory         = [];
         $untaggedInstances = [];
@@ -174,41 +174,25 @@ class SmartInventory extends IPSModuleStrict
 
         foreach (IPS_GetInstanceList() as $instanceID) {
             $instance = @IPS_GetInstance($instanceID);
-            if ($instance === false) {
-                continue;
-            }
-
-            // Nur Device-Instanzen (ModuleType 3)
-            if ($instance['ModuleInfo']['ModuleType'] !== 3) {
-                continue;
-            }
-
-            // Sich selbst überspringen
-            if ($instanceID === $this->InstanceID) {
-                continue;
-            }
+            if ($instance === false) continue;
+            if ($instance['ModuleInfo']['ModuleType'] !== 3) continue;
+            if ($instanceID === $this->InstanceID) continue;
 
             $instanceName = IPS_GetName($instanceID);
             $moduleName   = $instance['ModuleInfo']['ModuleName'];
             $room         = $this->resolveRoom($instanceID);
-
             $children     = IPS_GetChildrenIDs($instanceID);
+            
             $instanceVars = [];
             $hasTaggedVar = false;
 
             foreach ($children as $childID) {
                 $obj = @IPS_GetObject($childID);
-                if ($obj === false || $obj['ObjectType'] !== 2) {
-                    continue;
-                }
-
-                if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
-                    continue;
-                }
+                if ($obj === false || $obj['ObjectType'] !== 2) continue;
+                if (str_starts_with($obj['ObjectIdent'], '_SI_')) continue;
 
                 $tagData = $db[$childID] ?? [];
                 $info = $tagData['tag'] ?? '';
-
                 if (str_starts_with($info, self::TAG_PREFIX)) {
                     $hasTaggedVar = true;
                 }
@@ -234,12 +218,8 @@ class SmartInventory extends IPSModuleStrict
                 ];
             }
 
-            // Wenn keine Variablen gefunden wurden, ignorieren
-            if (count($instanceVars) === 0) {
-                continue;
-            }
+            if (count($instanceVars) === 0) continue;
 
-            // Wir nehmen jetzt ALLE Geräte ins Inventory auf, damit sie in "Alle Geräte & Variablen" auftauchen!
             $health = $this->calculateDeviceHealth($instanceVars);
             $inventory[] = [
                 'instanceID'   => $instanceID,
@@ -256,34 +236,10 @@ class SmartInventory extends IPSModuleStrict
                     'instanceName' => $instanceName,
                     'moduleName'   => $moduleName,
                     'room'         => $room,
-                    'health'       => $health['status'],
-                    'healthDetail' => $health['detail'],
-                    'variables'    => $instanceVars,
+                    'varCount'     => count($instanceVars),
                 ];
-            } else {
-                $varCount = 0;
-                foreach ($children as $cid) {
-                    $co = @IPS_GetObject($cid);
-                    if ($co !== false && $co['ObjectType'] === 2 && !str_starts_with($co['ObjectIdent'], '_SI_')) {
-                        $varCount++;
-                    }
-                }
-                if ($varCount > 0) {
-                    $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $instanceID);
-                    if ($ignoreVarID !== false && GetValue($ignoreVarID)) {
-                        continue;
-                    }
-                    $untaggedInstances[] = [
-                        'instanceID'   => $instanceID,
-                        'instanceName' => $instanceName,
-                        'moduleName'   => $moduleName,
-                        'varCount'     => $varCount,
-                        'room'         => $room,
-                    ];
-                }
             }
         }
-
         return ['inventory' => $inventory, 'untagged' => $untaggedInstances];
     }
 
