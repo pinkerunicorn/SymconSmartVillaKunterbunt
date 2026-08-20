@@ -166,6 +166,7 @@ class SmartRoomLighting extends IPSModuleStrict
                 if (is_array($devices)) {
                     foreach ($devices as $dev) {
                         $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
+                        $varId = (int)($dev['varID'] ?? 0);
                         if ($type === 'actor:color' && $varId > 0) $deviceMap[$baseKey . '::Color'] = $varId;
                         if ($type === 'actor:dimmer' && $varId > 0) $deviceMap[$baseKey . '::Dimmer'] = $varId;
                         if ($type === 'actor:switch' && $varId > 0) $deviceMap[$baseKey . '::Switch'] = $varId;
