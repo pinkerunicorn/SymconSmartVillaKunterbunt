@@ -175,6 +175,8 @@ class SmartNotifier extends IPSModuleStrict
         $contactCount   = 0;
         $motionCount    = 0;
 
+        $isAway = $this->IsAway() || $this->IsVacation();
+
         foreach ($inventory as $device) {
             // ── Device Health Score (dedupliziert) ──
             // Nutze den Health-Status aus dem SmartInventory Lean Buffer
@@ -255,6 +257,13 @@ class SmartNotifier extends IPSModuleStrict
                         $isActive = $this->IsTriggered($liveValue, $v['normalState']);
                         if ($isActive) {
                             $motionCount++;
+                            if ($isAway) {
+                                $alarmCount++;
+                                $name = $device['instanceName'] . ($device['room'] !== '' ? ' (' . $device['room'] . ')' : '');
+                                $this->NotifyIfNew('alarm_motion_' . $v['varID'], 'Einbruchalarm', 'Bewegung erkannt: ' . $name, 2, $isFirstRun);
+                            }
+                        } else {
+                            $this->ClearNotified('alarm_motion_' . $v['varID']);
                         }
                         break;
                 }
@@ -439,6 +448,12 @@ class SmartNotifier extends IPSModuleStrict
     /**
      * Löscht einen Problem-Key aus dem Notified-Tracker (Problem behoben).
      */
+    private function HasNotified(string $key): bool
+    {
+        $notified = json_decode($this->GetBuffer('NotifiedProblems') ?: '{}', true) ?: [];
+        return isset($notified[$key]);
+    }
+
     private function ClearNotified(string $key): void
     {
         $notified = json_decode($this->GetBuffer('NotifiedProblems') ?: '{}', true);

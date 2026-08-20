@@ -669,9 +669,21 @@ class SmartInventory extends IPSModuleStrict
         $buffer = (string)$this->GetBuffer('Inventory');
         $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
+        
+        $isAway = false;
+        $shcIds = @IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
+        if (count($shcIds) > 0) {
+            $pm = @IPS_GetObjectIDByIdent('PresenceMode', $shcIds[0]);
+            if ($pm && @IPS_VariableExists($pm)) {
+                $val = GetValue($pm);
+                $isAway = ($val == 1 || $val == 2);
+            }
+        }
+
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
-                if (in_array($v['category'], ['alarm', 'warning']) && !$v['disabled']) {
+                $cat = $v['category'];
+                if ((in_array($cat, ['alarm', 'warning']) || ($isAway && $cat === 'motion')) && !$v['disabled']) {
                     $vid = (int)$v['varID'];
                     if ($vid > 0 && @IPS_VariableExists($vid)) {
                         $liveVal = GetValue($vid);
