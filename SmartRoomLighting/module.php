@@ -5,14 +5,12 @@ declare(strict_types=1);
 require_once __DIR__ . '/../libs/Trait_SmartLog.php';
 require_once __DIR__ . '/../libs/Trait_HardwareControl.php';
 require_once __DIR__ . '/../libs/Trait_CentralStateAware.php';
-require_once __DIR__ . '/../libs/Trait_DeviceRegistration.php';
 
 class SmartRoomLighting extends IPSModuleStrict
 {
     use SmartLog_Trait;
     use HardwareControl_Trait;
     use CentralStateAware_Trait;
-    use DeviceRegistration_Trait;
 
     // Maximum number of concurrent timers
     private const MAX_TIMERS = 20;
@@ -26,7 +24,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         // === Properties ===
         // Device Registry integration (optional)
-        $this->RegisterPropertyInteger('RegistryID', 0);
+        $this->RegisterPropertyInteger('SmartInventoryID', 0);
         // Scene mode: map a name to a SmartSequencer instance
         $this->RegisterPropertyString('Scenes', '[]');
         // Direct scene lamps: map a scene name to a set of lamps
@@ -57,7 +55,6 @@ class SmartRoomLighting extends IPSModuleStrict
 
     public function Destroy(): void
     {
-        $this->DR_Unregister();
         parent::Destroy();
     }
 
@@ -70,12 +67,11 @@ class SmartRoomLighting extends IPSModuleStrict
         // --- References ---
         foreach ($this->GetReferenceList() as $refID) {
             $this->UnregisterReference($refID);
-        $this->DR_Register('DevicesGenericSensor');
         }
 
-        $this->registerPropertyReference('RegistryID');
+        $this->registerPropertyReference('SmartInventoryID');
         
-        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
+        $regId = (int)@$this->ReadPropertyInteger('SmartInventoryID');
         if ($regId > 1 && @IPS_InstanceExists($regId)) {
             $sunsetId = (int)@IPS_GetProperty($regId, 'SunsetVariableID');
             $sunriseId = (int)@IPS_GetProperty($regId, 'SunriseVariableID');
@@ -121,7 +117,7 @@ class SmartRoomLighting extends IPSModuleStrict
         // -------------------------------------------------------------
         $switchDefaults = [];
         $deviceMap = [];
-        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
+        $regId = (int)@$this->ReadPropertyInteger('SmartInventoryID');
         
         if ($regId > 0 && @IPS_InstanceExists($regId)) {
             // Wall Switches
@@ -521,14 +517,14 @@ class SmartRoomLighting extends IPSModuleStrict
         // 1. Check Manual Override
         $respectOverride = $trigger['RespectOverride'] ?? true;
         if ($respectOverride && $this->isManualOverride()) {
-            $this->SendDebug('Motion', 'Manual Override aktiv – ignoriert', 0);
+            $this->SendDebug('Motion', 'Manual Override aktiv ? ignoriert', 0);
             return;
         }
 
         // 2. Check Darkness
         $onlyWhenDark = $trigger['OnlyWhenDark'] ?? false;
         if ($onlyWhenDark && !$this->GetCentralState('IsDark')) {
-            $this->SendDebug('Motion', 'Es ist hell – ignoriert', 0);
+            $this->SendDebug('Motion', 'Es ist hell ? ignoriert', 0);
             return;
         }
 
@@ -610,14 +606,14 @@ class SmartRoomLighting extends IPSModuleStrict
         $this->SetBuffer('SwitchDebounceCache', json_encode($debounceCache));
 
         if ($toggle) {
-            // Toggle: if override is currently active → deactivate scene + release override
+            // Toggle: if override is currently active ? deactivate scene + release override
             if ($this->isManualOverride()) {
                 if ($sceneName !== '') {
                     $this->deactivateScene($sceneName, 'Schalter AUS');
                 }
                 $this->setManualOverride(false);
                 $this->cancelAllMotionTimers();
-                $this->SLogInfo('Schalter Toggle', 'AUS – Manual Override aufgehoben');
+                $this->SLogInfo('Schalter Toggle', 'AUS ? Manual Override aufgehoben');
                 return;
             }
         }
@@ -631,7 +627,7 @@ class SmartRoomLighting extends IPSModuleStrict
         if ($setsOverride) {
             $this->setManualOverride(true);
             $this->cancelAllMotionTimers();
-            $this->SLogInfo('Schalter', "Szene: $sceneName – Manual Override gesetzt");
+            $this->SLogInfo('Schalter', "Szene: $sceneName ? Manual Override gesetzt");
         }
     }
 
@@ -698,7 +694,7 @@ class SmartRoomLighting extends IPSModuleStrict
             $this->SetTimerInterval($timerName, 0);
 
             if ($occupancyLock && ($this->GetBuffer('OccupancyLocked') === 'true')) {
-                // Room was occupied, door opens → release and start off-timer
+                // Room was occupied, door opens ? release and start off-timer
                 $this->SetBuffer('OccupancyLocked', 'false');
                 $duration = $rule['DurationSec'] ?? 10;
                 if ($duration > 0) {
@@ -725,7 +721,7 @@ class SmartRoomLighting extends IPSModuleStrict
             if ($occupancyLock) {
                 // Wasp-in-a-box: lock occupancy
                 $this->SetBuffer('OccupancyLocked', 'true');
-                $this->SLogInfo('Wasp-in-a-Box', 'Raum als belegt markiert – Licht bleibt an');
+                $this->SLogInfo('Wasp-in-a-Box', 'Raum als belegt markiert ? Licht bleibt an');
                 return;
             }
 
@@ -765,7 +761,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true) ?: [];
-        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
+        $regId = (int)@$this->ReadPropertyInteger('SmartInventoryID');
         $sunsetId = 0;
         $sunriseId = 0;
         if ($regId > 1 && @IPS_InstanceExists($regId)) {
@@ -1329,7 +1325,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
-        $regId = $this->ReadPropertyInteger('RegistryID');
+        $regId = $this->ReadPropertyInteger('SmartInventoryID');
         $hasRegistry = ($regId > 0 && @IPS_InstanceExists($regId));
 
         $definedScenes = $this->safeJsonDecode($this->ReadPropertyString('Scenes'), true) ?: [];
@@ -1371,7 +1367,7 @@ class SmartRoomLighting extends IPSModuleStrict
 
         $sceneDevicesColumns[] = ['caption' => 'Wert (AN)', 'name' => 'ActionValue', 'width' => '100px', 'add' => 'true', 'edit' => ['type' => 'ValidationTextBox']];
         $sceneDevicesColumns[] = ['caption' => 'Wert (AUS)', 'name' => 'DeactivateValue', 'width' => '100px', 'add' => 'false', 'edit' => ['type' => 'ValidationTextBox']];
-        $sceneDevicesColumns[] = ['caption' => 'Löst Szene aus', 'name' => 'ReverseTrigger', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']];
+        $sceneDevicesColumns[] = ['caption' => 'L?st Szene aus', 'name' => 'ReverseTrigger', 'width' => '120px', 'add' => false, 'edit' => ['type' => 'CheckBox']];
 
         // --- MotionTriggers columns (dynamic based on registry) ---
         $motionTriggersColumns = [];
@@ -1436,9 +1432,9 @@ class SmartRoomLighting extends IPSModuleStrict
                     'items' => [
                         [
                             'type' => 'SelectModule',
-                            'name' => 'RegistryID',
-                            'caption' => 'Device Registry (SDR) Instanz (optional)',
-                            'moduleID' => '{F3B4A7D9-C59E-401A-B826-17D3B5C2849E}'
+                            'name' => 'SmartInventoryID',
+                            'caption' => 'SmartInventory Instanz (optional)',
+                            'moduleID' => '{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}'
                         ],
                         [
                             'type' => 'Label',
@@ -1456,7 +1452,7 @@ class SmartRoomLighting extends IPSModuleStrict
                     'items' => [
                         [
                             'type' => 'Label',
-                            'caption' => 'Hier legst du alle Namen deiner Szenen für diesen Raum fest (z.B. "Standard", "Kino"). Du kannst optional direkt einen SmartSequencer verknüpfen, musst das aber nicht (0 lassen).',
+                            'caption' => 'Hier legst du alle Namen deiner Szenen f?r diesen Raum fest (z.B. "Standard", "Kino"). Du kannst optional direkt einen SmartSequencer verkn?pfen, musst das aber nicht (0 lassen).',
                         ],
                         [
                             'type' => 'List',
