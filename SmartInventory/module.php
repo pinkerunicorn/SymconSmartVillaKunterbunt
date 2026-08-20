@@ -1332,7 +1332,7 @@ PROMPT;
                 if ($listData["disabled"]) {
                     $newTag .= ":disabled";
                 }
-                $this->SetTag($vid, $newTag);
+                SINV_SetTag($id, $vid, $newTag);
             } elseif ($objType === 3) {
                 // Instanz (Nicht getaggt) -> Ignore setzen
                 $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
@@ -1352,17 +1352,8 @@ PROMPT;
             
             // Raum aktualisieren
             $newRoom = $listData["room"];
-            $roomVarID = @IPS_GetObjectIDByIdent("_SI_Room", $iid);
-            if ($roomVarID === false && $newRoom !== "") {
-                $roomVarID = IPS_CreateVariable(3);
-                IPS_SetParent($roomVarID, $iid);
-                IPS_SetIdent($roomVarID, "_SI_Room");
-                IPS_SetName($roomVarID, "SmartInventory Raum Override");
-                IPS_SetHidden($roomVarID, true);
-            }
-            if ($roomVarID !== false) {
-                SetValue($roomVarID, $newRoom);
-            }
+            // We set the room on the object being edited (either Variable or Instance)
+            SINV_SetRoom($id, $vid > 0 ? $vid : $iid, $newRoom);
             
             SINV_Scan($id);
         ';
