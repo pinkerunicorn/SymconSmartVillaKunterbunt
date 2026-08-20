@@ -909,9 +909,9 @@ Du klassifizierst Smart-Home-Variablen. Für jede Variable: Tag zuweisen, Raum a
 Tags (exakt verwenden):
 SI:battery, SI:reachability, SI:reachability:ok=false (für UNREACH),
 SI:alarm:smoke, SI:alarm:water, SI:alarm:co, SI:alarm:tamper, SI:alarm:generic,
-SI:contact, SI:contact:ok=WERT (für String-Kontakte),
+SI:motion, SI:contact, SI:contact:ok=WERT (für String-Kontakte),
 SI:sensor:temp, SI:sensor:humidity, SI:sensor:co2, SI:sensor:voc,
-SI:sensor:pressure, SI:sensor:lux, SI:sensor:radon,
+SI:sensor:pressure, SI:sensor:lux, SI:sensor:radon, SI:sensor:button (Taster),
 SI:sensor:power, SI:sensor:energy, SI:sensor:generic,
 SI:actor:switch, SI:actor:dimmer, SI:actor:blind, SI:actor:thermostat,
 SI:actor:lock, SI:actor:valve,
