@@ -71,7 +71,7 @@ class SmartInventory extends IPSModuleStrict
         public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        $this->MigrateTags();
+        
 
         // Timer setzen
         $interval = $this->ReadPropertyInteger('ScanInterval');
