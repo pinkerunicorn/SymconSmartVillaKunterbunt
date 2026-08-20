@@ -126,7 +126,7 @@ class SmartRoomLighting extends IPSModuleStrict
             $devices = json_decode(@SINV_GetByCategory($regId, 'sensor:button'), true) ?: [];
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
-                    $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+                    $key = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
                     $varId = (int)($dev['varID'] ?? 0);
                     if ($varId > 0) $deviceMap[$key] = $varId;
                     
@@ -141,7 +141,7 @@ class SmartRoomLighting extends IPSModuleStrict
             $devices = json_decode(@SINV_GetByCategory($regId, 'motion'), true) ?: [];
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
-                    $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+                    $key = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
                     $varId = (int)($dev['varID'] ?? 0);
                     if ($varId > 0) $deviceMap[$key] = $varId;
                     $luxVarId = 0; // Legacy lux mapping inside motion removed
@@ -153,7 +153,7 @@ class SmartRoomLighting extends IPSModuleStrict
             $devices = json_decode(@SINV_GetByCategory($regId, 'contact'), true) ?: [];
             if (is_array($devices)) {
                 foreach ($devices as $dev) {
-                    $key = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+                    $key = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
                     $varId = (int)($dev['varID'] ?? 0);
                     if ($varId > 0) $deviceMap[$key] = $varId;
                 }
@@ -165,7 +165,7 @@ class SmartRoomLighting extends IPSModuleStrict
                 $devices = json_decode(@SINV_GetByCategory($regId, $type), true) ?: [];
                 if (is_array($devices)) {
                     foreach ($devices as $dev) {
-                        $baseKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+                        $baseKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
                         if ($type === 'actor:color' && $varId > 0) $deviceMap[$baseKey . '::Color'] = $varId;
                         if ($type === 'actor:dimmer' && $varId > 0) $deviceMap[$baseKey . '::Dimmer'] = $varId;
                         if ($type === 'actor:switch' && $varId > 0) $deviceMap[$baseKey . '::Switch'] = $varId;
@@ -665,9 +665,9 @@ class SmartRoomLighting extends IPSModuleStrict
             return $options;
         }
         foreach ($devices as $dev) {
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
             $varId = (int)($dev['varID'] ?? 0);
-            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
             if ($varId > 0 && !in_array($deviceKey, $addedVarIds)) {
                 $addedVarIds[] = $deviceKey;
                 $dynamicOptions[] = ['label' => $name . ' (Taster)', 'value' => $deviceKey];
@@ -1196,12 +1196,12 @@ class SmartRoomLighting extends IPSModuleStrict
                 continue;
             }
             foreach ($devices as $dev) {
-                $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+                $baseName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
                 
                 // Add Color option
                 if ($type === 'actor:color') {
                     $varId = (int)($dev['varID'] ?? 0);
-                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Color';
+                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . '::Color';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
                         $dynamicOptions[] = ['label' => $baseName . ' (Farbe)', 'value' => $deviceKey];
@@ -1211,7 +1211,7 @@ class SmartRoomLighting extends IPSModuleStrict
                 // Add Dimmer option
                 if ($type === 'actor:dimmer') {
                     $varId = (int)($dev['varID'] ?? 0);
-                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Dimmer';
+                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . '::Dimmer';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
                         $dynamicOptions[] = ['label' => $baseName . ' (Dimmer)', 'value' => $deviceKey];
@@ -1221,7 +1221,7 @@ class SmartRoomLighting extends IPSModuleStrict
                 // Add Switch option
                 if ($type === 'actor:switch') {
                     $varId = (int)($dev['varID'] ?? 0);
-                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Switch';
+                    $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . '::Switch';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;
                         $dynamicOptions[] = ['label' => $baseName . ' (Schalter)', 'value' => $deviceKey];
@@ -1251,9 +1251,9 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         foreach ($devices as $dev) {
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
             $varId = (int)($dev['varID'] ?? 0);
-            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
             if ($varId > 0) {
                 $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
             }
@@ -1280,9 +1280,9 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         foreach ($devices as $dev) {
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
             $varId = (int)($dev['varID'] ?? 0);
-            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt');
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt');
             if ($varId > 0) {
                 $dynamicOptions[] = ['label' => $name, 'value' => $deviceKey];
             }
@@ -1309,9 +1309,9 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         foreach ($devices as $dev) {
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? 'Unbenannt');
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? 'Unbenannt');
             $luxVarId = 0; // Legacy lux mapping inside motion removed
-            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['name'] ?? 'Unbenannt') . '::Lux';
+            $deviceKey = ($dev['room'] ?? '') . '::' . ($dev['instanceName'] ?? 'Unbenannt') . '::Lux';
             if ($luxVarId > 0) {
                 $dynamicOptions[] = ['label' => $name . ' (Helligkeit)', 'value' => $deviceKey];
             }

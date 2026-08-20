@@ -181,7 +181,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                         
                         if ($isActive) {
                             $count++;
-                            $name = ($dev['room'] ?? '') . ' ' . ($dev['name'] ?? '');
+                            $name = ($dev['room'] ?? '') . ' ' . ($dev['instanceName'] ?? '');
                             if (trim($name) === '') $name = IPS_GetName($vid);
                             $activeNames[] = trim($name);
                         }
@@ -322,7 +322,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             if (!in_array($dev['Type'] ?? '', ['DevicesLight', 'DevicesLightDimmer', 'DevicesLightColor'])) {
                 continue;
             }
-            $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+            $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? '');
             
             $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
             $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
@@ -390,7 +390,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 $allDevices = $this->GetAllSimulationDevices($regId);
                 if (is_array($allDevices)) {
                     foreach ($allDevices as $dev) {
-                        $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                        $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? '');
                         $vid = (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? $dev['Brightness_VarID'] ?? 0);
                         if ($vid > 0) $lightNames[$vid] = $name;
                     }
@@ -440,7 +440,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $allDevices = $this->GetAllSimulationDevices($regId);
             if (is_array($allDevices)) {
                 foreach ($allDevices as $dev) {
-                    $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                    $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? '');
                     $vid = (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? $dev['Brightness_VarID'] ?? 0);
                     if ($vid > 0) $lightNames[$vid] = $name;
                 }
@@ -493,7 +493,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                 $allDevices = $this->GetAllSimulationDevices($regId);
                 if (is_array($allDevices)) {
                     foreach ($allDevices as $dev) {
-                        $name = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                        $name = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? '');
                         $vid = (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? $dev['Brightness_VarID'] ?? 0);
                         if ($vid > 0) $lightNames[$vid] = $name;
                     }
@@ -553,7 +553,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                     
                     $isDimmer = ($dev['Type'] === 'DevicesLightDimmer');
                     $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
-                    $devName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                    $devName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? '');
 
                     if ($vid > 0 && IPS_VariableExists($vid)) {
                         if ($respectKeepOnReturn && in_array($vid, $keepIds)) {
@@ -726,7 +726,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                         
                         $monitoredList[] = [
                             "id" => $dev['id'] ?? '',
-                            "name" => $dev['name'] ?? 'Unbekannt',
+                            "name" => $dev['instanceName'] ?? 'Unbekannt',
                             "room" => $dev['room'] ?? '',
                             "typeStr" => $typeStr
                         ];
@@ -879,7 +879,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
                     $vid = $isDimmer ? (int)($dev['Brightness_VarID'] ?? 0) : (int)($dev['OnOff_VarID'] ?? $dev['Status_VarID'] ?? 0);
                     
                     if ($vid > 0 && IPS_VariableExists($vid)) {
-                        $devName = ($dev['room'] ?? '') . ' / ' . ($dev['name'] ?? '');
+                        $devName = ($dev['room'] ?? '') . ' / ' . ($dev['instanceName'] ?? '');
                         $catID = $catIDs[$ident];
                         
                         if (!isset($existingLinks[$ident][$vid])) {
