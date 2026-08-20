@@ -79,10 +79,7 @@ class SmartNotifier extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'door-open',
         ], 3);
-        $this->RegisterVariableInteger('MotionCount', 'Bewegung aktiv', [
-            'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
-            'ICON'         => 'person-running',
-        ], 4);
+
         $this->RegisterVariableString('LastCheck', 'Letzter Check', [
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON'         => 'clock',
@@ -274,7 +271,7 @@ class SmartNotifier extends IPSModuleStrict
         $this->UpdateCounterVar('DeviceProblems', $deviceProblems);
         $this->UpdateCounterVar('ActiveAlarmCount', $alarmCount);
         $this->UpdateCounterVar('OpenContactCount', $contactCount);
-        $this->UpdateCounterVar('MotionCount', $motionCount);
+        
         $this->SetValue('LastCheck', date('d.m.Y H:i:s'));
 
         $this->SendDebug('Monitor', "DeviceProblems: $deviceProblems, Alarme: $alarmCount, Kontakte: $contactCount, Motion: $motionCount", 0);
@@ -412,9 +409,9 @@ class SmartNotifier extends IPSModuleStrict
                 $isActive = $this->IsTriggered($newValue, $parsed['normalState']);
                 // MotionCount: +1 wenn aktiv, -1 wenn inaktiv (kein Notify – fluechtiger Zustand)
                 if ($isActive) {
-                    $this->UpdateCounterDelta('MotionCount', +1);
+                    
                 } else {
-                    $this->UpdateCounterDelta('MotionCount', -1);
+                    
                 }
                 break;
         }
