@@ -302,6 +302,10 @@ class SmartNotifier extends IPSModuleStrict
         // Echtzeit-Kategorien abonnieren (Alarm, Warning, Kontakt, Reachability, Motion)
         $realtimeCategories = ['alarm', 'warning', 'contact', 'reachability', 'motion'];
         foreach ($inventory as $device) {
+            // Endlosschleife verhindern, falls der User unsere eigenen Counter getaggt hat
+            if ($device['instanceID'] === $this->InstanceID) {
+                continue;
+            }
             foreach ($device['variables'] as $v) {
                 if ($v['disabled']) {
                     continue;
@@ -330,6 +334,11 @@ class SmartNotifier extends IPSModuleStrict
     {
         $obj = @IPS_GetObject($varID);
         if ($obj === false) {
+            return;
+        }
+        
+        // Verhindere Endlosschleife, falls der User unsere eigenen Counter getaggt hat!
+        if ($obj['ParentID'] === $this->InstanceID) {
             return;
         }
         
@@ -524,32 +533,7 @@ class SmartNotifier extends IPSModuleStrict
             return [];
         }
 
-        // Kurzschluessel (i/n/r/v/c/s/t/u) auf lesbare Namen normalisieren
-        $normalized = [];
-        foreach ($raw as $device) {
-            $vars = [];
-            foreach (($device['v'] ?? []) as $v) {
-                $vars[] = [
-                    'varID'       => $v['v'],
-                    'category'    => $v['c'],
-                    'subcategory' => $v['s'] ?? '',
-                    'normalState' => $v['n'] ?? null,
-                    'type'        => $v['t'] ?? 0,
-                    'lastUpdatedTS' => $v['u'] ?? 0,
-                    'disabled'    => false, // disabled wurden beim Cachen bereits herausgefiltert
-                ];
-            }
-            $normalized[] = [
-                'instanceID'   => $device['i'],
-                'instanceName' => $device['n'],
-                'room'         => $device['r'] ?? '',
-                'health'       => $device['h'] ?? 'healthy',
-                'variables'    => $vars,
-            ];
-        }
-
-        $this->SendDebug('LoadInventory', count($normalized) . ' Geraete geladen', 0);
-        return $normalized;
+        return $raw;
     }
 
     /**
