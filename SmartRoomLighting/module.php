@@ -343,6 +343,13 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                     $rawTriggerVal = $switchDefaults[$SenderID] ?? 'true';
                 }
                 
+                // --- Homematic String-Button Fallback ---
+                // If it's a string variable and we don't have a specific trigger value (defaults to 'true'),
+                // we assume it's a Homematic HCU button which sends 'CLOSED' on press and 'OPEN' on release.
+                if ($rawTriggerVal === 'true' && isset($var['VariableType']) && $var['VariableType'] == 3) {
+                    $rawTriggerVal = 'closed';
+                }
+                
                 if (str_starts_with($rawTriggerVal, '!idle:')) {
                     $idleVal = strtolower(trim(substr($rawTriggerVal, 6)));
                     $currentValStr = strtolower(trim((string)$val));
