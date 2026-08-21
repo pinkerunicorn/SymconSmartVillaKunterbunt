@@ -1549,6 +1549,7 @@ PROMPT;
     public function UpdateCatalogList(string $category, string $search = ""): void
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
+        $this->SetBuffer('Inventory', json_encode($inventory));
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         $healthLabels = [
