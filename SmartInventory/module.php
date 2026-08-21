@@ -1484,7 +1484,7 @@ PROMPT;
                 [
                     'type' => 'RowLayout',
                     'items' => [
-                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\', isset($SearchText) ? $SearchText : ""); echo "Scan abgeschlossen.";'],
+                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\', isset($SearchText) ? $SearchText : "", isset($ShowDisabled) ? $ShowDisabled : false); echo "Scan abgeschlossen.";'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.";'],
                         ['type' => 'Button', 'caption' => 'ALLES neu KI-taggen (Achtung: Ueberschreibt alles!)', 'onClick' => 'IPS_RunScriptText(\'SINV_RetagAllWithAI(\' . $id . \');\'); echo "Komplettes KI-Tagging laeuft im Hintergrund.";'],
                     ],
@@ -1525,7 +1525,7 @@ PROMPT;
                             'caption' => 'Kategorie-Filter',
                             'options' => $catalogOptions,
                             'value' => 'all',
-                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "");',
+                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "", $ShowDisabled ?? false);',
                         ],
                         [
                             'type' => 'RowLayout',
@@ -1536,9 +1536,16 @@ PROMPT;
                                     'caption' => 'Suchbegriff (Geraet, Raum, ID...)'
                                 ],
                                 [
+                                    'type' => 'CheckBox',
+                                    'name' => 'ShowDisabled',
+                                    'caption' => 'Deaktivierte einblenden',
+                                    'value' => false,
+                                    'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "", $ShowDisabled);'
+                                ],
+                                [
                                     'type' => 'Button',
                                     'caption' => 'Suchen',
-                                    'onClick' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "");'
+                                    'onClick' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "", $ShowDisabled ?? false);'
                                 ]
                             ]
                         ],
@@ -1571,7 +1578,7 @@ PROMPT;
         return json_encode($form);
     }
 
-    public function UpdateCatalogList(string $category, string $search = ""): void
+    public function UpdateCatalogList(string $category, string $search = "", bool $showDisabled = false): void
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $leanInventory = $this->optimizeInventory($inventory);
@@ -1627,11 +1634,11 @@ PROMPT;
             usort($list, fn($a, $b) => $b['severity'] <=> $a['severity']);
 
                 } elseif ($category === 'untagged') {
-            // Nicht getaggte Instanzen (deaktivierte ausblenden)
+            // Nicht getaggte Instanzen (deaktivierte ausblenden, es sei denn showDisabled)
             foreach ($untagged as $u) {
                 $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $u['instanceID']);
                 $isDisabled = ($ignoreVarID !== false && GetValue($ignoreVarID));
-                if ($isDisabled) continue;
+                if ($isDisabled && !$showDisabled) continue;
                 
                 $list[] = [
                     'health'       => '',
