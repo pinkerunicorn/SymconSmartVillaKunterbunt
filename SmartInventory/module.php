@@ -144,7 +144,7 @@ class SmartInventory extends IPSModuleStrict
     {
         $inventory         = [];
         $untaggedInstances = [];
-                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode(@$this->ReadAttributeString('TagDatabase') ?: '{}', true);
 
 
         foreach (IPS_GetInstanceList() as $instanceID) {
@@ -503,7 +503,7 @@ class SmartInventory extends IPSModuleStrict
     {
         if (!@IPS_ObjectExists($id)) return false;
         
-                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode(@$this->ReadAttributeString('TagDatabase') ?: '{}', true);
 
         if ($room === '') {
             if (isset($db[$id])) {
@@ -523,7 +523,7 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetTag(int $varID): string
     {
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        $db = json_decode(@$this->ReadAttributeString('TagDatabase') ?: '{}', true);
         return $db[$varID]['tag'] ?? '';
     }
 
@@ -539,7 +539,7 @@ class SmartInventory extends IPSModuleStrict
             $tag = self::TAG_PREFIX . $tag;
         }
         
-                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode(@$this->ReadAttributeString('TagDatabase') ?: '{}', true);
 
         if ($tag === '') {
             if (isset($db[$varID])) {
@@ -584,7 +584,7 @@ class SmartInventory extends IPSModuleStrict
             }
         }
 
-                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode(@$this->ReadAttributeString('TagDatabase') ?: '{}', true);
 
 
         // Ungetaggte Variablen sammeln
@@ -761,7 +761,7 @@ PROMPT;
      */
     public function ApplyAllSuggestions(): string
     {
-        $suggestions = json_decode($this->ReadAttributeString('AISuggestions') ?: '[]', true);
+        $suggestions = json_decode(@$this->ReadAttributeString('AISuggestions') ?: '[]', true);
         if (empty($suggestions)) {
             return 'Keine KI-Vorschläge im Buffer. Zuerst KI-Tagging starten.';
         }
@@ -1377,7 +1377,7 @@ PROMPT;
 
     private function resolveRoom(int $id): string
     {
-                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode(@$this->ReadAttributeString('TagDatabase') ?: '{}', true);
 
         if (isset($db[$id]) && !empty($db[$id]['room'])) {
             return $db[$id]['room'];
@@ -1501,5 +1501,6 @@ PROMPT;
         return (string) $value;
     }
 }
+
 
 
