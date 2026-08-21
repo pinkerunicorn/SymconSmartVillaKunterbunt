@@ -1452,35 +1452,42 @@ PROMPT;
         ];
         $healthSeverity = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1, 'healthy' => 0];
 
-        $initialCatalogList = [];
+                $initialCatalogList = [];
         foreach ($inventory as $device) {
             $h = $device['health'] ?? 'healthy';
-            if ($h === 'healthy') continue;
-            // Erste Problematische Variable fuer Tag-Anzeige finden
-            $firstVar = null;
-            foreach ($device['variables'] as $v) {
-                if (!($v['disabled'] ?? false)) { $firstVar = $v; break; }
-            }
-            $parsedTag = $firstVar ? $this->parseTag($firstVar['tag']) : null;
-            $tagBase = $parsedTag ? ('SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '')) : '';
-            $normalStateStr = ($parsedTag && $parsedTag['normalState'] !== null) ? $parsedTag['normalState']['value'] : '';
-            $initialCatalogList[] = [
-                'instanceName' => $device['instanceName'],
-                'room'         => $firstVar['room'] ?? $device['room'],
-                'health'       => $healthLabels[$h] ?? $h,
-                'detail'       => $device['healthDetail'] ?? '',
-                'severity'     => $healthSeverity[$h] ?? 0,
-                'tagBase'      => $tagBase,
-                'normalState'  => $normalStateStr,
-                'disabled'     => false,
-                'value'        => $firstVar ? $this->getFormattedValue($firstVar['varID'] ?? 0) : '',
-                'ObjectID'     => $firstVar['varID'] ?? ($device['instanceID']),
-                'instanceID'   => $device['instanceID'],
-            ];
-        }
-        usort($initialCatalogList, fn($a, $b) => $b['severity'] <=> $a['severity']);
+            $deviceHealth  = $healthLabels[$h] ?? '';
+            $deviceDetail  = $device['healthDetail'] ?? '';
+            $deviceSeverity = $healthSeverity[$h] ?? 0;
 
-        $problemCount = count($initialCatalogList);
+            foreach ($device['variables'] as $v) {
+                $parsed  = $this->parseTag($v['tag']);
+                if ($parsed['disabled']) continue;
+
+                $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
+                $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
+                
+                $initialCatalogList[] = [
+                    'health'       => $deviceHealth,
+                    'detail'       => $deviceDetail,
+                    'severity'     => $deviceSeverity,
+                    'instanceName' => $device['instanceName'],
+                    'room'         => $v['room'] ?? $device['room'],
+                    'tagBase'      => $tagBase,
+                    'normalState'  => $normalStateStr,
+                    'disabled'     => false,
+                    'value'        => $this->getFormattedValue($v['varID'] ?? 0),
+                    'ObjectID'     => $v['varID'],
+                    'instanceID'   => $device['instanceID'],
+                ];
+            }
+        }
+
+                $problemCount = 0;
+        foreach ($inventory as $device) {
+            if (isset($device['health']) && $device['health'] !== 'healthy') {
+                $problemCount++;
+            }
+        }
         $healthyCount = count($inventory) - $problemCount;
         $totalDevices = count($inventory);
         $totalVars    = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
@@ -1548,7 +1555,7 @@ PROMPT;
                             'name' => 'CatalogFilter',
                             'caption' => 'Kategorie-Filter',
                             'options' => $catalogOptions,
-                            'value' => 'problems',
+                            'value' => 'all',
                             'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "");',
                         ],
                         [
