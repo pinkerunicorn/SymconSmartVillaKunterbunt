@@ -1593,11 +1593,13 @@ PROMPT;
             }
             usort($list, fn($a, $b) => $b['severity'] <=> $a['severity']);
 
-        } elseif ($category === 'untagged') {
-            // ── Nicht getaggte Instanzen ──
+                } elseif ($category === 'untagged') {
+            // Nicht getaggte Instanzen (deaktivierte ausblenden)
             foreach ($untagged as $u) {
                 $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $u['instanceID']);
                 $isDisabled = ($ignoreVarID !== false && GetValue($ignoreVarID));
+                if ($isDisabled) continue;
+                
                 $list[] = [
                     'health'       => '',
                     'detail'       => '',
@@ -1606,15 +1608,56 @@ PROMPT;
                     'room'         => $u['room'],
                     'tagBase'      => '',
                     'normalState'  => '',
-                    'disabled'     => $isDisabled,
+                    'disabled'     => false,
                     'value'        => $u['moduleName'] . ' (' . $u['varCount'] . ' Variablen)',
                     'ObjectID'     => $u['instanceID'],
                     'instanceID'   => $u['instanceID'],
                 ];
             }
-
+        } elseif ($category === 'disabled') {
+            // Nur deaktivierte (Variablen und Instanzen)
+            foreach ($inventory as $device) {
+                foreach ($device['variables'] as $v) {
+                    $parsed  = $this->parseTag($v['tag']);
+                    if ($parsed['disabled']) {
+                        $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
+                        $list[] = [
+                            'health'       => '',
+                            'detail'       => '',
+                            'severity'     => 0,
+                            'instanceName' => $device['instanceName'],
+                            'room'         => $device['room'],
+                            'tagBase'      => $tagBase,
+                            'normalState'  => $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '',
+                            'disabled'     => true,
+                            'value'        => $this->getFormattedValue($v['varID']),
+                            'ObjectID'     => $v['varID'],
+                            'instanceID'   => $device['instanceID'],
+                        ];
+                    }
+                }
+            }
+            foreach ($untagged as $u) {
+                $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $u['instanceID']);
+                $isDisabled = ($ignoreVarID !== false && GetValue($ignoreVarID));
+                if ($isDisabled) {
+                    $list[] = [
+                        'health'       => '',
+                        'detail'       => '',
+                        'severity'     => 0,
+                        'instanceName' => $u['instanceName'],
+                        'room'         => $u['room'],
+                        'tagBase'      => '',
+                        'normalState'  => '',
+                        'disabled'     => true,
+                        'value'        => $u['moduleName'] . ' (' . $u['varCount'] . ' Variablen)',
+                        'ObjectID'     => $u['instanceID'],
+                        'instanceID'   => $u['instanceID'],
+                    ];
+                }
+            }
         } else {
-            // ── Variablen-zentrische Filter (all, disabled, SI:...) ──
+            // Variablen-zentrische Filter (all, SI:...)
             foreach ($inventory as $device) {
                 $h = $device['health'] ?? 'healthy';
                 $deviceHealth  = $healthLabels[$h] ?? '';
@@ -1623,14 +1666,15 @@ PROMPT;
 
                 foreach ($device['variables'] as $v) {
                     $parsed  = $this->parseTag($v['tag']);
+                    if ($parsed['disabled']) continue; // Grundsaetzlich ausblenden!
+
                     $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
+                    if ($tagBase === '') continue; // Keine ungetaggten Beifang-Variablen anzeigen!
 
                     $match = false;
-                    if ($category === 'disabled' && $parsed['disabled']) {
+                    if ($category === 'all') {
                         $match = true;
-                    } elseif ($category !== 'disabled' && $tagBase === $category && !$parsed['disabled']) {
-                        $match = true;
-                    } elseif ($category === 'all') {
+                    } elseif ($tagBase === $category) {
                         $match = true;
                     }
 
@@ -1644,7 +1688,7 @@ PROMPT;
                             'room'         => $device['room'],
                             'tagBase'      => $tagBase,
                             'normalState'  => $normalStateStr,
-                            'disabled'     => $parsed['disabled'],
+                            'disabled'     => false,
                             'value'        => $this->getFormattedValue($v['varID']),
                             'ObjectID'     => $v['varID'],
                             'instanceID'   => $device['instanceID'],
