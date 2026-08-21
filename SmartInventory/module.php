@@ -837,6 +837,16 @@ class SmartInventory extends IPSModuleStrict
      * Lässt die KI alle ungetaggten Variablen klassifizieren.
      * Gibt die Vorschläge als JSON zurück (für die Review-Liste im Formular).
      */
+    /**
+     * Setzt alle Tags zurueck und startet das KI-Tagging fuer das komplette Haus neu.
+     */
+    public function RetagAllWithAI(): string
+    {
+        $this->WriteAttributeString('TagDatabase', '{}');
+        $this->WriteAttributeString('AISuggestions', '[]');
+        return $this->ClassifyWithAI();
+    }
+
     public function ClassifyWithAI(): string
     {
         $geminiID = $this->ReadPropertyInteger('GeminiIOID');
@@ -1421,6 +1431,7 @@ PROMPT;
                     'items' => [
                         ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\'); echo "Scan abgeschlossen.";'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.";'],
+                        ['type' => 'Button', 'caption' => 'ALLES neu KI-taggen (Achtung: Ueberschreibt alles!)', 'onClick' => 'IPS_RunScriptText(\'SINV_RetagAllWithAI(\' . $id . \');\'); echo "Komplettes KI-Tagging laeuft im Hintergrund.";'],
                     ],
                 ],
                 [
