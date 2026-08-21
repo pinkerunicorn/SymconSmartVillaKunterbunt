@@ -1473,10 +1473,19 @@ PROMPT;
                             'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "");',
                         ],
                         [
-                            'type' => 'ValidationTextBox',
-                            'name' => 'SearchText',
-                            'caption' => 'Suchbegriff (Geraet, Raum, ID...)',
-                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText);'
+                            'type' => 'RowLayout',
+                            'items' => [
+                                [
+                                    'type' => 'ValidationTextBox',
+                                    'name' => 'SearchText',
+                                    'caption' => 'Suchbegriff (Geraet, Raum, ID...)'
+                                ],
+                                [
+                                    'type' => 'Button',
+                                    'caption' => 'Suchen',
+                                    'onClick' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "");'
+                                ]
+                            ]
                         ],
                         [
                             'type' => 'List',
