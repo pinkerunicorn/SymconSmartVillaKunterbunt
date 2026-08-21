@@ -696,6 +696,120 @@ class SmartNotifier extends IPSModuleStrict
     }
 
 
+    private function calculateDeviceHealth(array $vars): array
+    {
+        $threshold   = $this->ReadPropertyInteger('BatteryThreshold');
+        $staleLimit  = 86400; // 24 Stunden
+        $now         = time();
+
+        $hasBatLow   = false;
+        $batValue    = null;
+        $isOffline   = false;
+        $isStale     = false;
+        $hasAlarm    = false;
+        $alarmName   = '';
+        $latestUpdate = 0;
+
+        foreach ($vars as $v) {
+            if ($v['disabled'] ?? false) {
+                continue;
+            }
+
+            // Juengstes Update tracken
+            $ts = $v['lastUpdatedTS'] ?? 0;
+            if ($ts > $latestUpdate) {
+                $latestUpdate = $ts;
+            }
+
+            $cat = $v['category'];
+            $val = $v['value'];
+
+            if ($cat === 'battery') {
+                if (is_bool($val)) {
+                    // Boolean: true = Batterie leer (HmIP Konvention)
+                    if ($val === true) {
+                        $hasBatLow = true;
+                        $batValue  = 'leer';
+                    }
+                } elseif (is_numeric($val)) {
+                    $batValue = (int)$val . '%';
+                    if ((int)$val < $threshold) {
+                        $hasBatLow = true;
+                    }
+                }
+            } elseif ($cat === 'reachability') {
+                $normal = $v['normalState'] ?? null;
+                if ($normal !== null) {
+                    $normalKey = $normal['key'] ?? 'ok';
+                    $normalVal = $normal['value'] ?? null;
+                    if ($normalVal !== null) {
+                        $isOffline = ($this->castForComparison($val) != $this->castForComparison($normalVal));
+                    }
+                } else {
+                    // Default: false = offline, true = online
+                    $isOffline = !$val;
+                }
+            } elseif ($cat === 'alarm' || $cat === 'warning') {
+                $normal = $v['normalState'] ?? null;
+                $isTriggered = false;
+                if ($normal !== null) {
+                    $normalVal = $normal['value'] ?? null;
+                    if ($normalVal !== null) {
+                        $isTriggered = ($this->castForComparison($val) != $this->castForComparison($normalVal));
+                    }
+                } else {
+                    $isTriggered = (bool)$val;
+                }
+                if ($isTriggered) {
+                    $hasAlarm = true;
+                    $alarmName = $v['name'] ?? ($v['subcategory'] ?? $cat);
+                }
+            }
+        }
+
+        // Stale: juengstes Update aelter als 24h
+        if ($latestUpdate > 0 && ($now - $latestUpdate) > $staleLimit) {
+            $isStale = true;
+        }
+
+        // Root-Cause-Analyse
+        if ($hasAlarm) {
+            return ['status' => 'alarm', 'detail' => "Alarm: $alarmName"];
+        }
+        if ($hasBatLow && $isOffline) {
+            $detail = "Batterie $batValue, offline";
+            if ($isStale) {
+                $staleDays = (int)(($now - $latestUpdate) / 86400);
+                $detail .= ", stale {$staleDays}d";
+            }
+            return ['status' => 'battery_dead', 'detail' => $detail];
+        }
+        if ($isOffline) {
+            return ['status' => 'offline', 'detail' => 'Nicht erreichbar'];
+        }
+        if ($hasBatLow) {
+            return ['status' => 'battery_low', 'detail' => "Batterie $batValue"];
+        }
+        if ($isStale) {
+            $staleDays = max(1, (int)(($now - $latestUpdate) / 86400));
+            return ['status' => 'stale', 'detail' => "Kein Update seit {$staleDays}d"];
+        }
+
+        return ['status' => 'healthy', 'detail' => ''];
+    }
+
+
+    private function castForComparison(mixed $val): mixed
+    {
+        if (is_string($val)) {
+            $lower = strtolower($val);
+            if ($lower === 'true') return true;
+            if ($lower === 'false') return false;
+            if (is_numeric($val)) return (float)$val;
+        }
+        return $val;
+    }
+
     public function SendEvent(string $PayloadJSON): void
     {
         $payload = json_decode($PayloadJSON, true);
@@ -1045,3 +1159,5 @@ class SmartNotifier extends IPSModuleStrict
         ]);
     }
 }
+
+
