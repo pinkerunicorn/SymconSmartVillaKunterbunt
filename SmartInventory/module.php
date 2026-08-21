@@ -173,15 +173,8 @@ class SmartInventory extends IPSModuleStrict
                         $instanceVars = [];
             $hasTaggedVar = false;
 
-            if ($instanceName === 'Pixelblaze') {
-                IPS_LogMessage('SmartInventory_Debug', "Found Pixelblaze! Children: " . json_encode($children));
-            }
-
             foreach ($children as $childID) {
                 $obj = @IPS_GetObject($childID);
-                if ($instanceName === 'Pixelblaze') {
-                    IPS_LogMessage('SmartInventory_Debug', "Child $childID -> Type: " . ($obj !== false ? $obj['ObjectType'] : 'false') . ", Ident: " . ($obj !== false ? $obj['ObjectIdent'] : 'N/A'));
-                }
                 if ($obj === false || $obj['ObjectType'] !== 2) {
                     // if ($instanceName === 'Pixelblaze') file_put_contents('/tmp/pixelblaze_debug.txt', "Skipped $childID (Not Var)\n", FILE_APPEND);
                     continue;
@@ -1702,27 +1695,14 @@ PROMPT;
         } else {
             // Variablen-zentrische Filter (all, SI:...)
             foreach ($inventory as $device) {
-                if ($device['instanceName'] === 'Pixelblaze') {
-                    $names = array_map(fn($v) => $v['name'] ?? $v['varID'], $device['variables']);
-                    IPS_LogMessage('SmartInventory_Debug', 'Pixelblaze variables in inventory: ' . implode(', ', $names));
-                }
                 $h = $device['health'] ?? 'healthy';
                 $deviceHealth  = $healthLabels[$h] ?? '';
                 $deviceDetail  = $device['healthDetail'] ?? '';
                 $deviceSeverity = $healthSeverity[$h] ?? 0;
 
                 foreach ($device['variables'] as $v) {
-                    if ($device['instanceName'] === 'Pixelblaze') {
-                        IPS_LogMessage('SmartInventory_Debug', "Iterating var: " . ($v['name'] ?? $v['varID']));
-                    }
                     $parsed  = $this->parseTag($v['tag']);
-                    if ($parsed['disabled']) {
-                        if ($device['instanceName'] === 'Pixelblaze') {
-                            IPS_LogMessage('SmartInventory_Debug', "Skipping var (disabled): " . ($v['name'] ?? $v['varID']));
-                        }
-                        continue; // Grundsaetzlich ausblenden!
-                    }
-
+                    
                     $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
                     // if ($tagBase === '') continue; // Zeige Beifang-Variablen im 'all' Filter wieder an, damit man sie nachtraeglich taggen kann!
 
@@ -1735,9 +1715,6 @@ PROMPT;
 
                     if ($match) {
                         $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
-                        if ($device['instanceName'] === 'Pixelblaze') {
-                            IPS_LogMessage('SmartInventory_Debug', 'Adding to list: ' . ($v['name'] ?? $v['varID']) . ' (disabled=' . ($parsed['disabled'] ? 'true' : 'false') . ', tagBase=' . $tagBase . ')');
-                        }
                         $list[] = [
                             'health'       => $deviceHealth,
                             'detail'       => $deviceDetail,
