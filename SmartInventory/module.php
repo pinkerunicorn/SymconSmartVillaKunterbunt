@@ -1401,19 +1401,18 @@ PROMPT;
             $objType = IPS_GetObject($vid)["ObjectType"];
             if ($objType === 2) {
                 // Variable -> Tag aktualisieren
-                $newTag = $listData["tagBase"];
-                if ($newTag !== "") {
-                    $ns = $listData["normalState"] ?? "";
-                    // Doppelpunkte aus normalState entfernen (Injection-Schutz)
-                    $ns = str_replace(":", "", $ns);
-                    if ($ns !== "") {
-                        $newTag .= ":ok=" . $ns;
-                    }
-                    if ($listData["disabled"]) {
-                        $newTag .= ":disabled";
-                    }
-                }
-                SINV_SetTag($id, $vid, $newTag);
+                  $newTag = $listData["tagBase"];
+                  $ns = $listData["normalState"] ?? "";
+                  $ns = str_replace(":", "", $ns);
+                  if ($ns !== "") {
+                      if ($newTag === "") $newTag = "SI:";
+                      $newTag .= ":ok=" . $ns;
+                  }
+                  if ($listData["disabled"]) {
+                      if ($newTag === "") $newTag = "SI:";
+                      $newTag .= ":disabled";
+                  }
+                  SINV_SetTag($id, $vid, $newTag);
             } elseif ($objType === 1) {
                 // Instanz (Nicht getaggt) -> Ignore setzen
                 $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $vid);
