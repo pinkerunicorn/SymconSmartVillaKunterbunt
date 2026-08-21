@@ -849,6 +849,15 @@ class SmartInventory extends IPSModuleStrict
     }
 
     /**
+     * Gibt den Tag einer Variable zurück.
+     */
+    public function GetTag(int $varID): string
+    {
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        return $db[$varID]['tag'] ?? '';
+    }
+
+    /**
      * Setzt den Tag einer Variable.
      */
         public function SetTag(int $varID, string $tag): bool

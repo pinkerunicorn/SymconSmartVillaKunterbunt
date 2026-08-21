@@ -332,7 +332,13 @@ class SmartNotifier extends IPSModuleStrict
         if ($obj === false) {
             return;
         }
-        $tag = $obj['ObjectInfo'];
+        
+        $inventoryID = $this->ReadPropertyInteger('InventoryID');
+        if ($inventoryID === 0 || !@IPS_InstanceExists($inventoryID) || !function_exists('SINV_GetTag')) {
+            return;
+        }
+        
+        $tag = SINV_GetTag($inventoryID, $varID);
         if (!str_starts_with($tag, 'SI:')) {
             return;
         }
