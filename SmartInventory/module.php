@@ -1316,7 +1316,7 @@ PROMPT;
                     $newTag .= ":disabled";
                 }
                 SINV_SetTag($id, $vid, $newTag);
-            } elseif ($objType === 3) {
+            } elseif ($objType === 1) {
                 // Instanz (Nicht getaggt) -> Ignore setzen
                 $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $vid);
                 if ($listData["disabled"]) {
