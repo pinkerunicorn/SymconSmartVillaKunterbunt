@@ -84,6 +84,7 @@ class SmartInventory extends IPSModuleStrict
         $this->UnregisterVariable('OpenContactCount');
 
         $this->SetStatus(102);
+        $this->Scan();
     }
 
     // ─────────────────────────────────────────────────────────────────
