@@ -200,10 +200,16 @@ class SmartInventory extends IPSModuleStrict
             $instanceVars = [];
             $hasTaggedVar = false;
 
-            foreach ($children as $childID) {
+                        foreach ($children as $childID) {
                 $obj = @IPS_GetObject($childID);
-                if ($obj === false || $obj['ObjectType'] !== 2) continue;
-                if (str_starts_with($obj['ObjectIdent'], '_SI_')) continue;
+                if ($obj === false || $obj['ObjectType'] !== 2) {
+                    // if ($instanceName === 'Pixelblaze') file_put_contents('/tmp/pixelblaze_debug.txt', "Skipped $childID (Not Var)\n", FILE_APPEND);
+                    continue;
+                }
+                if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
+                    // if ($instanceName === 'Pixelblaze') file_put_contents('/tmp/pixelblaze_debug.txt', "Skipped $childID (_SI_)\n", FILE_APPEND);
+                    continue;
+                }
 
                 $tagData = $db[$childID] ?? [];
                 $info = $tagData['tag'] ?? '';
@@ -1552,6 +1558,7 @@ PROMPT;
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $this->SetBuffer('Inventory', json_encode($inventory));
+        file_put_contents('/tmp/inv.json', json_encode($inventory));
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         $healthLabels = [
