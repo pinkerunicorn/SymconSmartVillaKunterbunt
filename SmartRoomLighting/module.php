@@ -1426,6 +1426,13 @@ class SmartRoomLighting extends IPSModuleStrict
 
     public function GetConfigurationForm(): string
     {
+        $registryOptions = [['label' => 'Kein(e)', 'value' => 0]];
+        foreach (IPS_GetInstanceListByModuleID('{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}') as $id) {
+            $name = trim(IPS_GetName($id));
+            if ($name !== '') {
+                $registryOptions[] = ['label' => $name, 'value' => $id];
+            }
+        }
         $regId = $this->ReadPropertyInteger('RegistryID');
         $hasRegistry = ($regId > 0 && @IPS_InstanceExists($regId));
 
@@ -1525,20 +1532,10 @@ class SmartRoomLighting extends IPSModuleStrict
                             'options' => $sceneOptions
                         ],
                         [
-                            'type' => 'SelectModule',
-                            'name' => 'RegistryID',
-                            'caption' => 'SmartInventory Instanz (optional)',
-                            'moduleID' => '{8F4A2B1C-D3E5-4F6A-B7C8-9D0E1F2A3B4C}'
-                        ],
-                        [
-                            'type' => 'SelectVariable',
-                            'name' => 'SunsetVariableID',
-                            'caption' => 'Sonnenuntergang (Variable)'
-                        ],
-                        [
-                            'type' => 'SelectVariable',
-                            'name' => 'SunriseVariableID',
-                            'caption' => 'Sonnenaufgang (Variable)'
+                            'type' => 'Select',
+                              'name' => 'RegistryID',
+                              'caption' => 'SmartInventory Instanz (optional)',
+                              'options' => $registryOptions
                         ],
                         [
                             'type' => 'Label',
