@@ -715,15 +715,15 @@ class SmartNotifier extends IPSModuleStrict
                 continue;
             }
 
-            // Juengstes Update tracken
-            $ts = $v['lastUpdatedTS'] ?? 0;
-            if ($ts > $latestUpdate) {
-                $latestUpdate = $ts;
-            }
+            if (!@IPS_VariableExists($v['varID'])) continue;
+            $varInfo = IPS_GetVariable($v['varID']);
+            $val = @GetValue($v['varID']);
+            $ts = $varInfo['VariableUpdated'] ?? 0;
+            if ($ts > $latestUpdate) $latestUpdate = $ts;
 
             $cat = $v['category'] ?? '';
-            $val = $v['value'] ?? null;
             if ($val === null) continue;
+            // Replaced
 
             if ($cat === 'battery') {
                 if (is_bool($val)) {
