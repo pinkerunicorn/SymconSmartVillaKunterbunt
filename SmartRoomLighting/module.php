@@ -1534,14 +1534,7 @@ class SmartRoomLighting extends IPSModuleStrict
                             'name' => 'MasterOnScene',
                             'caption' => 'Standard-Szene (beim Einschalten ueber Master-Schalter)',
                             'options' => $sceneOptions
-                        ]
-                    ]
-                ],
-                // --- Registry Selection ---
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Geraete-Quelle',
-                    'items' => [
+                        ],
                         [
                             'type' => 'SelectModule',
                             'name' => 'RegistryID',
