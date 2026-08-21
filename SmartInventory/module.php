@@ -90,11 +90,138 @@ class SmartInventory extends IPSModuleStrict
     // Scan
     // ─────────────────────────────────────────────────────────────────
 
-    
+        public function Scan(): string
+    {
+        $startTime = microtime(true);
+
+        ['inventory' => $inventory, 'untagged' => $untaggedInstances] = $this->buildInventoryData();
+
+        $deviceCount    = count($inventory);
+        $taggedVarCount = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
+
+        // Alle aktiven Variablen cachen, da externe Module (wie SmartRoomLighting) 
+        // auch ueber SINV_GetByCategory('actor:switch') etc. zugreifen muessen.
+        // Kurzschluessel (v/c/s/d/n/r/t/u) sparen weitere ~40% Bytes.
+        $leanInventory = $this->optimizeInventory($inventory);
+        $this->SetBuffer('Inventory', json_encode($leanInventory));
+        $this->SetBuffer('UntaggedInstances', json_encode($untaggedInstances));
+
+        // Status-Variablen aktualisieren
+        if ($this->GetValue('DeviceCount') !== $deviceCount) {
+            $this->SetValue('DeviceCount', $deviceCount);
+        }
+        if ($this->GetValue('TaggedVarCount') !== $taggedVarCount) {
+            $this->SetValue('TaggedVarCount', $taggedVarCount);
+        }
+
+        $duration = round((microtime(true) - $startTime) * 1000);
+        $this->SetValue('LastScan', date('d.m.Y H:i:s'));
+        $this->SetValue('ScanDuration', $duration . ' ms');
+
+        $this->SendDebug('Scan', "Geraete: $deviceCount, Variablen: $taggedVarCount, Ungetaggt: " . count($untaggedInstances), 0);
+
+        // Notifier asynchron benachrichtigen, Subscriptions zu aktualisieren
+        $notifierID = $this->ReadPropertyInteger('NotifierID');
+        if ($notifierID > 0 && @IPS_InstanceExists($notifierID)) {
+            IPS_RunScriptText('NOTIFY_RefreshSubscriptions(' . $notifierID . ');');
+        }
+
+        return json_encode([
+            'devices'   => $deviceCount,
+            'variables' => $taggedVarCount,
+            'untagged'  => count($untaggedInstances),
+            'duration'  => $duration . ' ms',
+        ]);
+    }
+
 
     /**
-     * Hilfsfunktion: Wert fuer losen Vergleich casten (String "true"/"false" -> bool etc.)
+     * Baut die Inventar-Daten direkt aus dem Objektbaum auf.
+     *
+     * @return array{inventory: array, untagged: array}
      */
+        private function buildInventoryData(): array
+    {
+        $inventory         = [];
+        $untaggedInstances = [];
+                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
+
+        foreach (IPS_GetInstanceList() as $instanceID) {
+            $instance = @IPS_GetInstance($instanceID);
+            if ($instance === false) continue;
+            if ($instance['ModuleInfo']['ModuleType'] !== 3) continue;
+            if ($instanceID === $this->InstanceID) continue;
+
+            $instanceName = IPS_GetName($instanceID);
+            $moduleName   = $instance['ModuleInfo']['ModuleName'];
+            $room         = $this->resolveRoom($instanceID);
+            $children     = IPS_GetChildrenIDs($instanceID);
+            
+                        $instanceVars = [];
+            $hasTaggedVar = false;
+
+            foreach ($children as $childID) {
+                $obj = @IPS_GetObject($childID);
+                if ($obj === false || $obj['ObjectType'] !== 2) {
+                    continue;
+                }
+                if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
+                    continue;
+                }
+
+                $tagData = $db[$childID] ?? [];
+                $info = $tagData['tag'] ?? '';
+                if (str_starts_with($info, self::TAG_PREFIX)) {
+                    $hasTaggedVar = true;
+                }
+
+                $var    = IPS_GetVariable($childID);
+                $parsed = $this->parseTag($info);
+                $value  = $this->getFormattedValue($childID);
+
+                $instanceVars[] = [
+                    'varID'          => $childID,
+                    'room'           => $tagData['room'] ?? $room,
+                    'ident'          => $obj['ObjectIdent'],
+                    'name'           => $obj['ObjectName'],
+                    'tag'            => $info,
+                    'category'       => $parsed['category'],
+                    'subcategory'    => $parsed['subcategory'],
+                    'disabled'       => $parsed['disabled'],
+                    'normalState'    => $parsed['normalState'],
+                    'type'           => $var['VariableType'],
+                    'value'          => @GetValue($childID),
+                    'valueFormatted' => $value,
+                    'lastUpdate'     => date('Y-m-d H:i:s', $var['VariableUpdated']),
+                    'lastUpdatedTS'  => $var['VariableUpdated'],
+                ];
+            }
+
+            if (count($instanceVars) === 0) continue;
+
+            $inventory[] = [
+                'instanceID'   => $instanceID,
+                'instanceName' => $instanceName,
+                'room'         => $room,
+                'variables'    => $instanceVars,
+            ];
+            
+            if (!$hasTaggedVar) {
+                $untaggedInstances[] = [
+                    'instanceID'   => $instanceID,
+                    'instanceName' => $instanceName,
+                    'moduleName'   => $moduleName,
+                    'room'         => $room,
+                    'varCount'     => count($instanceVars),
+                ];
+            }
+        }
+        return ['inventory' => $inventory, 'untagged' => $untaggedInstances];
+    }
+
+    /**
+     * Berechnet den Gesundheitsstatus eines Geraets anhand seiner getaggten Variablen.
     private function castForComparison(mixed $val): mixed
     {
         if (is_string($val)) {
@@ -207,8 +334,8 @@ class SmartInventory extends IPSModuleStrict
             $fatInventory[] = [
                 'instanceID'   => $device['i'] ?? ($device['instanceID'] ?? 0),
                 'instanceName' => $device['n'] ?? ($device['instanceName'] ?? ''),
-                'room'         => $device['room'],
-                'variables'    => $fatVars,
+                'room'         => $device['r'] ?? ($device['room'] ?? ''),
+                'variables'    => $fatVars
             ];
         }
 
@@ -360,19 +487,6 @@ class SmartInventory extends IPSModuleStrict
         }
         return json_encode($results);
     }
-
-
-
-
-
-    /**
-     * Gibt alle aktiven Alarme zurück.
-     */
-
-
-
-
-
 
     /**
      * Gibt alle nicht getaggten Instanzen zurück.
