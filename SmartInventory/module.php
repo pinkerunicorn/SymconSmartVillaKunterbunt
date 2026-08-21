@@ -925,6 +925,18 @@ Regeln:
 - String-Kontakte z.B. "Geschlossen": SI:contact:ok=Geschlossen
 - Raum = vorletztes Pfadsegment (vor Gerätename)
 - SKIP für irrelevante Variablen (interne Zähler, Config, Darstellung)
+
+Homematic / HmIP Hints:
+- PRESS_SHORT / PRESS_LONG: SI:sensor:button
+- MOTION: SI:motion
+- ACTUAL_TEMPERATURE: SI:sensor:temp
+- SET_POINT_TEMPERATURE: SI:actor:thermostat
+- LEVEL: SI:actor:dimmer oder SI:actor:blind (nach Name entscheiden)
+- STATE: SI:contact (bei Fenster/Tür-Sensoren) oder SI:actor:switch (bei Schaltaktoren)
+- LOWBAT / LOW_BAT: SI:battery
+- UNREACH: SI:reachability:ok=false
+- ERROR_SABOTAGE: SI:alarm:tamper
+- ILLUMINATION: SI:sensor:lux
 PROMPT;
 
         $schema = json_encode([
@@ -1424,6 +1436,7 @@ PROMPT;
                             'name' => 'CatStats',
                             'caption' => '',
                             'rowCount' => min(max(count($catListValues), 3), 15),
+                            'search' => true,
                             'add' => false,
                             'delete' => false,
                             'columns' => [
@@ -1454,6 +1467,7 @@ PROMPT;
                             'name' => 'CatalogList',
                             'caption' => '',
                             'rowCount' => min(max(count($initialCatalogList), 5), 25),
+                            'search' => true,
                             'sort' => ['column' => 'severity', 'direction' => 'descending'],
                             'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
                             'columns' => [
