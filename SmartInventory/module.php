@@ -1196,13 +1196,19 @@ PROMPT;
             ['caption' => 'Sensor (Temperatur)', 'value' => 'SI:sensor:temp'],
               ['caption' => 'Sensor (Luftfeuchte)', 'value' => 'SI:sensor:humidity'],
               ['caption' => 'Sensor (Helligkeit)', 'value' => 'SI:sensor:lux'],
+              ['caption' => 'Sensor (CO2)', 'value' => 'SI:sensor:co2'],
+              ['caption' => 'Sensor (VOC)', 'value' => 'SI:sensor:voc'],
+              ['caption' => 'Sensor (Luftdruck)', 'value' => 'SI:sensor:pressure'],
+              ['caption' => 'Sensor (Radon)', 'value' => 'SI:sensor:radon'],
               ['caption' => 'Sensor (Leistung W)', 'value' => 'SI:sensor:power'],
               ['caption' => 'Sensor (Energie kWh)', 'value' => 'SI:sensor:energy'],
+              ['caption' => 'Sensor (Generisch)', 'value' => 'SI:sensor:generic'],
               ['caption' => 'Aktor (Schalter)', 'value' => 'SI:actor:switch'],
               ['caption' => 'Aktor (Dimmer)', 'value' => 'SI:actor:dimmer'],
               ['caption' => 'Aktor (Rollladen)', 'value' => 'SI:actor:blind'],
               ['caption' => 'Aktor (Thermostat)', 'value' => 'SI:actor:thermostat'],
               ['caption' => 'Aktor (Schloss)', 'value' => 'SI:actor:lock'],
+              ['caption' => 'Aktor (Ventil)', 'value' => 'SI:actor:valve'],
               ['caption' => 'Diagnostik', 'value' => 'SI:diagnostic']
         ];
         foreach ($catCounts as $c => $count) {
@@ -1242,6 +1248,7 @@ PROMPT;
         }
 
         $tagOptions = [
+            ['caption' => '(Nicht getaggt)', 'value' => ''],
             ['caption' => 'Batterie', 'value' => 'SI:battery'],
             ['caption' => 'Erreichbarkeit (Offline/Online)', 'value' => 'SI:reachability'],
             ['caption' => 'Kontakt (Generisch)', 'value' => 'SI:contact'],
@@ -1253,6 +1260,8 @@ PROMPT;
             ['caption' => 'Alarm (Rauch)', 'value' => 'SI:alarm:smoke'],
             ['caption' => 'Alarm (Hitze)', 'value' => 'SI:alarm:heat'],
             ['caption' => 'Alarm (Gas)', 'value' => 'SI:alarm:gas'],
+            ['caption' => 'Alarm (CO)', 'value' => 'SI:alarm:co'],
+            ['caption' => 'Alarm (Sabotage/Tamper)', 'value' => 'SI:alarm:tamper'],
             ['caption' => 'Alarm (Bewegung)', 'value' => 'SI:alarm:motion'],
             ['caption' => 'Warnung', 'value' => 'SI:warning'],
             ['caption' => 'Sensor (Taster)', 'value' => 'SI:sensor:button'],
