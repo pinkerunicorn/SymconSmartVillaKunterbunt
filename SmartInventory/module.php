@@ -864,10 +864,10 @@ class SmartInventory extends IPSModuleStrict
 
         // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
         $changed = false;
-        foreach ($db as $varID => $data) {
+        foreach ($db as $dbVarID => $data) {
             if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
-                unset($db[$varID]['tag']);
-                if (empty($db[$varID])) unset($db[$varID]);
+                unset($db[$dbVarID]['tag']);
+                if (empty($db[$dbVarID])) unset($db[$dbVarID]);
                 $changed = true;
             }
         }
