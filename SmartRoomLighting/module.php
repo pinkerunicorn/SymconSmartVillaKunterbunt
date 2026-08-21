@@ -70,16 +70,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $this->registerPropertyReference('RegistryID');
-        if (IPS_PropertyExists($this->InstanceID, 'SunsetVariableID')) {
-            // Migration: Symcon automatically handles removed properties, but they stay in config.json. 
-            // We can't delete them from PHP, we just ignore them.
-        }
-        if (IPS_PropertyExists($this->InstanceID, 'SunsetVariableID')) {
-            // Migration: Symcon automatically handles removed properties, but they stay in config.json. 
-            // We can't delete them from PHP, we just ignore them.
-        }
-        
-        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
+$regId = (int)@$this->ReadPropertyInteger('RegistryID');
         
         $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
         $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID']);
