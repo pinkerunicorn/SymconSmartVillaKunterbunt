@@ -1712,8 +1712,16 @@ PROMPT;
                 $deviceSeverity = $healthSeverity[$h] ?? 0;
 
                 foreach ($device['variables'] as $v) {
+                    if ($device['instanceName'] === 'Pixelblaze') {
+                        IPS_LogMessage('SmartInventory_Debug', "Iterating var: " . ($v['name'] ?? $v['varID']));
+                    }
                     $parsed  = $this->parseTag($v['tag']);
-                    if ($parsed['disabled']) continue; // Grundsaetzlich ausblenden!
+                    if ($parsed['disabled']) {
+                        if ($device['instanceName'] === 'Pixelblaze') {
+                            IPS_LogMessage('SmartInventory_Debug', "Skipping var (disabled): " . ($v['name'] ?? $v['varID']));
+                        }
+                        continue; // Grundsaetzlich ausblenden!
+                    }
 
                     $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
                     // if ($tagBase === '') continue; // Zeige Beifang-Variablen im 'all' Filter wieder an, damit man sie nachtraeglich taggen kann!
