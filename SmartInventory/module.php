@@ -102,35 +102,7 @@ class SmartInventory extends IPSModuleStrict
         // Alle aktiven Variablen cachen, da externe Module (wie SmartRoomLighting) 
         // auch ueber SINV_GetByCategory('actor:switch') etc. zugreifen muessen.
         // Kurzschluessel (v/c/s/d/n/r/t/u) sparen weitere ~40% Bytes.
-        $leanInventory = [];
-        foreach ($inventory as $device) {
-            $leanVars = [];
-            foreach ($device['variables'] as $v) {
-                if ($v['disabled']) {
-                    continue;
-                }
-                $leanVars[] = [
-                    'v' => $v['varID'],                // varID
-                    'c' => $v['category'],             // category
-                    's' => $v['subcategory'],          // subcategory
-                    'n' => $v['normalState'],          // normalState
-                    'r' => $v['room'] ?? '',          // room
-                    'd' => $v['disabled'],            // disabled
-                    't' => $v['type'],                 // type
-                    'u' => $v['lastUpdatedTS'],        // lastUpdatedTS
-                ];
-            }
-            if (count($leanVars) === 0) {
-                continue;
-            }
-            $leanInventory[] = [
-                'i' => $device['instanceID'],      // instanceID
-                'n' => $device['instanceName'],    // instanceName
-                'r' => $device['room'],            // room
-                'h' => $device['health'],          // health status
-                'v' => $leanVars,                  // variables
-            ];
-        }
+        $leanInventory = $this->optimizeInventory($inventory);
         $this->SetBuffer('Inventory', json_encode($leanInventory));
         $this->SetBuffer('UntaggedInstances', json_encode($untaggedInstances));
 
@@ -1612,8 +1584,8 @@ PROMPT;
     public function UpdateCatalogList(string $category, string $search = ""): void
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
-        $this->SetBuffer('Inventory', json_encode($inventory));
-        file_put_contents('/tmp/inv.json', json_encode($inventory));
+        $leanInventory = $this->optimizeInventory($inventory);
+        $this->SetBuffer('Inventory', json_encode($leanInventory));
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         $healthLabels = [
@@ -1790,7 +1762,41 @@ PROMPT;
     /**
      * Ermittelt den Raum einer Instanz (_SI_Room Override oder Objektbaum-Pfad).
      */
-        private function resolveRoom(int $id): string
+        private function optimizeInventory(array $inventory): array
+    {
+        $leanInventory = [];
+        foreach ($inventory as $device) {
+            $leanVars = [];
+            foreach ($device['variables'] as $v) {
+                if ($v['disabled']) {
+                    continue;
+                }
+                $leanVars[] = [
+                    'v' => $v['varID'],                // varID
+                    'c' => $v['category'],             // category
+                    's' => $v['subcategory'],          // subcategory
+                    'n' => $v['normalState'],          // normalState
+                    'r' => $v['room'] ?? '',          // room
+                    'd' => $v['disabled'],            // disabled
+                    't' => $v['type'],                 // type
+                    'u' => $v['lastUpdatedTS'] ?? 0,        // lastUpdatedTS
+                ];
+            }
+            if (count($leanVars) === 0) {
+                continue;
+            }
+            $leanInventory[] = [
+                'i' => $device['instanceID'],      // instanceID
+                'n' => $device['instanceName'],    // instanceName
+                'r' => $device['room'],            // room
+                'h' => $device['health'] ?? 'healthy',          // health status
+                'v' => $leanVars,                  // variables
+            ];
+        }
+        return $leanInventory;
+    }
+
+    private function resolveRoom(int $id): string
     {
                 $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
 
