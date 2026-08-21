@@ -478,6 +478,11 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                     $targetId = $manualId;
                 }
                 if ($targetId > 0 && IPS_VariableExists($targetId)) {
+                    $obj = IPS_GetObject($targetId);
+                    if ($obj['ParentID'] === $this->InstanceID) {
+                        $this->SLogWarning('Zirkulaere Referenz', "Variable #$targetId gehoert zu dieser Instanz. Ignoriert.");
+                        continue;
+                    }
                     $valStr = (string)($devRule['ActionValue'] ?? '');
                     if ($valStr !== '') {
                         $var = IPS_GetVariable($targetId);
@@ -559,6 +564,10 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                     $targetId = $manualId;
                 }
                 if ($targetId > 0 && IPS_VariableExists($targetId)) {
+                    $obj = IPS_GetObject($targetId);
+                    if ($obj['ParentID'] === $this->InstanceID) {
+                        continue;
+                    }
                     $valStr = (string)($devRule['DeactivateValue'] ?? '');
                     if ($valStr !== '') {
                         $var = IPS_GetVariable($targetId);
@@ -921,6 +930,10 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
             return;
         }
         if ($sourceId <= 0 || !IPS_VariableExists($sourceId)) {
+            return;
+        }
+        $obj = IPS_GetObject($targetId);
+        if ($obj['ParentID'] === $this->InstanceID) {
             return;
         }
 
