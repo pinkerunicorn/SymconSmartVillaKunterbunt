@@ -195,7 +195,7 @@ class SmartNotifier extends IPSModuleStrict
                 $liveValue  = @GetValue($v['varID']);
                 $lastUpdate = $varInfo['VariableUpdated'];
 
-                $cat = $v['category'];
+                $cat = $v['category'] ?? '';
                 $name = $device['instanceName'] . ($device['room'] !== '' ? ' (' . $device['room'] . ')' : '');
 
                 // ── Notifications (unabhaengig vom Counter) ──
@@ -310,7 +310,7 @@ class SmartNotifier extends IPSModuleStrict
                 if ($v['disabled']) {
                     continue;
                 }
-                if (in_array($v['category'], $realtimeCategories)) {
+                if (in_array($v['category'] ?? '', $realtimeCategories)) {
                     if (@IPS_VariableExists($v['varID'])) {
                         $this->RegisterMessage($v['varID'], VM_UPDATE);
                         $count++;
@@ -721,8 +721,9 @@ class SmartNotifier extends IPSModuleStrict
                 $latestUpdate = $ts;
             }
 
-            $cat = $v['category'];
-            $val = $v['value'];
+            $cat = $v['category'] ?? '';
+            $val = $v['value'] ?? null;
+            if ($val === null) continue;
 
             if ($cat === 'battery') {
                 if (is_bool($val)) {
