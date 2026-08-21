@@ -1276,9 +1276,9 @@ PROMPT;
         foreach ($inventory as $device) {
             foreach ($device['variables'] as $v) {
                 $parsedTag = $this->parseTag($v['tag']);
-                $tagBase = 'SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '');
+                $tagBase = $parsedTag['category'] !== '' ? 'SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '') : '';
                 
-                if (!in_array($tagBase, $catalogCategories)) {
+                if ($tagBase !== '' && !in_array($tagBase, $catalogCategories)) {
                     $catalogCategories[] = $tagBase;
                 }
 
@@ -1614,7 +1614,7 @@ PROMPT;
 
                 foreach ($device['variables'] as $v) {
                     $parsed  = $this->parseTag($v['tag']);
-                    $tagBase = 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '');
+                    $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
 
                     $match = false;
                     if ($category === 'disabled' && $parsed['disabled']) {
