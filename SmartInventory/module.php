@@ -90,7 +90,17 @@ class SmartInventory extends IPSModuleStrict
     // Scan
     // ─────────────────────────────────────────────────────────────────
 
-        public function Scan(): string
+        private function getUntaggedFile(): string
+    {
+        return sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sinv_' . $this->InstanceID . '_untagged.json';
+    }
+
+    private function getCacheFile(): string
+    {
+        return sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sinv_' . $this->InstanceID . '_inventory.json';
+    }
+
+    public function Scan(): string
     {
         $startTime = microtime(true);
 
@@ -103,8 +113,8 @@ class SmartInventory extends IPSModuleStrict
         // auch ueber SINV_GetByCategory('actor:switch') etc. zugreifen muessen.
         // Kurzschluessel (v/c/s/d/n/r/t/u) sparen weitere ~40% Bytes.
         $leanInventory = $this->optimizeInventory($inventory);
-        $this->SetBuffer('Inventory', json_encode($leanInventory));
-        $this->SetBuffer('UntaggedInstances', json_encode($untaggedInstances));
+        file_put_contents($this->getCacheFile(), json_encode($leanInventory));
+        file_put_contents($this->getUntaggedFile(), json_encode($untaggedInstances));
 
         // Status-Variablen aktualisieren
         if ($this->GetValue('DeviceCount') !== $deviceCount) {
@@ -295,7 +305,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetInventory(): string
     {
-        $json = $this->GetBuffer('Inventory');
+        $file = $this->getCacheFile();
+        $json = file_exists($file) ? file_get_contents($file) : '';
         if ($json === '' || $json === false) {
             IPS_RunScriptText('SINV_Scan(' . $this->InstanceID . ');');
             return '[]';
@@ -373,10 +384,12 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetByCategory(string $category): string
     {
-        $buffer = (string)$this->GetBuffer('Inventory');
+        $file = $this->getCacheFile();
+        $buffer = file_exists($file) ? file_get_contents($file) : '';
         if ($buffer === '') {
             $this->Scan();
-            $buffer = (string)$this->GetBuffer('Inventory');
+            $file = $this->getCacheFile();
+        $buffer = file_exists($file) ? file_get_contents($file) : '';
         }
         $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
@@ -424,7 +437,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function Query(string $tag, string $room = ''): string
     {
-        $buffer = (string)$this->GetBuffer('Inventory');
+        $file = $this->getCacheFile();
+        $buffer = file_exists($file) ? file_get_contents($file) : '';
         $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
 
@@ -460,7 +474,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetRooms(): string
     {
-        $buffer = (string)$this->GetBuffer('Inventory');
+        $file = $this->getCacheFile();
+        $buffer = file_exists($file) ? file_get_contents($file) : '';
         $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $rooms = [];
         foreach ($inventory as $device) {
@@ -477,7 +492,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetByRoom(string $room): string
     {
-        $buffer = (string)$this->GetBuffer('Inventory');
+        $file = $this->getCacheFile();
+        $buffer = file_exists($file) ? file_get_contents($file) : '';
         $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
         $results = [];
         foreach ($inventory as $device) {
@@ -493,7 +509,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetUntagged(): string
     {
-        return $this->GetBuffer('UntaggedInstances') ?: '[]';
+        $file = $this->getUntaggedFile();
+        return file_exists($file) ? file_get_contents($file) : '[]';
     }
 
     /**
@@ -1225,7 +1242,7 @@ PROMPT;
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $leanInventory = $this->optimizeInventory($inventory);
-        $this->SetBuffer('Inventory', json_encode($leanInventory));
+        file_put_contents($this->getCacheFile(), json_encode($leanInventory));
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         $list = [];
