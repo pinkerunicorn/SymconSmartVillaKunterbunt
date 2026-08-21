@@ -1447,7 +1447,6 @@ PROMPT;
                             'name' => 'CatStats',
                             'caption' => '',
                             'rowCount' => min(max(count($catListValues), 3), 15),
-                            'search' => true,
                             'add' => false,
                             'delete' => false,
                             'columns' => [
@@ -1489,7 +1488,7 @@ PROMPT;
                             'columns' => [
                                 ['name' => 'health',       'caption' => 'Gesundheit',   'width' => '140px'],
                                 ['name' => 'detail',       'caption' => 'Detail',        'width' => '200px'],
-                                ['name' => 'instanceName', 'caption' => 'Geraet'],
+                                ['name' => 'instanceName', 'caption' => 'Geraet', 'width' => 'auto'],
                                 ['name' => 'room',         'caption' => 'Raum',          'width' => '110px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase',      'caption' => 'Kategorie',     'width' => '140px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
                                 ['name' => 'normalState',  'caption' => 'OK-Wert',       'width' => '100px', 'edit' => ['type' => 'ValidationTextBox']],
