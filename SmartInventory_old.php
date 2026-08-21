@@ -90,7 +90,254 @@ class SmartInventory extends IPSModuleStrict
     // Scan
     // ─────────────────────────────────────────────────────────────────
 
-    
+        public function Scan(): string
+    {
+        $startTime = microtime(true);
+
+        ['inventory' => $inventory, 'untagged' => $untaggedInstances] = $this->buildInventoryData();
+
+        $deviceCount    = count($inventory);
+        $taggedVarCount = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
+
+        // Alle aktiven Variablen cachen, da externe Module (wie SmartRoomLighting) 
+        // auch ueber SINV_GetByCategory('actor:switch') etc. zugreifen muessen.
+        // Kurzschluessel (v/c/s/d/n/r/t/u) sparen weitere ~40% Bytes.
+        $leanInventory = $this->optimizeInventory($inventory);
+        $this->SetBuffer('Inventory', json_encode($leanInventory));
+        $this->SetBuffer('UntaggedInstances', json_encode($untaggedInstances));
+
+        // Status-Variablen aktualisieren
+        if ($this->GetValue('DeviceCount') !== $deviceCount) {
+            $this->SetValue('DeviceCount', $deviceCount);
+        }
+        if ($this->GetValue('TaggedVarCount') !== $taggedVarCount) {
+            $this->SetValue('TaggedVarCount', $taggedVarCount);
+        }
+
+        $duration = round((microtime(true) - $startTime) * 1000);
+        $this->SetValue('LastScan', date('d.m.Y H:i:s'));
+        $this->SetValue('ScanDuration', $duration . ' ms');
+
+        $this->SendDebug('Scan', "Geraete: $deviceCount, Variablen: $taggedVarCount, Ungetaggt: " . count($untaggedInstances), 0);
+
+        // Notifier asynchron benachrichtigen, Subscriptions zu aktualisieren
+        $notifierID = $this->ReadPropertyInteger('NotifierID');
+        if ($notifierID > 0 && @IPS_InstanceExists($notifierID)) {
+            IPS_RunScriptText('NOTIFY_RefreshSubscriptions(' . $notifierID . ');');
+        }
+
+        return json_encode([
+            'devices'   => $deviceCount,
+            'variables' => $taggedVarCount,
+            'untagged'  => count($untaggedInstances),
+            'duration'  => $duration . ' ms',
+        ]);
+    }
+
+
+    /**
+     * Baut die Inventar-Daten direkt aus dem Objektbaum auf.
+     *
+     * @return array{inventory: array, untagged: array}
+     */
+        private function buildInventoryData(): array
+    {
+        $inventory         = [];
+        $untaggedInstances = [];
+                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
+
+        foreach (IPS_GetInstanceList() as $instanceID) {
+            $instance = @IPS_GetInstance($instanceID);
+            if ($instance === false) continue;
+            if ($instance['ModuleInfo']['ModuleType'] !== 3) continue;
+            if ($instanceID === $this->InstanceID) continue;
+
+            $instanceName = IPS_GetName($instanceID);
+            $moduleName   = $instance['ModuleInfo']['ModuleName'];
+            $room         = $this->resolveRoom($instanceID);
+            $children     = IPS_GetChildrenIDs($instanceID);
+            
+                        $instanceVars = [];
+            $hasTaggedVar = false;
+
+            foreach ($children as $childID) {
+                $obj = @IPS_GetObject($childID);
+                if ($obj === false || $obj['ObjectType'] !== 2) {
+                    continue;
+                }
+                if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
+                    continue;
+                }
+
+                $tagData = $db[$childID] ?? [];
+                $info = $tagData['tag'] ?? '';
+                if (str_starts_with($info, self::TAG_PREFIX)) {
+                    $hasTaggedVar = true;
+                }
+
+                $var    = IPS_GetVariable($childID);
+                $parsed = $this->parseTag($info);
+                $value  = $this->getFormattedValue($childID);
+
+                $instanceVars[] = [
+                    'varID'          => $childID,
+                    'room'           => $tagData['room'] ?? $room,
+                    'ident'          => $obj['ObjectIdent'],
+                    'name'           => $obj['ObjectName'],
+                    'tag'            => $info,
+                    'category'       => $parsed['category'],
+                    'subcategory'    => $parsed['subcategory'],
+                    'disabled'       => $parsed['disabled'],
+                    'normalState'    => $parsed['normalState'],
+                    'type'           => $var['VariableType'],
+                    'value'          => @GetValue($childID),
+                    'valueFormatted' => $value,
+                    'lastUpdate'     => date('Y-m-d H:i:s', $var['VariableUpdated']),
+                    'lastUpdatedTS'  => $var['VariableUpdated'],
+                ];
+            }
+
+            if (count($instanceVars) === 0) continue;
+
+            $health = $this->calculateDeviceHealth($instanceVars);
+            $inventory[] = [
+                'instanceID'   => $instanceID,
+                'instanceName' => $instanceName,
+                'room'         => $room,
+                'health'       => $health['status'],
+                'healthDetail' => $health['detail'],
+                'variables'    => $instanceVars,
+            ];
+            
+            if (!$hasTaggedVar) {
+                $untaggedInstances[] = [
+                    'instanceID'   => $instanceID,
+                    'instanceName' => $instanceName,
+                    'moduleName'   => $moduleName,
+                    'room'         => $room,
+                    'varCount'     => count($instanceVars),
+                ];
+            }
+        }
+        return ['inventory' => $inventory, 'untagged' => $untaggedInstances];
+    }
+
+    /**
+     * Berechnet den Gesundheitsstatus eines Geraets anhand seiner getaggten Variablen.
+     *
+     * Prioritaet:
+     *   1. alarm        → aktiver Sicherheitsalarm (Rauch, Wasser, etc.)
+     *   2. battery_dead → Batterie unter Schwellwert UND offline (Root-Cause)
+     *   3. offline      → nicht erreichbar (Batterie OK oder unbekannt)
+     *   4. battery_low  → Batterie unter Schwellwert, aber noch online
+     *   5. stale        → kein Update seit 24h ohne erkennbare Ursache
+     *   6. healthy      → alles gut
+     *
+     * @param array $vars Variablen-Array aus buildInventoryData
+     * @return array{status: string, detail: string}
+     */
+    private function calculateDeviceHealth(array $vars): array
+    {
+        $threshold   = $this->ReadPropertyInteger('BatteryThreshold');
+        $staleLimit  = 86400; // 24 Stunden
+        $now         = time();
+
+        $hasBatLow   = false;
+        $batValue    = null;
+        $isOffline   = false;
+        $isStale     = false;
+        $hasAlarm    = false;
+        $alarmName   = '';
+        $latestUpdate = 0;
+
+        foreach ($vars as $v) {
+            if ($v['disabled'] ?? false) {
+                continue;
+            }
+
+            // Juengstes Update tracken
+            $ts = $v['lastUpdatedTS'] ?? 0;
+            if ($ts > $latestUpdate) {
+                $latestUpdate = $ts;
+            }
+
+            $cat = $v['category'];
+            $val = $v['value'];
+
+            if ($cat === 'battery') {
+                if (is_bool($val)) {
+                    // Boolean: true = Batterie leer (HmIP Konvention)
+                    if ($val === true) {
+                        $hasBatLow = true;
+                        $batValue  = 'leer';
+                    }
+                } elseif (is_numeric($val)) {
+                    $batValue = (int)$val . '%';
+                    if ((int)$val < $threshold) {
+                        $hasBatLow = true;
+                    }
+                }
+            } elseif ($cat === 'reachability') {
+                $normal = $v['normalState'] ?? null;
+                if ($normal !== null) {
+                    $normalKey = $normal['key'] ?? 'ok';
+                    $normalVal = $normal['value'] ?? null;
+                    if ($normalVal !== null) {
+                        $isOffline = ($this->castForComparison($val) != $this->castForComparison($normalVal));
+                    }
+                } else {
+                    // Default: false = offline, true = online
+                    $isOffline = !$val;
+                }
+            } elseif ($cat === 'alarm' || $cat === 'warning') {
+                $normal = $v['normalState'] ?? null;
+                $isTriggered = false;
+                if ($normal !== null) {
+                    $normalVal = $normal['value'] ?? null;
+                    if ($normalVal !== null) {
+                        $isTriggered = ($this->castForComparison($val) != $this->castForComparison($normalVal));
+                    }
+                } else {
+                    $isTriggered = (bool)$val;
+                }
+                if ($isTriggered) {
+                    $hasAlarm = true;
+                    $alarmName = $v['name'] ?? ($v['subcategory'] ?? $cat);
+                }
+            }
+        }
+
+        // Stale: juengstes Update aelter als 24h
+        if ($latestUpdate > 0 && ($now - $latestUpdate) > $staleLimit) {
+            $isStale = true;
+        }
+
+        // Root-Cause-Analyse
+        if ($hasAlarm) {
+            return ['status' => 'alarm', 'detail' => "Alarm: $alarmName"];
+        }
+        if ($hasBatLow && $isOffline) {
+            $detail = "Batterie $batValue, offline";
+            if ($isStale) {
+                $staleDays = (int)(($now - $latestUpdate) / 86400);
+                $detail .= ", stale {$staleDays}d";
+            }
+            return ['status' => 'battery_dead', 'detail' => $detail];
+        }
+        if ($isOffline) {
+            return ['status' => 'offline', 'detail' => 'Nicht erreichbar'];
+        }
+        if ($hasBatLow) {
+            return ['status' => 'battery_low', 'detail' => "Batterie $batValue"];
+        }
+        if ($isStale) {
+            $staleDays = max(1, (int)(($now - $latestUpdate) / 86400));
+            return ['status' => 'stale', 'detail' => "Kein Update seit {$staleDays}d"];
+        }
+
+        return ['status' => 'healthy', 'detail' => ''];
+    }
 
     /**
      * Hilfsfunktion: Wert fuer losen Vergleich casten (String "true"/"false" -> bool etc.)
@@ -207,8 +454,10 @@ class SmartInventory extends IPSModuleStrict
             $fatInventory[] = [
                 'instanceID'   => $device['i'] ?? ($device['instanceID'] ?? 0),
                 'instanceName' => $device['n'] ?? ($device['instanceName'] ?? ''),
-                'room'         => $device['room'],
-                'variables'    => $fatVars,
+                'room'         => $device['r'] ?? ($device['room'] ?? ''),
+                'health'       => $device['h'] ?? ($device['health'] ?? 'healthy'),
+                'healthDetail' => $device['hd'] ?? ($device['healthDetail'] ?? ''),
+                'variables'    => $fatVars
             ];
         }
 
@@ -361,18 +610,189 @@ class SmartInventory extends IPSModuleStrict
         return json_encode($results);
     }
 
+    /**
+     * Gibt alle Batterien unter dem Schwellwert zurück.
+     */
+    public function GetLowBattery(int $threshold = 0): string
+    {
+        if ($threshold <= 0) {
+            $threshold = $this->ReadPropertyInteger('BatteryThreshold');
+        }
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
+        $results = [];
 
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                if ($v['category'] === 'battery' && !$v['disabled'] && $this->isBatteryLow($v, $threshold)) {
+                    $results[] = [
+                        'instanceID'   => $device['instanceID'],
+                        'instanceName' => $device['instanceName'],
+                        'room'         => $v['room'] ?? $device['room'],
+                        'varID'        => $v['varID'],
+                        'value'        => $v['value'],
+                    ];
+                }
+            }
+        }
 
+        return json_encode($results);
+    }
 
+    /**
+     * Gibt alle offline gemeldeten Geräte zurück.
+     */
+    public function GetOffline(): string
+    {
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
+        $results = [];
+
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                if ($v['category'] === 'reachability' && !$v['disabled'] && $this->isProblematic($v)) {
+                    $results[] = [
+                        'instanceID'   => $device['instanceID'],
+                        'instanceName' => $device['instanceName'],
+                        'room'         => $v['room'] ?? $device['room'],
+                        'varID'        => $v['varID'],
+                        'value'        => $v['value'],
+                    ];
+                }
+            }
+        }
+
+        return json_encode($results);
+    }
 
     /**
      * Gibt alle aktiven Alarme zurück.
      */
+    public function GetActiveAlarms(): string
+    {
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
+        $results = [];
+        
+        $isAway = false;
+        $shcIds = @IPS_GetInstanceListByModuleID('{460D7C60-0766-4534-BFD8-5920737B1845}');
+        if (count($shcIds) > 0) {
+            $pm = @IPS_GetObjectIDByIdent('PresenceMode', $shcIds[0]);
+            if ($pm && @IPS_VariableExists($pm)) {
+                $val = GetValue($pm);
+                $isAway = ($val == 1 || $val == 2);
+            }
+        }
 
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                $cat = $v['category'];
+                if ((in_array($cat, ['alarm', 'warning']) || ($isAway && $cat === 'motion')) && !$v['disabled']) {
+                    $vid = (int)$v['varID'];
+                    if ($vid > 0 && @IPS_VariableExists($vid)) {
+                        $liveVal = GetValue($vid);
+                        $parsed = $this->parseTag($v['tag']);
+                        if ($this->isValueTriggered($liveVal, $parsed)) {
+                            $results[] = [
+                                'instanceID'   => $device['instanceID'],
+                                'instanceName' => $device['instanceName'],
+                                'room'         => $v['room'] ?? $device['room'],
+                                'varID'        => $vid,
+                                'varName'      => $v['name'],
+                                'tag'          => $v['tag'],
+                                'value'        => $liveVal,
+                            ];
+                        }
+                    }
+                }
+            }
+        }
 
+        return json_encode($results);
+    }
 
+    /**
+     * Gibt alle Geraete mit Problemen zurueck (health != healthy).
+     * Sortiert nach Schwere: alarm > battery_dead > offline > battery_low > stale.
+     * Jedes Geraet erscheint nur einmal (dedupliziert).
+     */
+    public function GetProblems(): string
+    {
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
+        $severity  = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1];
+        $results   = [];
 
+        foreach ($inventory as $device) {
+            $h = $device['h'] ?? ($device['health'] ?? 'healthy');
+            if ($h === 'healthy') {
+                continue;
+            }
+            $results[] = [
+                'instanceID'   => $device['i'] ?? $device['instanceID'],
+                'instanceName' => $device['n'] ?? $device['instanceName'],
+                'room'         => $device['r'] ?? $device['room'],
+                'health'       => $h,
+                'detail'       => $device['healthDetail'] ?? $h,
+                'severity'     => $severity[$h] ?? 0,
+            ];
+        }
 
+        // Nach Schwere sortieren (schwerste zuerst)
+        usort($results, fn($a, $b) => $b['severity'] <=> $a['severity']);
+
+        return json_encode($results);
+    }
+
+    /**
+     * Gibt den Health-Status eines einzelnen Geraets zurueck.
+     */
+    public function GetDeviceHealth(int $instanceID): string
+    {
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
+        foreach ($inventory as $device) {
+            $id = $device['i'] ?? ($device['instanceID'] ?? 0);
+            if ($id === $instanceID) {
+                return json_encode([
+                    'health' => $device['h'] ?? ($device['health'] ?? 'healthy'),
+                    'detail' => $device['healthDetail'] ?? '',
+                ]);
+            }
+        }
+        return json_encode(['health' => 'unknown', 'detail' => 'Geraet nicht im Inventar']);
+    }
+
+    /**
+     * Gibt eine Zusammenfassung pro Raum zurueck.
+     */
+    public function GetRoomSummary(): string
+    {
+        $buffer = (string)$this->GetBuffer('Inventory');
+        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
+        $rooms     = [];
+
+        foreach ($inventory as $device) {
+            $room = $device['r'] ?? ($device['room'] ?? 'Unbekannt');
+            $h    = $device['h'] ?? ($device['health'] ?? 'healthy');
+
+            if (!isset($rooms[$room])) {
+                $rooms[$room] = ['room' => $room, 'total' => 0, 'problems' => 0, 'worst' => 'healthy'];
+            }
+            $rooms[$room]['total']++;
+            if ($h !== 'healthy') {
+                $rooms[$room]['problems']++;
+                $sev = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1, 'healthy' => 0];
+                if (($sev[$h] ?? 0) > ($sev[$rooms[$room]['worst']] ?? 0)) {
+                    $rooms[$room]['worst'] = $h;
+                }
+            }
+        }
+
+        $result = array_values($rooms);
+        usort($result, fn($a, $b) => $b['problems'] <=> $a['problems']);
+        return json_encode($result);
+    }
 
     /**
      * Gibt alle nicht getaggten Instanzen zurück.
@@ -960,6 +1380,14 @@ PROMPT;
 
         // ── Filter-Optionen aufbauen (Health-Filter + Sonder-Filter + Typen) ──
         $catalogOptions = [];
+        // Health-Filter oben
+        $catalogOptions[] = ['caption' => 'Alle Probleme',          'value' => 'problems'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Alarm',       'value' => 'health:alarm'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Batterie leer (offline)', 'value' => 'health:battery_dead'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Nicht erreichbar', 'value' => 'health:offline'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Batterie schwach', 'value' => 'health:battery_low'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Kein Update', 'value' => 'health:stale'];
+        $catalogOptions[] = ['caption' => 'Gesundheit: Alle gesunden', 'value' => 'health:healthy'];
         // Sonder-Filter
         $catalogOptions[] = ['caption' => 'Alle Geraete & Variablen', 'value' => 'all'];
         $catalogOptions[] = ['caption' => 'Nicht getaggte',           'value' => 'untagged'];
@@ -970,8 +1398,24 @@ PROMPT;
             $catalogOptions[] = ['caption' => $cat, 'value' => $cat];
         }
 
-        $initialCatalogList = [];
+        // ── Initiale Liste: Alle Probleme (health != healthy) pro Geraet ──
+        $healthLabels = [
+            'alarm'        => 'Alarm',
+            'battery_dead' => 'Batterie leer (offline)',
+            'offline'      => 'Nicht erreichbar',
+            'battery_low'  => 'Batterie schwach',
+            'stale'        => 'Kein Update',
+            'healthy'      => 'Gesund',
+        ];
+        $healthSeverity = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1, 'healthy' => 0];
+
+                $initialCatalogList = [];
         foreach ($inventory as $device) {
+            $h = $device['health'] ?? 'healthy';
+            $deviceHealth  = $healthLabels[$h] ?? '';
+            $deviceDetail  = $device['healthDetail'] ?? '';
+            $deviceSeverity = $healthSeverity[$h] ?? 0;
+
             foreach ($device['variables'] as $v) {
                 $parsed  = $this->parseTag($v['tag']);
                 if ($parsed['disabled']) continue;
@@ -980,6 +1424,9 @@ PROMPT;
                 $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
                 
                 $initialCatalogList[] = [
+                    'health'       => $deviceHealth,
+                    'detail'       => $deviceDetail,
+                    'severity'     => $deviceSeverity,
                     'instanceName' => $device['instanceName'],
                     'room'         => $v['room'] ?? $device['room'],
                     'tagBase'      => $tagBase,
@@ -992,12 +1439,20 @@ PROMPT;
             }
         }
 
-                $totalDevices = count($inventory);
+                $problemCount = 0;
+        foreach ($inventory as $device) {
+            if (isset($device['health']) && $device['health'] !== 'healthy') {
+                $problemCount++;
+            }
+        }
+        $healthyCount = count($inventory) - $problemCount;
+        $totalDevices = count($inventory);
         $totalVars    = array_sum(array_map(fn($d) => count($d['variables']), $inventory));
 
         $summaryText = $totalDevices === 0
             ? 'Inventar leer - bitte einmal "Jetzt scannen" druecken.'
-            : "$totalDevices Geraete, $totalVars getaggte Variablen";
+            : "$totalDevices Geraete, $totalVars getaggte Variablen"
+                . ($problemCount > 0 ? " – $problemCount Probleme" : ' – alles gesund');
 
         $form = [
             'elements' => [
@@ -1087,8 +1542,11 @@ PROMPT;
                             'name' => 'CatalogList',
                             'caption' => '',
                             'rowCount' => min(max(count($initialCatalogList), 5), 25),
-                                                        'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
+                            'sort' => ['column' => 'severity', 'direction' => 'descending'],
+                            'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
                             'columns' => [
+                                ['name' => 'health',       'caption' => 'Gesundheit',   'width' => '140px'],
+                                ['name' => 'detail',       'caption' => 'Detail',        'width' => '200px'],
                                 ['name' => 'instanceName', 'caption' => 'Geraet', 'width' => 'auto'],
                                 ['name' => 'room',         'caption' => 'Raum',          'width' => '110px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase',      'caption' => 'Kategorie',     'width' => '140px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
@@ -1096,6 +1554,7 @@ PROMPT;
                                 ['name' => 'disabled',     'caption' => 'Deaktiviert',   'width' => '80px',  'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value',        'caption' => 'Aktuell',       'width' => '120px'],
                                 ['name' => 'ObjectID',     'caption' => 'ID',            'width' => '65px',  'edit' => ['type' => 'SelectObject']],
+                                ['name' => 'severity',     'caption' => 'Prio',          'width' => '50px',  'visible' => false],
                             ],
                             'values' => $initialCatalogList,
                         ],
@@ -1114,9 +1573,61 @@ PROMPT;
         $this->SetBuffer('Inventory', json_encode($leanInventory));
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
+        $healthLabels = [
+            'alarm'        => 'Alarm',
+            'battery_dead' => 'Batterie leer (offline)',
+            'offline'      => 'Nicht erreichbar',
+            'battery_low'  => 'Batterie schwach',
+            'stale'        => 'Kein Update',
+            'healthy'      => 'Gesund',
+        ];
+        $healthSeverity = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1, 'healthy' => 0];
+
         $list = [];
 
-        if ($category === 'untagged') {
+        // ── Geraete-zentrische Filter (health:*, problems) ──
+        $isHealthFilter  = str_starts_with($category, 'health:');
+        $filterHealth    = $isHealthFilter ? substr($category, 7) : null;
+        $isProblemsFilter = ($category === 'problems');
+
+        if ($isHealthFilter || $isProblemsFilter) {
+            foreach ($inventory as $device) {
+                $h = $device['health'] ?? 'healthy';
+                $match = $isProblemsFilter ? ($h !== 'healthy') : ($h === $filterHealth);
+                if (!$match) continue;
+
+                $allDisabled = true;
+                foreach ($device['variables'] as $v) {
+                    if (!($v['disabled'] ?? false)) { $allDisabled = false; break; }
+                }
+                if ($allDisabled && !$showDisabled) continue;
+
+                // Erste nicht-deaktivierte Variable fuer Tag-Anzeige
+                $firstVar = null;
+                foreach ($device['variables'] as $v) {
+                    if (!($v['disabled'] ?? false)) { $firstVar = $v; break; }
+                }
+                $parsedTag = $firstVar ? $this->parseTag($firstVar['tag']) : null;
+                $tagBase = $parsedTag ? ('SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '')) : '';
+                $normalStateStr = ($parsedTag && $parsedTag['normalState'] !== null) ? $parsedTag['normalState']['value'] : '';
+
+                $list[] = [
+                    'health'       => $healthLabels[$h] ?? $h,
+                    'detail'       => $device['healthDetail'] ?? '',
+                    'severity'     => $healthSeverity[$h] ?? 0,
+                    'instanceName' => $device['instanceName'],
+                    'room'         => $firstVar['room'] ?? $device['room'],
+                    'tagBase'      => $tagBase,
+                    'normalState'  => $normalStateStr,
+                    'disabled'     => false,
+                    'value'        => $firstVar ? $this->getFormattedValue($firstVar['varID'] ?? 0) : '',
+                    'ObjectID'     => $firstVar['varID'] ?? $device['instanceID'],
+                    'instanceID'   => $device['instanceID'],
+                ];
+            }
+            usort($list, fn($a, $b) => $b['severity'] <=> $a['severity']);
+
+                } elseif ($category === 'untagged') {
             // Nicht getaggte Instanzen (deaktivierte ausblenden, es sei denn showDisabled)
             foreach ($untagged as $u) {
                 $ignoreVarID = @IPS_GetObjectIDByIdent('_SI_Ignore', $u['instanceID']);
@@ -1124,6 +1635,9 @@ PROMPT;
                 if ($isDisabled && !$showDisabled) continue;
                 
                 $list[] = [
+                    'health'       => '',
+                    'detail'       => '',
+                    'severity'     => 0,
                     'instanceName' => $u['instanceName'],
                     'room'         => $u['room'],
                     'tagBase'      => '',
@@ -1142,7 +1656,10 @@ PROMPT;
                     if ($parsed['disabled']) {
                         $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
                         $list[] = [
-                                                    'instanceName' => $device['instanceName'],
+                            'health'       => '',
+                            'detail'       => '',
+                            'severity'     => 0,
+                            'instanceName' => $device['instanceName'],
                             'room'         => $v['room'] ?? $device['room'],
                             'tagBase'      => $tagBase,
                             'normalState'  => $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '',
@@ -1159,7 +1676,10 @@ PROMPT;
                 $isDisabled = ($ignoreVarID !== false && GetValue($ignoreVarID));
                 if ($isDisabled) {
                     $list[] = [
-                                    'instanceName' => $u['instanceName'],
+                        'health'       => '',
+                        'detail'       => '',
+                        'severity'     => 0,
+                        'instanceName' => $u['instanceName'],
                         'room'         => $u['room'],
                         'tagBase'      => '',
                         'normalState'  => '',
@@ -1173,6 +1693,11 @@ PROMPT;
         } else {
             // Variablen-zentrische Filter (all, SI:...)
             foreach ($inventory as $device) {
+                $h = $device['health'] ?? 'healthy';
+                $deviceHealth  = $healthLabels[$h] ?? '';
+                $deviceDetail  = $device['healthDetail'] ?? '';
+                $deviceSeverity = $healthSeverity[$h] ?? 0;
+
                 foreach ($device['variables'] as $v) {
                     $parsed  = $this->parseTag($v['tag']);
                     
@@ -1193,6 +1718,9 @@ PROMPT;
                     if ($match) {
                         $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
                         $list[] = [
+                            'health'       => $deviceHealth,
+                            'detail'       => $deviceDetail,
+                            'severity'     => $deviceSeverity,
                             'instanceName' => $device['instanceName'],
                             'room'         => $v['room'] ?? $device['room'],
                             'tagBase'      => $tagBase,
@@ -1255,6 +1783,7 @@ PROMPT;
                 'i' => $device['instanceID'],      // instanceID
                 'n' => $device['instanceName'],    // instanceName
                 'r' => $device['room'],            // room
+                'h' => $device['health'] ?? 'healthy',          // health status
                 'v' => $leanVars,                  // variables
             ];
         }
@@ -1387,5 +1916,4 @@ PROMPT;
         return (string) $value;
     }
 }
-
 

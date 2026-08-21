@@ -176,8 +176,8 @@ class SmartNotifier extends IPSModuleStrict
 
         foreach ($inventory as $device) {
             // ── Device Health Score (dedupliziert) ──
-            // Nutze den Health-Status aus dem SmartInventory Lean Buffer
-            $health = $device['health'] ?? 'healthy';
+            $healthInfo = $this->calculateDeviceHealth($device['variables'] ?? []);
+            $health = $healthInfo['status'];
             if ($health !== 'healthy') {
                 $deviceProblems++;
             }
@@ -655,114 +655,27 @@ class SmartNotifier extends IPSModuleStrict
     // Formular
     // =========================================================================
 
-    public function GetConfigurationForm(): string
+
+    private function calculateDeviceHealth(array $vars): array
     {
-        return json_encode([
-            'elements' => [
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Monitoring',
-                    'expanded' => true,
-                    'items' => [
-                        ['type' => 'SelectInstance', 'name' => 'InventoryID', 'caption' => 'SmartInventory Instanz'],
-                        ['type' => 'NumberSpinner', 'name' => 'MonitorInterval', 'caption' => 'Monitor-Intervall', 'suffix' => 'Minuten (0 = deaktiviert)', 'minimum' => 0, 'maximum' => 60],
-                        ['type' => 'NumberSpinner', 'name' => 'BatteryThreshold', 'caption' => 'Batterie-Schwellwert', 'suffix' => '%', 'minimum' => 5, 'maximum' => 50],
-                        ['type' => 'NumberSpinner', 'name' => 'StaleThreshold', 'caption' => 'Stale-Sensor-Schwellwert', 'suffix' => 'Minuten ohne Update', 'minimum' => 0, 'maximum' => 1440],
-                    ],
-                ],
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Ausgabe-Kanaele',
-                    'items' => [
-                        ['type' => 'SelectInstance', 'name' => 'TargetVisu', 'caption' => 'Kachel-Visualisierung (fuer Push)'],
-                        ['type' => 'CheckBox', 'name' => 'EnablePush', 'caption' => 'Push-Nachrichten aktivieren'],
-                        ['type' => 'SelectInstance', 'name' => 'TargetSonosTTS', 'caption' => 'Sonos TTS Instanz'],
-                        ['type' => 'CheckBox', 'name' => 'EnableTTS', 'caption' => 'Sprachausgabe aktivieren'],
-                        ['type' => 'SelectInstance', 'name' => 'TargetVestaboard', 'caption' => 'VestaboardGenerator Instanz'],
-                        ['type' => 'CheckBox', 'name' => 'EnableVestaboard', 'caption' => 'Vestaboard Alarm-Push aktivieren'],
-                        ['type' => 'SelectInstance', 'name' => 'TargetSMTP', 'caption' => 'SMTP Instanz (fuer E-Mails)'],
-                        ['type' => 'ValidationTextBox', 'name' => 'EmailAddress', 'caption' => 'Empfaenger E-Mail Adresse'],
-                        ['type' => 'CheckBox', 'name' => 'EnableSMTP', 'caption' => 'E-Mail Benachrichtigungen aktivieren'],
-                    ],
-                ],
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'HmIP MP3-Gong Einstellungen',
-                    'items' => [
-                        ['type' => 'SelectInstance', 'name' => 'TargetMP3P', 'caption' => 'HmIP MP3P Instanz'],
-                        ['type' => 'CheckBox', 'name' => 'EnableMP3P', 'caption' => 'MP3-Gong aktivieren'],
-                        ['type' => 'Label', 'bold' => true, 'caption' => 'High Priority (Alarm):'],
-                        [
-                            'type' => 'RowLayout',
-                            'items' => [
-                                ['type' => 'ValidationTextBox', 'name' => 'MP3P_Track_High', 'caption' => 'Track (z.B. 1)'],
-                                ['type' => 'NumberSpinner', 'name' => 'MP3P_Volume_High', 'caption' => 'Lautstaerke (%)', 'minimum' => 0, 'maximum' => 100, 'suffix' => '%'],
-                                ['type' => 'NumberSpinner', 'name' => 'MP3P_Track_Duration_High', 'caption' => 'Track Dauer (s, 0=1x)', 'minimum' => 0, 'suffix' => 's'],
-                                ['type' => 'Select', 'name' => 'MP3P_LED_Color_High', 'caption' => 'LED Farbe', 'options' => [
-                                    ['caption' => 'Aus', 'value' => 0], ['caption' => 'Blau', 'value' => 1], ['caption' => 'Gruen', 'value' => 2],
-                                    ['caption' => 'Tuerkis', 'value' => 3], ['caption' => 'Rot', 'value' => 4], ['caption' => 'Violett', 'value' => 5],
-                                    ['caption' => 'Gelb/Orange', 'value' => 6], ['caption' => 'Weiss', 'value' => 7],
-                                ]],
-                                ['type' => 'NumberSpinner', 'name' => 'MP3P_LED_Duration_High', 'caption' => 'LED Dauer (s, 0=unendlich)', 'minimum' => 0, 'suffix' => 's'],
-                            ],
-                        ],
-                        ['type' => 'Label', 'bold' => true, 'caption' => 'Low / Medium Priority (Hinweis):'],
-                        [
-                            'type' => 'RowLayout',
-                            'items' => [
-                                ['type' => 'ValidationTextBox', 'name' => 'MP3P_Track_Low', 'caption' => 'Track (z.B. 2)'],
-                                ['type' => 'NumberSpinner', 'name' => 'MP3P_Volume_Low', 'caption' => 'Lautstaerke (%)', 'minimum' => 0, 'maximum' => 100, 'suffix' => '%'],
-                                ['type' => 'NumberSpinner', 'name' => 'MP3P_Track_Duration_Low', 'caption' => 'Track Dauer (s, 0=1x)', 'minimum' => 0, 'suffix' => 's'],
-                                ['type' => 'Select', 'name' => 'MP3P_LED_Color_Low', 'caption' => 'LED Farbe', 'options' => [
-                                    ['caption' => 'Aus', 'value' => 0], ['caption' => 'Blau', 'value' => 1], ['caption' => 'Gruen', 'value' => 2],
-                                    ['caption' => 'Tuerkis', 'value' => 3], ['caption' => 'Rot', 'value' => 4], ['caption' => 'Violett', 'value' => 5],
-                                    ['caption' => 'Gelb/Orange', 'value' => 6], ['caption' => 'Weiss', 'value' => 7],
-                                ]],
-                                ['type' => 'NumberSpinner', 'name' => 'MP3P_LED_Duration_Low', 'caption' => 'LED Dauer (s, 0=unendlich)', 'minimum' => 0, 'suffix' => 's'],
-                            ],
-                        ],
-                    ],
-                ],
-                [
-                    'type' => 'ExpansionPanel',
-                    'caption' => 'Routing-Regeln (Nach Prioritaet)',
-                    'items' => [
-                        ['type' => 'Label', 'caption' => 'Definiert, welche Nachrichten-Prioritaet ueber welche Kanaele gesendet wird.'],
-                        [
-                            'type' => 'List',
-                            'name' => 'RoutingRules',
-                            'caption' => 'Aktions-Matrix',
-                            'add' => false,
-                            'delete' => false,
-                            'columns' => [
-                                ['caption' => 'Prioritaet', 'name' => 'Level', 'width' => '150px', 'edit' => ['type' => 'Select', 'options' => [
-                                    ['caption' => '0 (Info)', 'value' => 0],
-                                    ['caption' => '1 (Hinweis)', 'value' => 1],
-                                    ['caption' => '2 (Alarm)', 'value' => 2],
-                                ]]],
-                                ['caption' => 'Push', 'name' => 'Push', 'width' => '80px', 'edit' => ['type' => 'CheckBox']],
-                                ['caption' => 'Sprache', 'name' => 'TTS', 'width' => '80px', 'edit' => ['type' => 'CheckBox']],
-                                ['caption' => 'MP3', 'name' => 'MP3', 'width' => '80px', 'edit' => ['type' => 'CheckBox']],
-                                ['caption' => 'Vestaboard', 'name' => 'Vesta', 'width' => '80px', 'edit' => ['type' => 'CheckBox']],
-                                ['caption' => 'E-Mail', 'name' => 'Mail', 'width' => '80px', 'edit' => ['type' => 'CheckBox']],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-            'actions' => [
-                [
-                    'type' => 'RowLayout',
-                    'items' => [
-                        ['type' => 'Button', 'caption' => 'Monitor jetzt ausfuehren', 'onClick' => 'NOTIFY_RunMonitor($id); echo "Monitor-Durchlauf abgeschlossen.";'],
-                        ['type' => 'Button', 'caption' => 'Subscriptions aktualisieren', 'onClick' => 'NOTIFY_RefreshSubscriptions($id); echo "Subscriptions aktualisiert.";'],
-                    ],
-                ],
-                ['type' => 'Button', 'caption' => 'Test: Info (Prio 0)', 'onClick' => 'NOTIFY_SendMessage($id, \'Test\', \'Dies ist eine Info-Meldung.\', 0);'],
-                ['type' => 'Button', 'caption' => 'Test: Alarm (Prio 2)', 'onClick' => 'NOTIFY_SendMessage($id, \'Alarm\', \'Dies ist ein kritischer Test!\', 2);'],
-            ],
-        ]);
-    }
+        $threshold   = 15;
+        $staleLimit  = 86400; // 24 Stunden
+        $now         = time();
+
+        $hasBatLow   = false;
+        $batValue    = null;
+        $isOffline   = false;
+        $isStale     = false;
+        $hasAlarm    = false;
+        $alarmName   = '';
+        $latestUpdate = 0;
+
+        foreach ($vars as $v) {
+            if ($v['disabled'] ?? false) {
+                continue;
+            }
+
+
 
     // =========================================================================
     // Nachrichtenverarbeitung
@@ -974,3 +887,4 @@ class SmartNotifier extends IPSModuleStrict
         }
     }
 }
+
