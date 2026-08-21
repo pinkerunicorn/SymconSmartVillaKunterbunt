@@ -311,6 +311,17 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
         if ($Message !== VM_UPDATE) {
             return;
         }
+        
+        // Verhindere Endlosschleife: Update ignorieren, wenn sich der Wert nicht geaendert hat!
+        if (isset($Data[0]) && isset($Data[2]) && $Data[0] === $Data[2]) {
+            return;
+        }
+        
+        // Verhindere Endlosschleife: Ignoriere unsere eigenen Variablen (falls der User sie als Sensor mappt)
+        $obj = @IPS_GetObject($SenderID);
+        if ($obj !== false && $obj['ParentID'] === $this->InstanceID) {
+            return;
+        }
 
         $val = $Data[0];
         $isTrigger = $this->evaluateTriggerValue($val);
