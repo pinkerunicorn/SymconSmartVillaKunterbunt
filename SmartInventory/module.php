@@ -1702,6 +1702,10 @@ PROMPT;
         } else {
             // Variablen-zentrische Filter (all, SI:...)
             foreach ($inventory as $device) {
+                if ($device['instanceName'] === 'Pixelblaze') {
+                    $names = array_map(fn($v) => $v['name'] ?? $v['varID'], $device['variables']);
+                    IPS_LogMessage('SmartInventory_Debug', 'Pixelblaze variables in inventory: ' . implode(', ', $names));
+                }
                 $h = $device['health'] ?? 'healthy';
                 $deviceHealth  = $healthLabels[$h] ?? '';
                 $deviceDetail  = $device['healthDetail'] ?? '';
@@ -1723,6 +1727,9 @@ PROMPT;
 
                     if ($match) {
                         $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
+                        if ($device['instanceName'] === 'Pixelblaze') {
+                            IPS_LogMessage('SmartInventory_Debug', 'Adding to list: ' . ($v['name'] ?? $v['varID']) . ' (disabled=' . ($parsed['disabled'] ? 'true' : 'false') . ', tagBase=' . $tagBase . ')');
+                        }
                         $list[] = [
                             'health'       => $deviceHealth,
                             'detail'       => $deviceDetail,
