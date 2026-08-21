@@ -94,6 +94,20 @@ class SmartInventory extends IPSModuleStrict
     {
         $startTime = microtime(true);
 
+        // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
+        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+        $changed = false;
+        foreach ($db as $varID => $data) {
+            if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
+                unset($db[$varID]['tag']);
+                if (empty($db[$varID])) unset($db[$varID]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
+
         ['inventory' => $inventory, 'untagged' => $untaggedInstances] = $this->buildInventoryData();
 
         $deviceCount    = count($inventory);
@@ -1306,14 +1320,16 @@ PROMPT;
             if ($objType === 2) {
                 // Variable -> Tag aktualisieren
                 $newTag = $listData["tagBase"];
-                $ns = $listData["normalState"] ?? "";
-                // Doppelpunkte aus normalState entfernen (Injection-Schutz)
-                $ns = str_replace(":", "", $ns);
-                if ($ns !== "") {
-                    $newTag .= ":ok=" . $ns;
-                }
-                if ($listData["disabled"]) {
-                    $newTag .= ":disabled";
+                if ($newTag !== "") {
+                    $ns = $listData["normalState"] ?? "";
+                    // Doppelpunkte aus normalState entfernen (Injection-Schutz)
+                    $ns = str_replace(":", "", $ns);
+                    if ($ns !== "") {
+                        $newTag .= ":ok=" . $ns;
+                    }
+                    if ($listData["disabled"]) {
+                        $newTag .= ":disabled";
+                    }
                 }
                 SINV_SetTag($id, $vid, $newTag);
             } elseif ($objType === 1) {
