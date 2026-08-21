@@ -428,13 +428,52 @@ class SmartInventory extends IPSModuleStrict
     public function GetInventory(): string
     {
         $json = $this->GetBuffer('Inventory');
-        if ($json !== '' && $json !== false) {
-            return $json;
+        if ($json === '' || $json === false) {
+            IPS_RunScriptText('SINV_Scan(' . $this->InstanceID . ');');
+            return '[]';
         }
-        // Buffer leer (nach Neustart): Scan asynchron anstoessen, diesmal leer zurueckgeben.
-        // Synchroner Scan hier wuerde den PHP-Engine blockieren (396+ Instanzen).
-        IPS_RunScriptText('SINV_Scan(' . $this->InstanceID . ');');
-        return '[]';
+
+        $leanInventory = json_decode($json, true);
+        if (!is_array($leanInventory)) return '[]';
+
+        $fatInventory = [];
+        foreach ($leanInventory as $device) {
+            $vars = $device['v'] ?? ($device['variables'] ?? []);
+            $fatVars = [];
+            foreach ($vars as $v) {
+                // Determine if it's already fat or lean
+                if (isset($v['category'])) {
+                    $fatVars[] = $v;
+                    continue;
+                }
+                
+                $cat = $v['c'] ?? '';
+                $sub = $v['s'] ?? '';
+                $tag = $cat !== '' ? 'SI:' . $cat . ($sub !== '' ? ':' . $sub : '') : '';
+                
+                $fatVars[] = [
+                    'varID'         => $v['v'] ?? 0,
+                    'category'      => $cat,
+                    'subcategory'   => $sub,
+                    'normalState'   => $v['n'] ?? null,
+                    'room'          => $v['r'] ?? '',
+                    'disabled'      => $v['d'] ?? false,
+                    'type'          => $v['t'] ?? 0,
+                    'lastUpdatedTS' => $v['u'] ?? 0,
+                    'tag'           => $tag
+                ];
+            }
+            $fatInventory[] = [
+                'instanceID'   => $device['i'] ?? ($device['instanceID'] ?? 0),
+                'instanceName' => $device['n'] ?? ($device['instanceName'] ?? ''),
+                'room'         => $device['r'] ?? ($device['room'] ?? ''),
+                'health'       => $device['h'] ?? ($device['health'] ?? 'healthy'),
+                'healthDetail' => $device['hd'] ?? ($device['healthDetail'] ?? ''),
+                'variables'    => $fatVars
+            ];
+        }
+
+        return json_encode($fatInventory);
     }
 
     /**
@@ -442,8 +481,8 @@ class SmartInventory extends IPSModuleStrict
      */
     public function GetCategories(): string
     {
-        $buffer = (string)$this->GetBuffer('Inventory');
-        $inventory = json_decode($buffer === '' ? '[]' : $buffer, true) ?: [];
+        $buffer = $this->GetInventory();
+        $inventory = json_decode($buffer, true) ?: [];
         $categories = [];
 
         foreach ($inventory as $device) {
