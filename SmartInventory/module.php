@@ -1272,37 +1272,25 @@ PROMPT;
             $roomOptions[] = ['caption' => $r, 'value' => $r];
         }
 
-        $tagOptions = [
-            ['caption' => '(Nicht getaggt)', 'value' => ''],
-            ['caption' => 'Batterie', 'value' => 'SI:battery'],
-            ['caption' => 'Erreichbarkeit (Offline/Online)', 'value' => 'SI:reachability'],
-            ['caption' => 'Kontakt (Generisch)', 'value' => 'SI:contact'],
-            ['caption' => 'Kontakt (Fenster)', 'value' => 'SI:contact:window'],
-            ['caption' => 'Kontakt (Tür)', 'value' => 'SI:contact:door'],
-            ['caption' => 'Bewegungsmelder', 'value' => 'SI:motion'],
-            ['caption' => 'Alarm (Generisch)', 'value' => 'SI:alarm'],
-            ['caption' => 'Alarm (Wasser)', 'value' => 'SI:alarm:water'],
-            ['caption' => 'Alarm (Rauch)', 'value' => 'SI:alarm:smoke'],
-            ['caption' => 'Alarm (Hitze)', 'value' => 'SI:alarm:heat'],
-            ['caption' => 'Alarm (Gas)', 'value' => 'SI:alarm:gas'],
-            ['caption' => 'Alarm (CO)', 'value' => 'SI:alarm:co'],
-            ['caption' => 'Alarm (Sabotage/Tamper)', 'value' => 'SI:alarm:tamper'],
-            ['caption' => 'Alarm (Bewegung)', 'value' => 'SI:alarm:motion'],
-            ['caption' => 'Warnung', 'value' => 'SI:warning'],
-            ['caption' => 'Sensor (Taster)', 'value' => 'SI:sensor:button'],
-            ['caption' => 'Sensor (Temperatur)', 'value' => 'SI:sensor:temp'],
-            ['caption' => 'Sensor (Luftfeuchte)', 'value' => 'SI:sensor:humidity'],
-            ['caption' => 'Sensor (Helligkeit)', 'value' => 'SI:sensor:lux'],
-            ['caption' => 'Sensor (Leistung W)', 'value' => 'SI:sensor:power'],
-            ['caption' => 'Sensor (Energie kWh)', 'value' => 'SI:sensor:energy'],
-            ['caption' => 'Aktor (Schalter)', 'value' => 'SI:actor:switch'],
-            ['caption' => 'Aktor (Dimmer)', 'value' => 'SI:actor:dimmer'],
-            ['caption' => 'Aktor (Rollladen)', 'value' => 'SI:actor:blind'],
-            ['caption' => 'Aktor (Thermostat)', 'value' => 'SI:actor:thermostat'],
-            ['caption' => 'Aktor (Schloss)', 'value' => 'SI:actor:lock'],
-            ['caption' => 'Diagnostik', 'value' => 'SI:diagnostic'],
-            ['caption' => 'Info', 'value' => 'SI:info'],
-        ];
+        $tagOptions = array_merge(
+            [['caption' => '(Nicht getaggt)', 'value' => '']],
+            $earlyTagOpts,
+            [
+                ['caption' => 'Alarm (CO)', 'value' => 'SI:alarm:co'],
+                ['caption' => 'Alarm (Sabotage/Tamper)', 'value' => 'SI:alarm:tamper'],
+                ['caption' => 'Diagnostik', 'value' => 'SI:diagnostic'],
+                ['caption' => 'Info', 'value' => 'SI:info'],
+            ]
+        );
+        $seen = [];
+        $unique = [];
+        foreach ($tagOptions as $t) {
+            if (!isset($seen[$t['value']])) {
+                $unique[] = $t;
+                $seen[$t['value']] = true;
+            }
+        }
+        $tagOptions = $unique;
 
         $initialCatalogList = [];
         $catalogCategories = [];
