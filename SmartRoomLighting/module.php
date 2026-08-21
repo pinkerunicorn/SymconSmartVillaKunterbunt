@@ -131,9 +131,9 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                     }
                     
                     $normalStateArr = $dev['normalState'] ?? '';
-                    $idleVal = is_array($normalStateArr) ? trim((string)($normalStateArr['value'] ?? '')) : '';
-                    if ($varId > 0 && $idleVal !== '') {
-                        $switchDefaults[$varId] = '!idle:' . $idleVal;
+                    $triggerVal = is_array($normalStateArr) ? trim((string)($normalStateArr['value'] ?? '')) : '';
+                    if ($varId > 0 && $triggerVal !== '') {
+                        $switchDefaults[$varId] = $triggerVal;
                     }
                 }
             }
@@ -350,15 +350,9 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                     $rawTriggerVal = 'closed';
                 }
                 
-                if (str_starts_with($rawTriggerVal, '!idle:')) {
-                    $idleVal = strtolower(trim(substr($rawTriggerVal, 6)));
-                    $currentValStr = strtolower(trim((string)$val));
-                    $matched = ($currentValStr !== $idleVal);
-                } else {
-                    $triggerValStr = strtolower($rawTriggerVal);
-                    $currentValStr = strtolower(trim((string)$val));
-                    $matched = ($triggerValStr === 'true') ? $isTrigger : ($triggerValStr === $currentValStr);
-                }
+                $triggerValStr = strtolower($rawTriggerVal);
+                $currentValStr = strtolower(trim((string)$val));
+                $matched = ($triggerValStr === 'true') ? $isTrigger : ($triggerValStr === $currentValStr);
 
                 if ($matched) {
                     $this->processSwitchTrigger($trigger);

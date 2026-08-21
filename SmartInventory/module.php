@@ -937,7 +937,7 @@ Regeln:
 - SKIP für irrelevante Variablen (interne Zähler, Config, Darstellung)
 
 Homematic / HmIP Hints:
-- PRESS_SHORT / PRESS_LONG: SI:sensor:button
+- PRESS_SHORT / PRESS_LONG: SI:sensor:button:ok=CLOSED (ersetze CLOSED durch den Trigger-Wert)
 - MOTION: SI:motion
 - ACTUAL_TEMPERATURE: SI:sensor:temp
 - SET_POINT_TEMPERATURE: SI:actor:thermostat
@@ -1500,7 +1500,7 @@ PROMPT;
                                 ['name' => 'instanceName', 'caption' => 'Geraet', 'width' => 'auto'],
                                 ['name' => 'room',         'caption' => 'Raum',          'width' => '110px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase',      'caption' => 'Kategorie',     'width' => '140px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
-                                ['name' => 'normalState',  'caption' => 'OK-Wert',       'width' => '100px', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['name' => 'normalState',  'caption' => 'Ref-Wert (OK / Trigger)',       'width' => '100px', 'edit' => ['type' => 'ValidationTextBox']],
                                 ['name' => 'disabled',     'caption' => 'Deaktiviert',   'width' => '80px',  'edit' => ['type' => 'CheckBox']],
                                 ['name' => 'value',        'caption' => 'Aktuell',       'width' => '120px'],
                                 ['name' => 'ObjectID',     'caption' => 'ID',            'width' => '65px',  'edit' => ['type' => 'SelectObject']],
