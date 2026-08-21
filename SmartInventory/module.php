@@ -176,11 +176,9 @@ class SmartInventory extends IPSModuleStrict
             foreach ($children as $childID) {
                 $obj = @IPS_GetObject($childID);
                 if ($obj === false || $obj['ObjectType'] !== 2) {
-                    // if ($instanceName === 'Pixelblaze') file_put_contents('/tmp/pixelblaze_debug.txt', "Skipped $childID (Not Var)\n", FILE_APPEND);
                     continue;
                 }
                 if (str_starts_with($obj['ObjectIdent'], '_SI_')) {
-                    // if ($instanceName === 'Pixelblaze') file_put_contents('/tmp/pixelblaze_debug.txt', "Skipped $childID (_SI_)\n", FILE_APPEND);
                     continue;
                 }
 
@@ -1704,7 +1702,6 @@ PROMPT;
                     $parsed  = $this->parseTag($v['tag']);
                     
                     $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
-                    // if ($tagBase === '') continue; // Zeige Beifang-Variablen im 'all' Filter wieder an, damit man sie nachtraeglich taggen kann!
 
                     $match = false;
                     if ($category === 'all') {
