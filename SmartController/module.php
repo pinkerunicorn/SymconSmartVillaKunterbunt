@@ -817,7 +817,24 @@ class SmartController extends IPSModuleStrict
                 }
             ]
         },
+                        {
+            "type": "ExpansionPanel",
+            "caption": "Astronomie (Sonnenauf-/untergang)",
+            "expanded": true,
+            "items": [
                 {
+                    "type": "SelectVariable",
+                    "name": "SunsetVariableID",
+                    "caption": "Sonnenuntergang (Variable)"
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "SunriseVariableID",
+                    "caption": "Sonnenaufgang (Variable)"
+                }
+            ]
+        },
+        {
             "type": "ExpansionPanel",
             "caption": "🔔 Benachrichtigungen & Status",
             "expanded": true,
