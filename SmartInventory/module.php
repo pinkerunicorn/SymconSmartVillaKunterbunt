@@ -90,23 +90,9 @@ class SmartInventory extends IPSModuleStrict
     // Scan
     // ─────────────────────────────────────────────────────────────────
 
-    public function Scan(): string
+        public function Scan(): string
     {
         $startTime = microtime(true);
-
-        // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
-        $changed = false;
-        foreach ($db as $varID => $data) {
-            if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
-                unset($db[$varID]['tag']);
-                if (empty($db[$varID])) unset($db[$varID]);
-                $changed = true;
-            }
-        }
-        if ($changed) {
-            $this->WriteAttributeString('TagDatabase', json_encode($db));
-        }
 
         ['inventory' => $inventory, 'untagged' => $untaggedInstances] = $this->buildInventoryData();
 
@@ -128,6 +114,8 @@ class SmartInventory extends IPSModuleStrict
                     'c' => $v['category'],             // category
                     's' => $v['subcategory'],          // subcategory
                     'n' => $v['normalState'],          // normalState
+                    'r' => $v['room'] ?? '',          // room
+                    'd' => $v['disabled'],            // disabled
                     't' => $v['type'],                 // type
                     'u' => $v['lastUpdatedTS'],        // lastUpdatedTS
                 ];
@@ -184,7 +172,20 @@ class SmartInventory extends IPSModuleStrict
     {
         $inventory         = [];
         $untaggedInstances = [];
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
+        // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
+        $changed = false;
+        foreach ($db as $varID => $data) {
+            if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
+                unset($db[$varID]['tag']);
+                if (empty($db[$varID])) unset($db[$varID]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
 
         foreach (IPS_GetInstanceList() as $instanceID) {
             $instance = @IPS_GetInstance($instanceID);
@@ -519,6 +520,7 @@ class SmartInventory extends IPSModuleStrict
                 if ($category === $cat || $category === $matchTag) {
                     $varID = $v['v'] ?? ($v['varID'] ?? 0);
                     if ($varID === 0 || !@IPS_VariableExists($varID)) continue;
+                    if ($v['d'] ?? ($v['disabled'] ?? false)) continue;
                     
                     $results[] = [
                         'instanceID'    => $device['i'] ?? ($device['instanceID'] ?? 0),
@@ -810,7 +812,20 @@ class SmartInventory extends IPSModuleStrict
     {
         if (!@IPS_ObjectExists($id)) return false;
         
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
+        // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
+        $changed = false;
+        foreach ($db as $varID => $data) {
+            if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
+                unset($db[$varID]['tag']);
+                if (empty($db[$varID])) unset($db[$varID]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
         if ($room === '') {
             if (isset($db[$id])) {
                 unset($db[$id]['room']);
@@ -836,7 +851,20 @@ class SmartInventory extends IPSModuleStrict
             $tag = self::TAG_PREFIX . $tag;
         }
         
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
+        // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
+        $changed = false;
+        foreach ($db as $varID => $data) {
+            if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
+                unset($db[$varID]['tag']);
+                if (empty($db[$varID])) unset($db[$varID]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
         if ($tag === '') {
             if (isset($db[$varID])) {
                 unset($db[$varID]['tag']);
@@ -880,7 +908,20 @@ class SmartInventory extends IPSModuleStrict
             }
         }
 
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
+        // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
+        $changed = false;
+        foreach ($db as $varID => $data) {
+            if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
+                unset($db[$varID]['tag']);
+                if (empty($db[$varID])) unset($db[$varID]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
 
         // Ungetaggte Variablen sammeln
         $batches = [];
@@ -1737,7 +1778,20 @@ PROMPT;
      */
         private function resolveRoom(int $id): string
     {
-        $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+                $db = json_decode($this->ReadAttributeString('TagDatabase') ?: '{}', true);
+
+        // Cleanup corrupted tags (e.g. "SI::disabled" or "SI:")
+        $changed = false;
+        foreach ($db as $varID => $data) {
+            if (isset($data['tag']) && ($data['tag'] === 'SI:' || str_starts_with($data['tag'], 'SI::'))) {
+                unset($db[$varID]['tag']);
+                if (empty($db[$varID])) unset($db[$varID]);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            $this->WriteAttributeString('TagDatabase', json_encode($db));
+        }
         if (isset($db[$id]) && !empty($db[$id]['room'])) {
             return $db[$id]['room'];
         }
