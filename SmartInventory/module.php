@@ -1301,7 +1301,6 @@ PROMPT;
         $onEditScript = '
             $listData = ${$IPS_VALUE};
             $vid = $listData["ObjectID"];
-            $iid = $listData["instanceID"];
             
             $objType = IPS_GetObject($vid)["ObjectType"];
             if ($objType === 2) {
@@ -1319,11 +1318,11 @@ PROMPT;
                 SINV_SetTag($id, $vid, $newTag);
             } elseif ($objType === 3) {
                 // Instanz (Nicht getaggt) -> Ignore setzen
-                $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $iid);
+                $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $vid);
                 if ($listData["disabled"]) {
                     if ($ignoreVarID === false) {
                         $ignoreVarID = IPS_CreateVariable(0);
-                        IPS_SetParent($ignoreVarID, $iid);
+                        IPS_SetParent($ignoreVarID, $vid);
                         IPS_SetIdent($ignoreVarID, "_SI_Ignore");
                         IPS_SetName($ignoreVarID, "SmartInventory Ignoriert");
                         IPS_SetHidden($ignoreVarID, true);
