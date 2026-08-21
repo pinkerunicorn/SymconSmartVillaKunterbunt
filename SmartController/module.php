@@ -41,6 +41,8 @@ class SmartController extends IPSModuleStrict
         $this->RegisterPropertyFloat('BasePriceWater', 0.0);
         $this->RegisterPropertyFloat('PriceGas', 0.12);
         $this->RegisterPropertyFloat('BasePriceGas', 0.0);
+        $this->RegisterPropertyInteger('SunsetVariableID', 0);
+        $this->RegisterPropertyInteger('SunriseVariableID', 0);
 
         // Google Home / Alexa Interface (Boolean Toggle)
         $this->RegisterVariableBoolean('PresenceStatus', 'Anwesenheit (Google Home)', [
@@ -132,6 +134,9 @@ class SmartController extends IPSModuleStrict
             'PRESENTATION' => VARIABLE_PRESENTATION_VALUE_PRESENTATION,
             'ICON' => 'circle-info'
         ], 11);
+
+        $this->RegisterVariableInteger('SunsetTime', 'Sonnenuntergang', '~UnixTimestampDate', 100);
+        $this->RegisterVariableInteger('SunriseTime', 'Sonnenaufgang', '~UnixTimestampDate', 101);
 
         // Monitor Links
         $this->RegisterPropertyInteger('MonitorPresenceID', 0);

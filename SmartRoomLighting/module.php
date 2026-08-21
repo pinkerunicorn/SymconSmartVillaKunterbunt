@@ -25,8 +25,6 @@ class SmartRoomLighting extends IPSModuleStrict
         // === Properties ===
         // Device Registry integration (optional)
         $this->RegisterPropertyInteger('RegistryID', 0);
-        $this->RegisterPropertyInteger('SunsetVariableID', 0);
-        $this->RegisterPropertyInteger('SunriseVariableID', 0);
         // Scene mode: map a name to a SmartSequencer instance
         $this->RegisterPropertyString('Scenes', '[]');
         // Direct scene lamps: map a scene name to a set of lamps
@@ -72,18 +70,16 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $this->registerPropertyReference('RegistryID');
+        if (IPS_PropertyExists($this->InstanceID, 'SunsetVariableID')) {
+            // Migration: Symcon automatically handles removed properties, but they stay in config.json. 
+            // We can't delete them from PHP, we just ignore them.
+        }
+        if (IPS_PropertyExists($this->InstanceID, 'SunsetVariableID')) {
+            // Migration: Symcon automatically handles removed properties, but they stay in config.json. 
+            // We can't delete them from PHP, we just ignore them.
+        }
         
         $regId = (int)@$this->ReadPropertyInteger('RegistryID');
-        if ($regId > 1 && @IPS_InstanceExists($regId)) {
-            $sunsetId = (int)$this->ReadPropertyInteger('SunsetVariableID');
-            $sunriseId = (int)$this->ReadPropertyInteger('SunriseVariableID');
-            if ($sunsetId > 1 && @IPS_VariableExists($sunsetId)) {
-                $this->RegisterReference($sunsetId);
-            }
-            if ($sunriseId > 1 && @IPS_VariableExists($sunriseId)) {
-                $this->RegisterReference($sunriseId);
-            }
-        }
         
         $this->registerListReferences('SceneDevices', ['TargetID', 'ManualTargetID']);
         $this->registerListReferences('MotionTriggers', ['SensorID', 'ManualSensorID']);
@@ -307,7 +303,7 @@ class SmartRoomLighting extends IPSModuleStrict
         }
         
         // Subscribe to central house state AFTER unregistering all messages
-        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode', 'IsDark']);
+        $this->SubscribeToCentralStates(['PresenceMode', 'ActivityMode', 'IsDark', 'SunsetTime', 'SunriseTime']);
     }
 
     // =====================================================================
@@ -835,16 +831,8 @@ class SmartRoomLighting extends IPSModuleStrict
         }
 
         $rules = $this->safeJsonDecode($this->ReadPropertyString('TwilightRules'), true) ?: [];
-        $regId = (int)@$this->ReadPropertyInteger('RegistryID');
-        $sunsetId = 0;
-        $sunriseId = 0;
-        if ($regId > 1 && @IPS_InstanceExists($regId)) {
-            $sunsetId = (int)$this->ReadPropertyInteger('SunsetVariableID');
-            $sunriseId = (int)$this->ReadPropertyInteger('SunriseVariableID');
-        }
-
-        $sunsetTime = ($sunsetId > 0 && @IPS_VariableExists($sunsetId)) ? (int)GetValue($sunsetId) : 0;
-        $sunriseTime = ($sunriseId > 0 && @IPS_VariableExists($sunriseId)) ? (int)GetValue($sunriseId) : 0;
+        $sunsetTime = (int)$this->GetCentralState('SunsetTime');
+        $sunriseTime = (int)$this->GetCentralState('SunriseTime');
         $now = time();
 
         foreach ($rules as $index => $rule) {
@@ -956,6 +944,7 @@ class SmartRoomLighting extends IPSModuleStrict
         match ($stateName) {
             'PresenceMode' => $this->handlePresenceChange((int)$newValue),
             'ActivityMode' => $this->handleActivityChange((int)$newValue),
+            'SunsetTime', 'SunriseTime' => $this->buildTwilightTimer(),
             default => null
         };
     }
