@@ -93,12 +93,12 @@ class SmartInventory extends IPSModuleStrict
 
         private function getUntaggedFile(): string
     {
-        return IPS_GetKernelDir() . 'logs/sinv_' . $this->InstanceID . '_untagged.json';
+        return IPS_GetLogDir() . 'sinv_' . $this->InstanceID . '_untagged.json';
     }
 
     private function getCacheFile(): string
     {
-        return IPS_GetKernelDir() . 'logs/sinv_' . $this->InstanceID . '_inventory.json';
+        return IPS_GetLogDir() . 'sinv_' . $this->InstanceID . '_inventory.json';
     }
 
     public function Scan(): string
