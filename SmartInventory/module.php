@@ -1429,7 +1429,7 @@ PROMPT;
                 [
                     'type' => 'RowLayout',
                     'items' => [
-                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\'); echo "Scan abgeschlossen.";'],
+                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\', isset($SearchText) ? $SearchText : ""); echo "Scan abgeschlossen.";'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.";'],
                         ['type' => 'Button', 'caption' => 'ALLES neu KI-taggen (Achtung: Ueberschreibt alles!)', 'onClick' => 'IPS_RunScriptText(\'SINV_RetagAllWithAI(\' . $id . \');\'); echo "Komplettes KI-Tagging laeuft im Hintergrund.";'],
                     ],
@@ -1468,23 +1468,28 @@ PROMPT;
                         [
                             'type' => 'Select',
                             'name' => 'CatalogFilter',
-                            'caption' => 'Filter',
+                            'caption' => 'Kategorie-Filter',
                             'options' => $catalogOptions,
                             'value' => 'problems',
-                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter);',
+                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "");',
+                        ],
+                        [
+                            'type' => 'ValidationTextBox',
+                            'name' => 'SearchText',
+                            'caption' => 'Suchbegriff (Geraet, Raum, ID...)',
+                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText);'
                         ],
                         [
                             'type' => 'List',
                             'name' => 'CatalogList',
                             'caption' => '',
                             'rowCount' => min(max(count($initialCatalogList), 5), 25),
-                            'search' => true,
                             'sort' => ['column' => 'severity', 'direction' => 'descending'],
                             'onEdit' => str_replace('$IPS_VALUE', '"CatalogList"', $onEditScript),
                             'columns' => [
-                                ['name' => 'health',       'caption' => 'Gesundheit',   'width' => '180px'],
+                                ['name' => 'health',       'caption' => 'Gesundheit',   'width' => '140px'],
                                 ['name' => 'detail',       'caption' => 'Detail',        'width' => '200px'],
-                                ['name' => 'instanceName', 'caption' => 'Geraet',        'width' => '180px'],
+                                ['name' => 'instanceName', 'caption' => 'Geraet'],
                                 ['name' => 'room',         'caption' => 'Raum',          'width' => '110px', 'edit' => ['type' => 'Select', 'options' => $roomOptions]],
                                 ['name' => 'tagBase',      'caption' => 'Kategorie',     'width' => '140px', 'edit' => ['type' => 'Select', 'options' => $tagOptions]],
                                 ['name' => 'normalState',  'caption' => 'OK-Wert',       'width' => '100px', 'edit' => ['type' => 'ValidationTextBox']],
@@ -1503,7 +1508,7 @@ PROMPT;
         return json_encode($form);
     }
 
-    public function UpdateCatalogList(string $category): void
+    public function UpdateCatalogList(string $category, string $search = ""): void
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
@@ -1617,6 +1622,16 @@ PROMPT;
             }
         }
 
+        if ($search !== '') {
+            $search = strtolower($search);
+            $list = array_values(array_filter($list, function($row) use ($search) {
+                foreach ($row as $k => $v) {
+                    if ($k === 'severity') continue;
+                    if (str_contains(strtolower((string)$v), $search)) return true;
+                }
+                return false;
+            }));
+        }
         $this->UpdateFormField('CatalogList', 'values', json_encode($list));
         $this->UpdateFormField('CatalogList', 'rowCount', min(max(count($list), 5), 25));
     }
