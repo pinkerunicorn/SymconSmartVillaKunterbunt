@@ -129,8 +129,8 @@ class SmartNotifier extends IPSModuleStrict
         }
 
         // Variablen-Updates von überwachten Variablen
-        if ($Message === IPS_VARIABLEMESSAGE && $Data[0] === VM_UPDATE) {
-            $newValue = $Data[1];
+        if ($Message === VM_UPDATE) {
+            $newValue = $Data[0];
             $oldValue = $Data[2];
             if ($newValue === $oldValue) {
                 return;
@@ -285,7 +285,7 @@ class SmartNotifier extends IPSModuleStrict
     {
         // Erst alle alten Subscriptions entfernen (ausser CentralState-Vars)
         foreach ($this->GetMessageList() as $senderID => $msgs) {
-            if (!in_array(IPS_VARIABLEMESSAGE, $msgs)) {
+            if (!in_array(VM_UPDATE, $msgs)) {
                 continue;
             }
             // CentralState-Variablen behalten
@@ -293,7 +293,7 @@ class SmartNotifier extends IPSModuleStrict
             if (in_array($ident, ['ActivityMode', 'PresenceMode'])) {
                 continue;
             }
-            $this->UnregisterMessage($senderID, IPS_VARIABLEMESSAGE);
+            $this->UnregisterMessage($senderID, VM_UPDATE);
         }
 
         $inventory = $this->LoadInventory();
@@ -308,7 +308,7 @@ class SmartNotifier extends IPSModuleStrict
                 }
                 if (in_array($v['category'], $realtimeCategories)) {
                     if (@IPS_VariableExists($v['varID'])) {
-                        $this->RegisterMessage($v['varID'], IPS_VARIABLEMESSAGE);
+                        $this->RegisterMessage($v['varID'], VM_UPDATE);
                         $count++;
                     }
                 }
