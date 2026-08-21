@@ -497,7 +497,7 @@ class SmartInventory extends IPSModuleStrict
                     $results[] = [
                         'instanceID'    => $device['i'] ?? ($device['instanceID'] ?? 0),
                         'instanceName'  => $device['n'] ?? ($device['instanceName'] ?? ''),
-                        'room'          => $v['room'] ?? $device['r'] ?? ($device['room'] ?? ''),
+                        'room'          => (!empty($v['r']) ? $v['r'] : (!empty($device['r']) ? $device['r'] : ($device['room'] ?? ''))),
                         'varID'         => $varID,
                         'varName'       => @IPS_GetName($varID) ?: 'Unbekannt',
                         'tag'           => 'SI:' . $matchTag,
