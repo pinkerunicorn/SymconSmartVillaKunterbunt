@@ -92,12 +92,12 @@ class SmartInventory extends IPSModuleStrict
 
         private function getUntaggedFile(): string
     {
-        return sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sinv_' . $this->InstanceID . '_untagged.json';
+        return IPS_GetKernelDir() . 'logs/sinv_' . $this->InstanceID . '_untagged.json';
     }
 
     private function getCacheFile(): string
     {
-        return sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'sinv_' . $this->InstanceID . '_inventory.json';
+        return IPS_GetKernelDir() . 'logs/sinv_' . $this->InstanceID . '_inventory.json';
     }
 
     public function Scan(): string
@@ -113,7 +113,9 @@ class SmartInventory extends IPSModuleStrict
         // auch ueber SINV_GetByCategory('actor:switch') etc. zugreifen muessen.
         // Kurzschluessel (v/c/s/d/n/r/t/u) sparen weitere ~40% Bytes.
         $leanInventory = $this->optimizeInventory($inventory);
-        file_put_contents($this->getCacheFile(), json_encode($leanInventory));
+        $file = $this->getCacheFile();
+        $bytes = file_put_contents($file, json_encode($leanInventory));
+        IPS_LogMessage('Smart Inventory', 'Saved Cache: ' . $file . ' (' . $bytes . ' bytes)');
         file_put_contents($this->getUntaggedFile(), json_encode($untaggedInstances));
 
         // Status-Variablen aktualisieren
@@ -1242,7 +1244,9 @@ PROMPT;
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $leanInventory = $this->optimizeInventory($inventory);
-        file_put_contents($this->getCacheFile(), json_encode($leanInventory));
+        $file = $this->getCacheFile();
+        $bytes = file_put_contents($file, json_encode($leanInventory));
+        IPS_LogMessage('Smart Inventory', 'Saved Cache: ' . $file . ' (' . $bytes . ' bytes)');
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         $list = [];
