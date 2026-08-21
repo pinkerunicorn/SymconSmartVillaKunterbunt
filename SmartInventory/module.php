@@ -217,6 +217,7 @@ class SmartInventory extends IPSModuleStrict
 
                 $instanceVars[] = [
                     'varID'          => $childID,
+                    'room'           => $tagData['room'] ?? $room,
                     'ident'          => $obj['ObjectIdent'],
                     'name'           => $obj['ObjectName'],
                     'tag'            => $info,
@@ -516,7 +517,7 @@ class SmartInventory extends IPSModuleStrict
                     $results[] = [
                         'instanceID'    => $device['i'] ?? ($device['instanceID'] ?? 0),
                         'instanceName'  => $device['n'] ?? ($device['instanceName'] ?? ''),
-                        'room'          => $device['r'] ?? ($device['room'] ?? ''),
+                        'room'          => $v['room'] ?? $device['r'] ?? ($device['room'] ?? ''),
                         'varID'         => $varID,
                         'varName'       => @IPS_GetName($varID) ?: 'Unbekannt',
                         'tag'           => 'SI:' . $matchTag,
@@ -557,7 +558,7 @@ class SmartInventory extends IPSModuleStrict
                     $results[] = [
                         'instanceID'   => $device['instanceID'],
                         'instanceName' => $device['instanceName'],
-                        'room'         => $device['room'],
+                        'room'         => $v['room'] ?? $device['room'],
                         'varID'        => $v['varID'],
                         'varName'      => $v['name'],
                         'tag'          => $v['tag'],
@@ -622,7 +623,7 @@ class SmartInventory extends IPSModuleStrict
                     $results[] = [
                         'instanceID'   => $device['instanceID'],
                         'instanceName' => $device['instanceName'],
-                        'room'         => $device['room'],
+                        'room'         => $v['room'] ?? $device['room'],
                         'varID'        => $v['varID'],
                         'value'        => $v['value'],
                     ];
@@ -648,7 +649,7 @@ class SmartInventory extends IPSModuleStrict
                     $results[] = [
                         'instanceID'   => $device['instanceID'],
                         'instanceName' => $device['instanceName'],
-                        'room'         => $device['room'],
+                        'room'         => $v['room'] ?? $device['room'],
                         'varID'        => $v['varID'],
                         'value'        => $v['value'],
                     ];
@@ -690,7 +691,7 @@ class SmartInventory extends IPSModuleStrict
                             $results[] = [
                                 'instanceID'   => $device['instanceID'],
                                 'instanceName' => $device['instanceName'],
-                                'room'         => $device['room'],
+                                'room'         => $v['room'] ?? $device['room'],
                                 'varID'        => $vid,
                                 'varName'      => $v['name'],
                                 'tag'          => $v['tag'],
@@ -1230,9 +1231,14 @@ PROMPT;
 
         // Räume sammeln für Dropdown
         $allRooms = [];
-        foreach ($inventory as $device) {
+                foreach ($inventory as $device) {
             if ($device['room'] !== '') {
                 $allRooms[$device['room']] = true;
+            }
+            foreach ($device['variables'] as $v) {
+                if (isset($v['room']) && $v['room'] !== '') {
+                    $allRooms[$v['room']] = true;
+                }
             }
         }
         foreach ($untagged as $device) {
@@ -1307,7 +1313,7 @@ PROMPT;
                 if ($isProblem) {
                     $initialCatalogList[] = [
                         'instanceName' => $device['instanceName'],
-                        'room'         => $device['room'],
+                        'room'         => $v['room'] ?? $device['room'],
                         'tagBase'      => $tagBase,
                         'normalState'  => $normalStateStr,
                         'disabled'     => $v['disabled'],
@@ -1411,7 +1417,7 @@ PROMPT;
             $normalStateStr = ($parsedTag && $parsedTag['normalState'] !== null) ? $parsedTag['normalState']['value'] : '';
             $initialCatalogList[] = [
                 'instanceName' => $device['instanceName'],
-                'room'         => $device['room'],
+                'room'         => $firstVar['room'] ?? $device['room'],
                 'health'       => $healthLabels[$h] ?? $h,
                 'detail'       => $device['healthDetail'] ?? '',
                 'severity'     => $healthSeverity[$h] ?? 0,
@@ -1582,7 +1588,7 @@ PROMPT;
                     'detail'       => $device['healthDetail'] ?? '',
                     'severity'     => $healthSeverity[$h] ?? 0,
                     'instanceName' => $device['instanceName'],
-                    'room'         => $device['room'],
+                    'room'         => $firstVar['room'] ?? $device['room'],
                     'tagBase'      => $tagBase,
                     'normalState'  => $normalStateStr,
                     'disabled'     => false,
@@ -1626,7 +1632,7 @@ PROMPT;
                             'detail'       => '',
                             'severity'     => 0,
                             'instanceName' => $device['instanceName'],
-                            'room'         => $device['room'],
+                            'room'         => $v['room'] ?? $device['room'],
                             'tagBase'      => $tagBase,
                             'normalState'  => $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '',
                             'disabled'     => true,
@@ -1685,7 +1691,7 @@ PROMPT;
                             'detail'       => $deviceDetail,
                             'severity'     => $deviceSeverity,
                             'instanceName' => $device['instanceName'],
-                            'room'         => $device['room'],
+                            'room'         => $v['room'] ?? $device['room'],
                             'tagBase'      => $tagBase,
                             'normalState'  => $normalStateStr,
                             'disabled'     => false,
