@@ -1403,7 +1403,7 @@ PROMPT;
         // Fallback: Path
         $path = IPS_GetLocation($id);
         $segments = explode('\\', $path);
-        $segmentIndex = $this->ReadPropertyInteger('RoomPathSegment');
+        $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
         $idx = count($segments) - $segmentIndex;
         if ($idx >= 0 && $idx < count($segments)) {
             return $segments[$idx];

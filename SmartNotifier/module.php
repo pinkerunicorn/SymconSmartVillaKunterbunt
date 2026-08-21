@@ -163,8 +163,8 @@ class SmartNotifier extends IPSModuleStrict
             $this->SendDebug('Monitor', 'Erster Durchlauf (Quiet-Start): Baseline wird gesetzt', 0);
         }
 
-        $threshold  = $this->ReadPropertyInteger('BatteryThreshold');
-        $staleMin   = $this->ReadPropertyInteger('StaleThreshold');
+        $threshold = @$this->ReadPropertyInteger('BatteryThreshold') ?: 15;
+        $staleMin = @$this->ReadPropertyInteger('StaleThreshold') ?: 120;
         $now        = time();
 
         $deviceProblems = 0;
@@ -698,7 +698,7 @@ class SmartNotifier extends IPSModuleStrict
 
     private function calculateDeviceHealth(array $vars): array
     {
-        $threshold   = $this->ReadPropertyInteger('BatteryThreshold');
+        $threshold = @$this->ReadPropertyInteger('BatteryThreshold') ?: 15;
         $staleLimit  = 86400; // 24 Stunden
         $now         = time();
 
