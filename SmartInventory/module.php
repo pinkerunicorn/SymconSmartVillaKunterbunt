@@ -198,11 +198,18 @@ class SmartInventory extends IPSModuleStrict
             $room         = $this->resolveRoom($instanceID);
             $children     = IPS_GetChildrenIDs($instanceID);
             
-            $instanceVars = [];
+                        $instanceVars = [];
             $hasTaggedVar = false;
 
-                        foreach ($children as $childID) {
+            if ($instanceName === 'Pixelblaze') {
+                IPS_LogMessage('SmartInventory_Debug', "Found Pixelblaze! Children: " . json_encode($children));
+            }
+
+            foreach ($children as $childID) {
                 $obj = @IPS_GetObject($childID);
+                if ($instanceName === 'Pixelblaze') {
+                    IPS_LogMessage('SmartInventory_Debug', "Child $childID -> Type: " . ($obj !== false ? $obj['ObjectType'] : 'false') . ", Ident: " . ($obj !== false ? $obj['ObjectIdent'] : 'N/A'));
+                }
                 if ($obj === false || $obj['ObjectType'] !== 2) {
                     // if ($instanceName === 'Pixelblaze') file_put_contents('/tmp/pixelblaze_debug.txt', "Skipped $childID (Not Var)\n", FILE_APPEND);
                     continue;
