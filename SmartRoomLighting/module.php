@@ -185,7 +185,7 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
             }
             
             // Lights
-            $lightTypes = ['actor:color', 'actor:dimmer', 'actor:switch'];
+            $lightTypes = ['actor:color', 'actor:dimmer', 'actor:light'];
             foreach ($lightTypes as $type) {
                 $devices = json_decode(@SINV_GetByCategory($regId, $type), true) ?: [];
                 if (is_array($devices)) {
@@ -210,7 +210,7 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                                 $deviceMap[$key . '::Dimmer'] = $varId;
                                 if ($isMulti && !isset($deviceMap[$baseKey . '::Dimmer'])) $deviceMap[$baseKey . '::Dimmer'] = $varId;
                             }
-                            if ($type === 'actor:switch') {
+                            if ($type === 'actor:light') {
                                 $deviceMap[$key . '::Switch'] = $varId;
                                 if ($isMulti && !isset($deviceMap[$baseKey . '::Switch'])) $deviceMap[$baseKey . '::Switch'] = $varId;
                             }
@@ -1274,7 +1274,7 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
 
         $dynamicOptions = [];
         $addedVarIds = [];
-        $lightTypes = ['actor:color', 'actor:dimmer', 'actor:switch'];
+        $lightTypes = ['actor:color', 'actor:dimmer', 'actor:light'];
         foreach ($lightTypes as $type) {
             $devices = json_decode(@SINV_GetByCategory($regId, $type), true) ?: [];
             if (!is_array($devices)) continue;
@@ -1308,7 +1308,7 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                         $dynamicOptions[] = ['label' => $baseName . ' (Dimmer)', 'value' => $deviceKey];
                     }
                 }
-                if ($type === 'actor:switch') {
+                if ($type === 'actor:light') {
                     $deviceKey = $baseKey . '::Switch';
                     if (!in_array($deviceKey, $addedVarIds)) {
                         $addedVarIds[] = $deviceKey;

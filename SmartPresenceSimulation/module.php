@@ -987,7 +987,7 @@ class SmartPresenceSimulation extends IPSModuleStrict
             $varID = 0;
             // Finde switch oder dimmer
             foreach ($device['variables'] as $v) {
-                if (str_starts_with($v['tag'], 'SI:actor:switch') || 
+                if (str_starts_with($v['tag'], 'SI:actor:light') || 
                     str_starts_with($v['tag'], 'SI:actor:dimmer') || 
                     str_starts_with($v['tag'], 'SI:actor:color')) {
                     $varID = $v['varID'];

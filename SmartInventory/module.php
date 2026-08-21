@@ -671,7 +671,7 @@ SI:motion, SI:contact, SI:contact:ok=WERT (für String-Kontakte),
 SI:sensor:temp, SI:sensor:humidity, SI:sensor:co2, SI:sensor:voc,
 SI:sensor:pressure, SI:sensor:lux, SI:sensor:radon, SI:sensor:button (Taster),
 SI:sensor:power, SI:sensor:energy, SI:sensor:generic,
-SI:actor:switch, SI:actor:dimmer, SI:actor:blind, SI:actor:thermostat,
+SI:actor:light, SI:actor:dimmer, SI:actor:color, SI:actor:switch, SI:actor:blind, SI:actor:thermostat,
 SI:actor:lock, SI:actor:valve,
 SI:warning, SI:info, SI:diagnostic, SKIP
 
@@ -690,7 +690,7 @@ Homematic / HmIP Hints:
 - ACTUAL_TEMPERATURE: SI:sensor:temp
 - SET_POINT_TEMPERATURE: SI:actor:thermostat
 - LEVEL: SI:actor:dimmer oder SI:actor:blind (nach Name entscheiden)
-- STATE: SI:contact (bei Fenster/Tür-Sensoren) oder SI:actor:switch (bei Schaltaktoren)
+- STATE: SI:contact (bei Fenster/Tür-Sensoren) oder SI:actor:switch (Steckdosen) oder SI:actor:light (Lampen)
 - LOWBAT / LOW_BAT: SI:battery
 - UNREACH: SI:reachability:ok=false
 - ERROR_SABOTAGE: SI:alarm:tamper
@@ -937,7 +937,9 @@ PROMPT;
               ['caption' => 'Sensor (Leistung W)', 'value' => 'SI:sensor:power'],
               ['caption' => 'Sensor (Energie kWh)', 'value' => 'SI:sensor:energy'],
               ['caption' => 'Sensor (Generisch)', 'value' => 'SI:sensor:generic'],
-              ['caption' => 'Aktor (Schalter)', 'value' => 'SI:actor:switch'],
+              ['caption' => 'Aktor (Licht/Lampe)', 'value' => 'SI:actor:light'],
+                ['caption' => 'Aktor (RGB Licht)', 'value' => 'SI:actor:color'],
+                ['caption' => 'Aktor (Schalter/Steckdose)', 'value' => 'SI:actor:switch'],
               ['caption' => 'Aktor (Dimmer)', 'value' => 'SI:actor:dimmer'],
               ['caption' => 'Aktor (Rollladen)', 'value' => 'SI:actor:blind'],
               ['caption' => 'Aktor (Thermostat)', 'value' => 'SI:actor:thermostat'],
