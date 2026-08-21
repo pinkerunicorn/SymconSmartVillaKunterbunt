@@ -946,7 +946,9 @@ SI:warning, SI:info, SI:diagnostic, SKIP
 
 Regeln:
 - UNREACH/Nicht erreichbar: SI:reachability:ok=false (invertiert!)
-- DeviceAvailable/Online: SI:reachability (normal)
+- DeviceAvailable/Online/Geraetestatus: SI:reachability (normal)
+- Helligkeit (steuern/Prozent): SI:actor:dimmer
+- Helligkeit (nur messen): SI:sensor:lux
 - String-Kontakte z.B. "Geschlossen": SI:contact:ok=Geschlossen
 - Raum = vorletztes Pfadsegment (vor Gerätename)
 - SKIP für irrelevante Variablen (interne Zähler, Config, Darstellung)
@@ -1676,7 +1678,7 @@ PROMPT;
                     if ($parsed['disabled']) continue; // Grundsaetzlich ausblenden!
 
                     $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
-                    if ($tagBase === '') continue; // Keine ungetaggten Beifang-Variablen anzeigen!
+                    // if ($tagBase === '') continue; // Zeige Beifang-Variablen im 'all' Filter wieder an, damit man sie nachtraeglich taggen kann!
 
                     $match = false;
                     if ($category === 'all') {
