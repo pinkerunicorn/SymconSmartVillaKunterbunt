@@ -1608,6 +1608,12 @@ PROMPT;
                 $match = $isProblemsFilter ? ($h !== 'healthy') : ($h === $filterHealth);
                 if (!$match) continue;
 
+                $allDisabled = true;
+                foreach ($device['variables'] as $v) {
+                    if (!($v['disabled'] ?? false)) { $allDisabled = false; break; }
+                }
+                if ($allDisabled && !$showDisabled) continue;
+
                 // Erste nicht-deaktivierte Variable fuer Tag-Anzeige
                 $firstVar = null;
                 foreach ($device['variables'] as $v) {
@@ -1714,6 +1720,11 @@ PROMPT;
                         $match = true;
                     } elseif ($tagBase === $category) {
                         $match = true;
+                    }
+
+                    $isDisabled = $parsed['disabled'] ?? false;
+                    if (!$showDisabled && $isDisabled && $category !== 'disabled') {
+                        continue;
                     }
 
                     if ($match) {
