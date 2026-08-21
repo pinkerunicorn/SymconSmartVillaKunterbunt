@@ -627,6 +627,75 @@ class SmartNotifier extends IPSModuleStrict
     /**
      * Sendet ein strukturiertes Event.
      */
+
+
+
+
+    public function GetProblems(): string
+    {
+        $invId = $this->ReadPropertyInteger('InventoryID');
+        if ($invId === 0 || !@IPS_InstanceExists($invId)) return '[]';
+        
+        $inventoryStr = @SINV_GetInventory($invId);
+        $inventory = json_decode($inventoryStr, true) ?: [];
+        $severity  = ['alarm' => 5, 'battery_dead' => 4, 'offline' => 3, 'battery_low' => 2, 'stale' => 1];
+        $results   = [];
+
+        foreach ($inventory as $device) {
+            $vars = $device['variables'] ?? [];
+            if (empty($vars)) continue;
+            
+            $health = $this->calculateDeviceHealth($vars);
+            $h = $health['status'];
+            if ($h === 'healthy') continue;
+
+            $results[] = [
+                'instanceID'   => $device['instanceID'],
+                'instanceName' => $device['instanceName'],
+                'room'         => $device['room'],
+                'health'       => $h,
+                'detail'       => $health['detail'],
+                'severity'     => $severity[$h] ?? 0,
+            ];
+        }
+        usort($results, fn($a, $b) => $b['severity'] <=> $a['severity']);
+        return json_encode($results);
+    }
+
+    public function GetActiveAlarms(): string
+    {
+        $invId = $this->ReadPropertyInteger('InventoryID');
+        if ($invId === 0 || !@IPS_InstanceExists($invId)) return '[]';
+        
+        $inventoryStr = @SINV_GetInventory($invId);
+        $inventory = json_decode($inventoryStr, true) ?: [];
+        $results = [];
+
+        foreach ($inventory as $device) {
+            $vars = $device['variables'] ?? [];
+            if (empty($vars)) continue;
+            
+            $health = $this->calculateDeviceHealth($vars);
+            if ($health['status'] === 'alarm') {
+                $results[] = [
+                    'instanceID'   => $device['instanceID'],
+                    'instanceName' => $device['instanceName'],
+                    'room'         => $device['room'],
+                    'alarmName'    => $health['detail'],
+                ];
+            }
+        }
+        return json_encode($results);
+    }
+    
+    private function UpdateProblemsCounter(): void
+    {
+        $probsStr = $this->GetProblems();
+        $probs = json_decode($probsStr, true) ?: [];
+        $this->SetValue('DeviceProblems', count($probs));
+    }
+
+
     public function SendEvent(string $PayloadJSON): void
     {
         $payload = json_decode($PayloadJSON, true);
@@ -654,27 +723,6 @@ class SmartNotifier extends IPSModuleStrict
     // =========================================================================
     // Formular
     // =========================================================================
-
-
-    private function calculateDeviceHealth(array $vars): array
-    {
-        $threshold   = 15;
-        $staleLimit  = 86400; // 24 Stunden
-        $now         = time();
-
-        $hasBatLow   = false;
-        $batValue    = null;
-        $isOffline   = false;
-        $isStale     = false;
-        $hasAlarm    = false;
-        $alarmName   = '';
-        $latestUpdate = 0;
-
-        foreach ($vars as $v) {
-            if ($v['disabled'] ?? false) {
-                continue;
-            }
-
 
 
     // =========================================================================
