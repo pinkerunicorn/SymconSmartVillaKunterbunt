@@ -284,7 +284,9 @@ class SmartNotifier extends IPSModuleStrict
     public function RefreshSubscriptions(): void
     {
         // Erst alle alten Subscriptions entfernen (ausser CentralState-Vars)
-        foreach ($this->GetMessageList() as $senderID => $msgs) {
+        $msgList = @$this->GetMessageList();
+        if (!is_array($msgList)) return;
+        foreach ($msgList as $senderID => $msgs) {
             if (!in_array(VM_UPDATE, $msgs)) {
                 continue;
             }
@@ -342,7 +344,7 @@ class SmartNotifier extends IPSModuleStrict
             return;
         }
         
-        $inventoryID = $this->ReadPropertyInteger('InventoryID');
+        $inventoryID = @$this->ReadPropertyInteger('InventoryID');
         if ($inventoryID === 0 || !@IPS_InstanceExists($inventoryID) || !function_exists('SINV_GetTag')) {
             return;
         }
@@ -510,8 +512,8 @@ class SmartNotifier extends IPSModuleStrict
      */
     private function LoadInventory(): array
     {
-        $inventoryID = $this->ReadPropertyInteger('InventoryID');
-        if ($inventoryID === 0 || !@IPS_InstanceExists($inventoryID)) {
+        $inventoryID = @$this->ReadPropertyInteger('InventoryID');
+        if ($inventoryID === false || $inventoryID === 0 || !@IPS_InstanceExists($inventoryID)) {
             $this->SendDebug('LoadInventory', 'Keine InventoryID konfiguriert', 0);
             return [];
         }
