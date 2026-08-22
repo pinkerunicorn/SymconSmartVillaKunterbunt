@@ -222,6 +222,70 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
         $this->SetBuffer('SwitchDefaultsCache', json_encode($switchDefaults));
         $this->SetBuffer('DeviceMapCache', json_encode($deviceMap));
 
+        // --- MIGRATION: Convert string keys to integer varIDs ---
+        $migrated = false;
+
+        // SceneDevices
+        $sceneDevices = json_decode($this->ReadPropertyString('SceneDevices'), true) ?: [];
+        foreach ($sceneDevices as &$dev) {
+            if (isset($dev['TargetID']) && is_string($dev['TargetID']) && !is_numeric($dev['TargetID'])) {
+                $key = $dev['TargetID'];
+                if (isset($deviceMap[$key])) {
+                    $dev['TargetID'] = $deviceMap[$key];
+                    $migrated = true;
+                }
+            }
+        }
+        if ($migrated) {
+            IPS_SetProperty($this->InstanceID, 'SceneDevices', json_encode($sceneDevices));
+        }
+
+        // MotionTriggers
+        $motionTriggers = json_decode($this->ReadPropertyString('MotionTriggers'), true) ?: [];
+        foreach ($motionTriggers as &$trig) {
+            if (isset($trig['SensorID']) && is_string($trig['SensorID']) && !is_numeric($trig['SensorID'])) {
+                $key = $trig['SensorID'];
+                if (isset($deviceMap[$key])) {
+                    $trig['SensorID'] = $deviceMap[$key];
+                    $migrated = true;
+                }
+            }
+        }
+        if ($migrated) {
+            IPS_SetProperty($this->InstanceID, 'MotionTriggers', json_encode($motionTriggers));
+        }
+
+        // SwitchTriggers
+        $switchTriggers = json_decode($this->ReadPropertyString('SwitchTriggers'), true) ?: [];
+        foreach ($switchTriggers as &$trig) {
+            if (isset($trig['SwitchID']) && is_string($trig['SwitchID']) && !is_numeric($trig['SwitchID'])) {
+                $key = $trig['SwitchID'];
+                if (isset($deviceMap[$key])) {
+                    $trig['SwitchID'] = $deviceMap[$key];
+                    $migrated = true;
+                }
+            }
+        }
+        if ($migrated) {
+            IPS_SetProperty($this->InstanceID, 'SwitchTriggers', json_encode($switchTriggers));
+        }
+
+        // DoorRules
+        $doorRules = json_decode($this->ReadPropertyString('DoorRules'), true) ?: [];
+        foreach ($doorRules as &$rule) {
+            if (isset($rule['DoorSensorID']) && is_string($rule['DoorSensorID']) && !is_numeric($rule['DoorSensorID'])) {
+                $key = $rule['DoorSensorID'];
+                if (isset($deviceMap[$key])) {
+                    $rule['DoorSensorID'] = $deviceMap[$key];
+                    $migrated = true;
+                }
+            }
+        }
+        if ($migrated) {
+            IPS_SetProperty($this->InstanceID, 'DoorRules', json_encode($doorRules));
+            // IPS_ApplyChanges($this->InstanceID); // DO NOT DO THIS HERE to avoid infinite loops, just set property.
+        }
+
         // Reset manual override
         $this->SetBuffer('ManualOverride', 'false');
 
