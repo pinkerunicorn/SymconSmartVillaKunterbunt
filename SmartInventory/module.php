@@ -38,7 +38,8 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterPropertyInteger('RoomPathSegment', 2);         // Segment von rechts im Pfad
         $this->RegisterPropertyInteger('NotifierID', 0);              // Legacy – wird nicht mehr verwendet
         $this->RegisterPropertyInteger('GeminiIOID', 0);
-        $this->RegisterPropertyString('CustomRooms', '[]');              // SmartGeminiIO Instanz
+        $this->RegisterPropertyString('CustomRooms', '[]');
+        $this->RegisterPropertyString('RoomMapping', '[]');              // SmartGeminiIO Instanz
 
         // Datenbank
         $this->RegisterAttributeString('TagDatabase', '{}');
@@ -1110,7 +1111,7 @@ PROMPT;
         $catalogOptions[] = ['caption' => 'Nicht getaggte',           'value' => 'untagged'];
 
         $roomFilterOptions = [['caption' => 'Alle Räume', 'value' => 'all']];
-        foreach ($allRooms as $r) {
+        foreach ($finalRooms as $r) {
             $roomFilterOptions[] = ['caption' => $r, 'value' => $r];
         }
         $catalogOptions[] = ['caption' => 'Nur deaktivierte',         'value' => 'disabled'];
@@ -1168,9 +1169,37 @@ PROMPT;
                     'items' => [
                         [
                             'type' => 'List',
+                            'name' => 'RoomMapping',
+                            'caption' => 'Gefundene Räume umbenennen oder ausblenden',
+                            'rowCount' => 10,
+                            'add' => false,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Symcon-Ordner (Original)', 'name' => 'Original', 'width' => '250px'],
+                                ['caption' => 'Anzeigename (Umbenannt)', 'name' => 'Mapped', 'width' => 'auto', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Ausblenden', 'name' => 'Hide', 'width' => '100px', 'edit' => ['type' => 'CheckBox']]
+                            ],
+                            'values' => $roomMapping
+                        ],
+                        [
+                            'type' => 'List',
+                            'name' => 'RoomMapping',
+                            'caption' => 'Gefundene Räume umbenennen oder ausblenden',
+                            'rowCount' => 10,
+                            'add' => false,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Symcon-Ordner (Original)', 'name' => 'Original', 'width' => '250px'],
+                                ['caption' => 'Anzeigename (Umbenannt)', 'name' => 'Mapped', 'width' => 'auto', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Ausblenden', 'name' => 'Hide', 'width' => '100px', 'edit' => ['type' => 'CheckBox']]
+                            ],
+                            'values' => $roomMapping
+                        ],
+                        [
+                            'type' => 'List',
                             'name' => 'CustomRooms',
-                            'caption' => 'Manuell hinzugefügte Räume',
-                            'rowCount' => 5,
+                            'caption' => 'Zusätzliche Räume manuell hinzufügen',
+                            'rowCount' => 3,
                             'add' => true,
                             'delete' => true,
                             'columns' => [
@@ -1184,7 +1213,7 @@ PROMPT;
                 [
                     'type' => 'RowLayout',
                     'items' => [
-                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\', isset($RoomFilter) ? $RoomFilter : "all", isset($SearchText) ? $SearchText : "", isset($ShowDisabled) ? $ShowDisabled : false); echo "Scan abgeschlossen.";'],
+                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problemsisset($RoomFilter) ? $RoomFilter : "all", isset($SearchText) ? $SearchText : "", isset($ShowDisabled) ? $ShowDisabled : false); echo "Scan abgeschlossen.";'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.";'],
                         ['type' => 'Button', 'caption' => 'ALLES neu KI-taggen (Achtung: Ueberschreibt alles!)', 'onClick' => 'IPS_RunScriptText(\'SINV_RetagAllWithAI(\' . $id . \');\'); echo "Komplettes KI-Tagging laeuft im Hintergrund.";'],
                     ],
@@ -1480,7 +1509,24 @@ PROMPT;
         $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
         $idx = count($segments) - $segmentIndex;
         if ($idx >= 0 && $idx < count($segments)) {
-            return $segments[$idx];
+            $rawRoom = $segments[$idx];
+            
+            static $roomMapCache = null;
+            if ($roomMapCache === null) {
+                $roomMapCache = [];
+                $map = json_decode(@$this->ReadPropertyString('RoomMapping') ?: '[]', true) ?: [];
+                foreach ($map as $m) {
+                    if (!empty($m['Original'])) {
+                        $roomMapCache[$m['Original']] = $m;
+                    }
+                }
+            }
+            
+            if (isset($roomMapCache[$rawRoom])) {
+                if ($roomMapCache[$rawRoom]['Hide'] ?? false) return '';
+                if (trim($roomMapCache[$rawRoom]['Mapped'] ?? '') !== '') return trim($roomMapCache[$rawRoom]['Mapped']);
+            }
+            return $rawRoom;
         }
         return '';
     }
