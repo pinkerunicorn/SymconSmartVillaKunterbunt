@@ -37,7 +37,8 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterPropertyInteger('BatteryThreshold', 15);       // Prozent
         $this->RegisterPropertyInteger('RoomPathSegment', 2);         // Segment von rechts im Pfad
         $this->RegisterPropertyInteger('NotifierID', 0);              // Legacy – wird nicht mehr verwendet
-        $this->RegisterPropertyInteger('GeminiIOID', 0);              // SmartGeminiIO Instanz
+        $this->RegisterPropertyInteger('GeminiIOID', 0);
+        $this->RegisterPropertyString('CustomRooms', '[]');              // SmartGeminiIO Instanz
 
         // Datenbank
         $this->RegisterAttributeString('TagDatabase', '{}');
@@ -984,6 +985,14 @@ PROMPT;
         $allRooms = array_keys($allRooms);
         sort($allRooms);
         $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
+        $customRooms = json_decode($this->ReadPropertyString('CustomRooms'), true) ?: [];
+        foreach ($customRooms as $cr) {
+            $rName = trim($cr['RoomName'] ?? '');
+            if ($rName !== '' && !in_array($rName, $allRooms)) {
+                $allRooms[] = $rName;
+            }
+        }
+        sort($allRooms);
         foreach ($allRooms as $r) {
             $roomOptions[] = ['caption' => $r, 'value' => $r];
         }
@@ -1099,6 +1108,11 @@ PROMPT;
         // Sonder-Filter
         $catalogOptions[] = ['caption' => 'Alle Geraete & Variablen', 'value' => 'all'];
         $catalogOptions[] = ['caption' => 'Nicht getaggte',           'value' => 'untagged'];
+
+        $roomFilterOptions = [['caption' => 'Alle Räume', 'value' => 'all']];
+        foreach ($allRooms as $r) {
+            $roomFilterOptions[] = ['caption' => $r, 'value' => $r];
+        }
         $catalogOptions[] = ['caption' => 'Nur deaktivierte',         'value' => 'disabled'];
         // Typ-Filter (nach SI:-Kategorien)
         sort($catalogCategories);
@@ -1153,7 +1167,7 @@ PROMPT;
                 [
                     'type' => 'RowLayout',
                     'items' => [
-                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\', isset($SearchText) ? $SearchText : "", isset($ShowDisabled) ? $ShowDisabled : false); echo "Scan abgeschlossen.";'],
+                        ['type' => 'Button', 'caption' => 'Jetzt scannen', 'onClick' => 'SINV_Scan($id); SINV_UpdateCatalogList($id, isset($CatalogFilter) ? $CatalogFilter : \'problems\', isset($RoomFilter) ? $RoomFilter : "all", isset($SearchText) ? $SearchText : "", isset($ShowDisabled) ? $ShowDisabled : false); echo "Scan abgeschlossen.";'],
                         ['type' => 'Button', 'caption' => 'KI-Tagging starten (Auto-Uebernahme)', 'onClick' => 'IPS_RunScriptText(\'SINV_ClassifyWithAI(\' . $id . \');\'); echo "KI-Tagging laeuft im Hintergrund.";'],
                         ['type' => 'Button', 'caption' => 'ALLES neu KI-taggen (Achtung: Ueberschreibt alles!)', 'onClick' => 'IPS_RunScriptText(\'SINV_RetagAllWithAI(\' . $id . \');\'); echo "Komplettes KI-Tagging laeuft im Hintergrund.";'],
                     ],
@@ -1189,12 +1203,25 @@ PROMPT;
                     'expanded' => true,
                     'items' => [
                         [
-                            'type' => 'Select',
-                            'name' => 'CatalogFilter',
-                            'caption' => 'Kategorie-Filter',
-                            'options' => $catalogOptions,
-                            'value' => 'all',
-                            'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "", $ShowDisabled ?? false);',
+                            'type' => 'RowLayout',
+                            'items' => [
+                                [
+                                    'type' => 'Select',
+                                    'name' => 'CatalogFilter',
+                                    'caption' => 'Kategorie-Filter',
+                                    'options' => $catalogOptions,
+                                    'value' => 'all',
+                                    'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $RoomFilter ?? "all", $SearchText ?? "", $ShowDisabled ?? false);',
+                                ],
+                                [
+                                    'type' => 'Select',
+                                    'name' => 'RoomFilter',
+                                    'caption' => 'Raum-Filter',
+                                    'options' => $roomFilterOptions,
+                                    'value' => 'all',
+                                    'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter ?? "all", $RoomFilter, $SearchText ?? "", $ShowDisabled ?? false);',
+                                ]
+                            ]
                         ],
                         [
                             'type' => 'RowLayout',
@@ -1209,12 +1236,12 @@ PROMPT;
                                     'name' => 'ShowDisabled',
                                     'caption' => 'Deaktivierte einblenden',
                                     'value' => false,
-                                    'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "", $ShowDisabled);'
+                                    'onChange' => 'SINV_UpdateCatalogList($id, $CatalogFilter ?? "all", $RoomFilter ?? "all", $SearchText ?? "", $ShowDisabled);'
                                 ],
                                 [
                                     'type' => 'Button',
                                     'caption' => 'Suchen',
-                                    'onClick' => 'SINV_UpdateCatalogList($id, $CatalogFilter, $SearchText ?? "", $ShowDisabled ?? false);'
+                                    'onClick' => 'SINV_UpdateCatalogList($id, $CatalogFilter ?? "all", $RoomFilter ?? "all", $SearchText ?? "", $ShowDisabled ?? false);'
                                 ]
                             ]
                         ],
@@ -1243,7 +1270,7 @@ PROMPT;
         return json_encode($form);
     }
 
-    public function UpdateCatalogList(string $category, string $search = "", bool $showDisabled = false): void
+    public function UpdateCatalogList(string $category, string $room = "all", string $search = "", bool $showDisabled = false): void
     {
         ['inventory' => $inventory, 'untagged' => $untagged] = $this->buildInventoryData();
         $leanInventory = $this->optimizeInventory($inventory);
@@ -1343,6 +1370,12 @@ PROMPT;
                     }
                 }
             }
+        }
+
+        if ($room !== 'all') {
+            $list = array_values(array_filter($list, function($row) use ($room) {
+                return (isset($row['room']) && $row['room'] === $room);
+            }));
         }
 
         if ($search !== '') {
