@@ -38,7 +38,6 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterPropertyInteger('RoomPathSegment', 2);         // Segment von rechts im Pfad
         $this->RegisterPropertyInteger('NotifierID', 0);              // Legacy – wird nicht mehr verwendet
         $this->RegisterPropertyInteger('GeminiIOID', 0);
-        $this->RegisterPropertyString('CustomRooms', '[]');
         $this->RegisterPropertyString('RoomMapping', '[]');              // SmartGeminiIO Instanz
 
         // Datenbank
@@ -1027,13 +1026,6 @@ PROMPT;
         }
         
         $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
-                $customRooms = json_decode(@$this->ReadPropertyString('CustomRooms'), true) ?: [];
-        foreach ($customRooms as $cr) {
-            $rName = trim($cr['RoomName'] ?? '');
-            if ($rName !== '' && !in_array($rName, $finalRooms)) {
-                $finalRooms[] = $rName;
-            }
-        }
         sort($finalRooms);
         foreach ($finalRooms as $r) {
             $roomOptions[] = ['caption' => $r, 'value' => $r];
@@ -1211,41 +1203,16 @@ PROMPT;
                         [
                             'type' => 'List',
                             'name' => 'RoomMapping',
-                            'caption' => 'Gefundene Räume umbenennen oder ausblenden',
+                            'caption' => 'Räume verwalten (Automatisch gefunden & Manuell)',
                             'rowCount' => 10,
-                            'add' => false,
-                            'delete' => true,
-                            'columns' => [
-                                ['caption' => 'Symcon-Ordner (Original)', 'name' => 'Original', 'width' => '250px'],
-                                ['caption' => 'Anzeigename (Umbenannt)', 'name' => 'Mapped', 'width' => 'auto', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Ausblenden', 'name' => 'Hide', 'width' => '100px', 'edit' => ['type' => 'CheckBox']]
-                            ],
-                            'values' => $roomMapping
-                        ],
-                        [
-                            'type' => 'List',
-                            'name' => 'RoomMapping',
-                            'caption' => 'Gefundene Räume umbenennen oder ausblenden',
-                            'rowCount' => 10,
-                            'add' => false,
-                            'delete' => true,
-                            'columns' => [
-                                ['caption' => 'Symcon-Ordner (Original)', 'name' => 'Original', 'width' => '250px'],
-                                ['caption' => 'Anzeigename (Umbenannt)', 'name' => 'Mapped', 'width' => 'auto', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Ausblenden', 'name' => 'Hide', 'width' => '100px', 'edit' => ['type' => 'CheckBox']]
-                            ],
-                            'values' => $roomMapping
-                        ],
-                        [
-                            'type' => 'List',
-                            'name' => 'CustomRooms',
-                            'caption' => 'Zusätzliche Räume manuell hinzufügen',
-                            'rowCount' => 3,
                             'add' => true,
                             'delete' => true,
                             'columns' => [
-                                ['caption' => 'Raumname', 'name' => 'RoomName', 'width' => 'auto', 'add' => 'Neuer Raum', 'edit' => ['type' => 'ValidationTextBox']]
-                            ]
+                                ['caption' => 'Symcon-Ordner (Original)', 'name' => 'Original', 'width' => '250px', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Anzeigename (Umbenannt)', 'name' => 'Mapped', 'width' => 'auto', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Ausblenden', 'name' => 'Hide', 'width' => '100px', 'edit' => ['type' => 'CheckBox']]
+                            ],
+                            'values' => $roomMapping
                         ]
                     ]
                 ]
