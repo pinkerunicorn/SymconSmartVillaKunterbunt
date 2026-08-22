@@ -1161,6 +1161,23 @@ PROMPT;
                         ['type' => 'SelectInstance', 'name' => 'NotifierID', 'caption' => 'SmartNotifier (Auto-RefreshSubscriptions nach Scan)'],
                         ['type' => 'SelectInstance', 'name' => 'GeminiIOID', 'caption' => 'SmartGeminiIO (fuer KI-Tagging)'],
                     ],
+                [
+                    'type' => 'ExpansionPanel',
+                    'caption' => 'Räume verwalten',
+                    'items' => [
+                        [
+                            'type' => 'List',
+                            'name' => 'CustomRooms',
+                            'caption' => 'Manuell hinzugefügte Räume',
+                            'rowCount' => 5,
+                            'add' => true,
+                            'delete' => true,
+                            'columns' => [
+                                ['caption' => 'Raumname', 'name' => 'RoomName', 'width' => 'auto', 'add' => 'Neuer Raum', 'edit' => ['type' => 'ValidationTextBox']]
+                            ]
+                        ]
+                    ]
+                ],
                 ],
             ],
             'actions' => [
