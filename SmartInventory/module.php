@@ -967,62 +967,60 @@ PROMPT;
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
         // Räume sammeln für Dropdown
-                // Räume zählen
-        $roomCounts = [];
-        foreach ($inventory as $device) {
-            $r = $device['room'];
-            if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
+        $allRooms = [];
+                foreach ($inventory as $device) {
+            if ($device['room'] !== '') {
+                $allRooms[$device['room']] = true;
+            }
             foreach ($device['variables'] as $v) {
-                $r2 = $v['room'] ?? '';
-                if ($r2 !== '') $roomCounts[$r2] = ($roomCounts[$r2] ?? 0) + 1;
+                if (isset($v['room']) && $v['room'] !== '') {
+                    $allRooms[$v['room']] = true;
+                }
             }
         }
         foreach ($untagged as $device) {
-            $r = $device['room'];
-            if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
+            if ($device['room'] !== '') {
+                $allRooms[$device['room']] = true;
+            }
         }
-
-        $roomsProp = json_decode(@$this->ReadPropertyString('Rooms') ?: '[]', true) ?: [];
+                $allRooms = array_keys($allRooms);
+        sort($allRooms);
         
-        // Initial setup from object tree if empty
+                $roomsProp = json_decode(@$this->ReadPropertyString('Rooms') ?: '[]', true) ?: [];
+        
+        // Auto-populate ONLY if completely empty (initial setup / migration)
         if (empty($roomsProp)) {
-            $rawRooms = [];
-            $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
-            foreach (IPS_GetInstanceList() as $iid) {
-                $inst = @IPS_GetInstance($iid);
-                if ($inst && $inst['ModuleInfo']['ModuleType'] === 3) {
-                    $path = @IPS_GetLocation($iid);
-                    $segments = explode('\\', $path);
-                    $idx = count($segments) - $segmentIndex;
-                    if ($idx >= 0 && $idx < count($segments)) {
-                        $rr = trim($segments[$idx]);
-                        if ($rr !== '') $rawRooms[$rr] = true;
+            $legacy = json_decode(@$this->ReadPropertyString('RoomMapping') ?: '[]', true) ?: [];
+            if (!empty($legacy)) {
+                foreach ($legacy as $m) {
+                    if (!($m['Hide'] ?? false)) {
+                        $name = trim($m['Mapped'] ?? $m['Original'] ?? '');
+                        if ($name !== '' && !in_array(['RoomName' => $name], $roomsProp)) {
+                            $roomsProp[] = ['RoomName' => $name];
+                        }
                     }
                 }
-            }
-            foreach (array_keys($rawRooms) as $r) {
-                $roomsProp[] = ['RoomName' => $r];
+            } else {
+                $rawRooms = [];
+                $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
+                foreach (IPS_GetInstanceList() as $iid) {
+                    $inst = @IPS_GetInstance($iid);
+                    if ($inst && $inst['ModuleInfo']['ModuleType'] === 3) {
+                        $path = @IPS_GetLocation($iid);
+                        $segments = explode('\\', $path);
+                        $idx = count($segments) - $segmentIndex;
+                        if ($idx >= 0 && $idx < count($segments)) {
+                            $rr = trim($segments[$idx]);
+                            if ($rr !== '') $rawRooms[$rr] = true;
+                        }
+                    }
+                }
+                foreach (array_keys($rawRooms) as $r) {
+                    $roomsProp[] = ['RoomName' => $r];
+                }
             }
         }
         
-        // Auto-append actively used rooms that were deleted, and calculate Info column
-        foreach ($roomsProp as &$r) {
-            $name = trim($r['RoomName'] ?? '');
-            $count = $roomCounts[$name] ?? 0;
-            $r['Info'] = $count === 0 ? '(leer)' : "($count Geräte)";
-        }
-        unset($r);
-        
-        foreach ($roomCounts as $name => $count) {
-            $found = false;
-            foreach ($roomsProp as $r) {
-                if (trim($r['RoomName'] ?? '') === $name) { $found = true; break; }
-            }
-            if (!$found && $name !== '') {
-                $roomsProp[] = ['RoomName' => $name, 'Info' => "($count Geräte)"];
-            }
-        }
-
         $finalRooms = [];
         foreach ($roomsProp as $r) {
             $name = trim($r['RoomName'] ?? '');
@@ -1030,15 +1028,122 @@ PROMPT;
                 $finalRooms[] = $name;
             }
         }
-        sort($finalRooms);
-        
         $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
+        sort($finalRooms);
         foreach ($finalRooms as $r) {
-            $c = $roomCounts[$r] ?? 0;
-            $caption = $c === 0 ? "($r)" : $r;
-            $roomOptions[] = ['caption' => $caption, 'value' => $r];
+            $roomOptions[] = ['caption' => $r, 'value' => $r];
         }
 
+        $tagOptions = array_merge(
+            [['caption' => '(Nicht getaggt)', 'value' => '']],
+            $earlyTagOpts,
+            [
+                ['caption' => 'Alarm (CO)', 'value' => 'SI:alarm:co'],
+                ['caption' => 'Alarm (Sabotage/Tamper)', 'value' => 'SI:alarm:tamper'],
+                ['caption' => 'Diagnostik', 'value' => 'SI:diagnostic'],
+                ['caption' => 'Info', 'value' => 'SI:info'],
+            ]
+        );
+        $seen = [];
+        $unique = [];
+        foreach ($tagOptions as $t) {
+            if (!isset($seen[$t['value']])) {
+                $unique[] = $t;
+                $seen[$t['value']] = true;
+            }
+        }
+        $tagOptions = $unique;
+
+        $initialCatalogList = [];
+        $catalogCategories = [];
+
+        foreach ($inventory as $device) {
+            foreach ($device['variables'] as $v) {
+                $parsedTag = $this->parseTag($v['tag']);
+                $tagBase = $parsedTag['category'] !== '' ? 'SI:' . $parsedTag['category'] . ($parsedTag['subcategory'] !== '' ? ':' . $parsedTag['subcategory'] : '') : '';
+                
+                if ($tagBase !== '' && !in_array($tagBase, $catalogCategories)) {
+                    $catalogCategories[] = $tagBase;
+                }
+
+                if ($v['disabled']) {
+                    continue;
+                }
+                
+                $normalStateStr = $parsedTag['normalState'] !== null ? $parsedTag['normalState']['value'] : '';
+
+                // Für die Problemansicht: nur problematische Einträge zeigen
+                $isProblem = false;
+                if ($parsedTag['category'] === 'reachability' && $this->isProblematic($v)) $isProblem = true;
+                elseif ($parsedTag['category'] === 'battery' && $this->isBatteryLow($v, $threshold)) $isProblem = true;
+                elseif (in_array($parsedTag['category'], ['alarm', 'warning']) && $this->isProblematic($v)) $isProblem = true;
+                elseif ($parsedTag['category'] === 'contact' && $this->isProblematic($v)) $isProblem = true;
+
+                if ($isProblem) {
+                    $initialCatalogList[] = [
+                        'instanceName' => $device['instanceName'],
+                        'room'         => $v['room'] ?? $device['room'],
+                        'tagBase'      => $tagBase,
+                        'normalState'  => $normalStateStr,
+                        'disabled'     => $v['disabled'],
+                        'value'        => $v['valueFormatted'],
+                        'ObjectID'     => $v['varID'],
+                        'instanceID'   => $device['instanceID'],
+                    ];
+                }
+            }
+        }
+
+        sort($catalogCategories);
+
+        $onEditScript = '
+            $listData = ${$IPS_VALUE};
+            $vid = $listData["ObjectID"];
+            
+            $objType = IPS_GetObject($vid)["ObjectType"];
+            if ($objType === 2) {
+                // Variable -> Tag aktualisieren
+                  $newTag = $listData["tagBase"];
+                  $ns = $listData["normalState"] ?? "";
+                  $ns = str_replace(":", "", $ns);
+                  if ($ns !== "") {
+                      if ($newTag === "") $newTag = "SI:";
+                      $newTag .= ":ok=" . $ns;
+                  }
+                  if ($listData["disabled"]) {
+                      if ($newTag === "") $newTag = "SI:";
+                      $newTag .= ":disabled";
+                  }
+                  SINV_SetTag($id, $vid, $newTag);
+            } elseif ($objType === 1) {
+                // Instanz (Nicht getaggt) -> Ignore setzen
+                $ignoreVarID = @IPS_GetObjectIDByIdent("_SI_Ignore", $vid);
+                if ($listData["disabled"]) {
+                    if ($ignoreVarID === false) {
+                        $ignoreVarID = IPS_CreateVariable(0);
+                        IPS_SetParent($ignoreVarID, $vid);
+                        IPS_SetIdent($ignoreVarID, "_SI_Ignore");
+                        IPS_SetName($ignoreVarID, "SmartInventory Ignoriert");
+                        IPS_SetHidden($ignoreVarID, true);
+                    }
+                    SetValue($ignoreVarID, true);
+                } elseif ($ignoreVarID !== false) {
+                    SetValue($ignoreVarID, false);
+                }
+            }
+            
+            // Raum aktualisieren
+            $newRoom = $listData["room"];
+            // We set the room on the object being edited (either Variable or Instance)
+            SINV_SetRoom($id, $vid > 0 ? $vid : $iid, $newRoom);
+            
+            SINV_Scan($id);
+        ';
+
+        // ── Filter-Optionen aufbauen (Health-Filter + Sonder-Filter + Typen) ──
+        $catalogOptions = [];
+        // Sonder-Filter
+        $catalogOptions[] = ['caption' => 'Alle Geraete & Variablen', 'value' => 'all'];
         $catalogOptions[] = ['caption' => 'Nicht getaggte',           'value' => 'untagged'];
 
         $roomFilterOptions = [['caption' => 'Alle Räume', 'value' => 'all']];
@@ -1106,8 +1211,7 @@ PROMPT;
                             'add' => true,
                             'delete' => true,
                             'columns' => [
-                                ['caption' => 'Raumname', 'name' => 'RoomName', 'width' => 'auto', 'add' => 'Neuer Raum', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Nutzung', 'name' => 'Info', 'width' => '150px']
+                                ['caption' => 'Raumname', 'name' => 'RoomName', 'width' => 'auto', 'add' => 'Neuer Raum', 'edit' => ['type' => 'ValidationTextBox']]
                             ],
                             'values' => $roomsProp
                         ]
