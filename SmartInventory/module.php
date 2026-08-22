@@ -983,18 +983,59 @@ PROMPT;
                 $allRooms[$device['room']] = true;
             }
         }
-        $allRooms = array_keys($allRooms);
+                $allRooms = array_keys($allRooms);
         sort($allRooms);
-        $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
-        $customRooms = json_decode($this->ReadPropertyString('CustomRooms'), true) ?: [];
-        foreach ($customRooms as $cr) {
-            $rName = trim($cr['RoomName'] ?? '');
-            if ($rName !== '' && !in_array($rName, $allRooms)) {
-                $allRooms[] = $rName;
+        
+        // Auto-populate RoomMapping
+        $roomMapping = json_decode(@$this->ReadPropertyString('RoomMapping'), true) ?: [];
+        $existingOriginals = array_column($roomMapping, 'Original');
+        
+        // Gather raw rooms from object tree to auto-populate the mapping list
+        $rawRooms = [];
+        $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
+        foreach (IPS_GetInstanceList() as $iid) {
+            $inst = @IPS_GetInstance($iid);
+            if ($inst && $inst['ModuleInfo']['ModuleType'] === 3) {
+                $path = @IPS_GetLocation($iid);
+                $segments = explode('\\', $path);
+                $idx = count($segments) - $segmentIndex;
+                if ($idx >= 0 && $idx < count($segments)) {
+                    $rr = $segments[$idx];
+                    if ($rr !== '') $rawRooms[$rr] = true;
+                }
             }
         }
-        sort($allRooms);
-        foreach ($allRooms as $r) {
+        $rawRooms = array_keys($rawRooms);
+        foreach ($rawRooms as $r) {
+            if ($r !== '' && !in_array($r, $existingOriginals)) {
+                $roomMapping[] = [
+                    'Original' => $r,
+                    'Mapped' => $r,
+                    'Hide' => false
+                ];
+            }
+        }
+        
+        // Build final list of rooms based on mapping
+        $finalRooms = [];
+        foreach ($roomMapping as $m) {
+            if ($m['Hide'] ?? false) continue;
+            $name = trim($m['Mapped'] ?? '');
+            if ($name !== '' && !in_array($name, $finalRooms)) {
+                $finalRooms[] = $name;
+            }
+        }
+        
+        $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
+                $customRooms = json_decode(@$this->ReadPropertyString('CustomRooms'), true) ?: [];
+        foreach ($customRooms as $cr) {
+            $rName = trim($cr['RoomName'] ?? '');
+            if ($rName !== '' && !in_array($rName, $finalRooms)) {
+                $finalRooms[] = $rName;
+            }
+        }
+        sort($finalRooms);
+        foreach ($finalRooms as $r) {
             $roomOptions[] = ['caption' => $r, 'value' => $r];
         }
 
