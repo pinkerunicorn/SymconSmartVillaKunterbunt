@@ -1041,7 +1041,8 @@ PROMPT;
                 $finalRooms[] = $name;
             }
         }
-        sort($finalRooms);
+        natcasesort($finalRooms);
+        $finalRooms = array_values($finalRooms);
         
         $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
         foreach ($finalRooms as $r) {
