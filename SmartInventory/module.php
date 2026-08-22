@@ -966,27 +966,22 @@ PROMPT;
         usort($catListValues, function($a, $b) { return strcmp($a['tag'], $b['tag']); });
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
-        // Räume sammeln für Dropdown
-        $allRooms = [];
-                foreach ($inventory as $device) {
-            if ($device['room'] !== '') {
-                $allRooms[$device['room']] = true;
-            }
+                // Räume sammeln für Dropdown und Nutzung zählen
+        $roomCounts = [];
+        foreach ($inventory as $device) {
+            $r = $device['room'] ?? '';
+            if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
             foreach ($device['variables'] as $v) {
-                if (isset($v['room']) && $v['room'] !== '') {
-                    $allRooms[$v['room']] = true;
-                }
+                $r2 = $v['room'] ?? '';
+                if ($r2 !== '') $roomCounts[$r2] = ($roomCounts[$r2] ?? 0) + 1;
             }
         }
         foreach ($untagged as $device) {
-            if ($device['room'] !== '') {
-                $allRooms[$device['room']] = true;
-            }
+            $r = $device['room'] ?? '';
+            if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
         }
-                $allRooms = array_keys($allRooms);
-        sort($allRooms);
-        
-                $roomsProp = json_decode(@$this->ReadPropertyString('Rooms') ?: '[]', true) ?: [];
+
+        $roomsProp = json_decode(@$this->ReadPropertyString('Rooms') ?: '[]', true) ?: [];
         
         // Auto-populate ONLY if completely empty (initial setup / migration)
         if (empty($roomsProp)) {
@@ -1021,6 +1016,24 @@ PROMPT;
             }
         }
         
+        // Auto-append actively used rooms that were deleted, and calculate Info column
+        foreach ($roomsProp as &$r) {
+            $name = trim($r['RoomName'] ?? '');
+            $count = $roomCounts[$name] ?? 0;
+            $r['Info'] = $count === 0 ? '(leer)' : "($count Geräte)";
+        }
+        unset($r);
+        
+        foreach ($roomCounts as $name => $count) {
+            $found = false;
+            foreach ($roomsProp as $r) {
+                if (trim($r['RoomName'] ?? '') === $name) { $found = true; break; }
+            }
+            if (!$found && $name !== '') {
+                $roomsProp[] = ['RoomName' => $name, 'Info' => "($count Geräte)"];
+            }
+        }
+
         $finalRooms = [];
         foreach ($roomsProp as $r) {
             $name = trim($r['RoomName'] ?? '');
@@ -1028,10 +1041,13 @@ PROMPT;
                 $finalRooms[] = $name;
             }
         }
-        $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
         sort($finalRooms);
+        
+        $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
         foreach ($finalRooms as $r) {
-            $roomOptions[] = ['caption' => $r, 'value' => $r];
+            $c = $roomCounts[$r] ?? 0;
+            $caption = $c === 0 ? "($r)" : $r;
+            $roomOptions[] = ['caption' => $caption, 'value' => $r];
         }
 
         $tagOptions = array_merge(
@@ -1211,7 +1227,8 @@ PROMPT;
                             'add' => true,
                             'delete' => true,
                             'columns' => [
-                                ['caption' => 'Raumname', 'name' => 'RoomName', 'width' => 'auto', 'add' => 'Neuer Raum', 'edit' => ['type' => 'ValidationTextBox']]
+                                ['caption' => 'Raumname', 'name' => 'RoomName', 'width' => 'auto', 'add' => 'Neuer Raum', 'edit' => ['type' => 'ValidationTextBox']],
+                                ['caption' => 'Nutzung', 'name' => 'Info', 'width' => '150px']
                             ],
                             'values' => $roomsProp
                         ]
