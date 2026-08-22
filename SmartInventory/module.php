@@ -1161,6 +1161,7 @@ PROMPT;
                         ['type' => 'SelectInstance', 'name' => 'NotifierID', 'caption' => 'SmartNotifier (Auto-RefreshSubscriptions nach Scan)'],
                         ['type' => 'SelectInstance', 'name' => 'GeminiIOID', 'caption' => 'SmartGeminiIO (fuer KI-Tagging)'],
                     ],
+                ],
                 [
                     'type' => 'ExpansionPanel',
                     'caption' => 'Räume verwalten',
