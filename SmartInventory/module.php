@@ -38,7 +38,8 @@ class SmartInventory extends IPSModuleStrict
         $this->RegisterPropertyInteger('RoomPathSegment', 2);         // Segment von rechts im Pfad
         $this->RegisterPropertyInteger('NotifierID', 0);              // Legacy – wird nicht mehr verwendet
         $this->RegisterPropertyInteger('GeminiIOID', 0);
-        $this->RegisterPropertyString('RoomMapping', '[]');              // SmartGeminiIO Instanz
+        $this->RegisterPropertyString('RoomMapping', '[]');
+        $this->RegisterPropertyString('Rooms', '[]');              // SmartGeminiIO Instanz
 
         // Datenbank
         $this->RegisterAttributeString('TagDatabase', '{}');
@@ -985,46 +986,48 @@ PROMPT;
                 $allRooms = array_keys($allRooms);
         sort($allRooms);
         
-        // Auto-populate RoomMapping
-        $roomMapping = json_decode(@$this->ReadPropertyString('RoomMapping'), true) ?: [];
-        $existingOriginals = array_column($roomMapping, 'Original');
+                $roomsProp = json_decode(@$this->ReadPropertyString('Rooms') ?: '[]', true) ?: [];
         
-        // Gather raw rooms from object tree to auto-populate the mapping list
-        $rawRooms = [];
-        $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
-        foreach (IPS_GetInstanceList() as $iid) {
-            $inst = @IPS_GetInstance($iid);
-            if ($inst && $inst['ModuleInfo']['ModuleType'] === 3) {
-                $path = @IPS_GetLocation($iid);
-                $segments = explode('\\', $path);
-                $idx = count($segments) - $segmentIndex;
-                if ($idx >= 0 && $idx < count($segments)) {
-                    $rr = $segments[$idx];
-                    if ($rr !== '') $rawRooms[$rr] = true;
+        // Auto-populate ONLY if completely empty (initial setup / migration)
+        if (empty($roomsProp)) {
+            $legacy = json_decode(@$this->ReadPropertyString('RoomMapping') ?: '[]', true) ?: [];
+            if (!empty($legacy)) {
+                foreach ($legacy as $m) {
+                    if (!($m['Hide'] ?? false)) {
+                        $name = trim($m['Mapped'] ?? $m['Original'] ?? '');
+                        if ($name !== '' && !in_array(['RoomName' => $name], $roomsProp)) {
+                            $roomsProp[] = ['RoomName' => $name];
+                        }
+                    }
+                }
+            } else {
+                $rawRooms = [];
+                $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
+                foreach (IPS_GetInstanceList() as $iid) {
+                    $inst = @IPS_GetInstance($iid);
+                    if ($inst && $inst['ModuleInfo']['ModuleType'] === 3) {
+                        $path = @IPS_GetLocation($iid);
+                        $segments = explode('\\', $path);
+                        $idx = count($segments) - $segmentIndex;
+                        if ($idx >= 0 && $idx < count($segments)) {
+                            $rr = trim($segments[$idx]);
+                            if ($rr !== '') $rawRooms[$rr] = true;
+                        }
+                    }
+                }
+                foreach (array_keys($rawRooms) as $r) {
+                    $roomsProp[] = ['RoomName' => $r];
                 }
             }
         }
-        $rawRooms = array_keys($rawRooms);
-        foreach ($rawRooms as $r) {
-            if ($r !== '' && !in_array($r, $existingOriginals)) {
-                $roomMapping[] = [
-                    'Original' => $r,
-                    'Mapped' => $r,
-                    'Hide' => false
-                ];
-            }
-        }
         
-        // Build final list of rooms based on mapping
         $finalRooms = [];
-        foreach ($roomMapping as $m) {
-            if ($m['Hide'] ?? false) continue;
-            $name = trim($m['Mapped'] ?? '');
+        foreach ($roomsProp as $r) {
+            $name = trim($r['RoomName'] ?? '');
             if ($name !== '' && !in_array($name, $finalRooms)) {
                 $finalRooms[] = $name;
             }
         }
-        
         $roomOptions = [['caption' => '(Kein Raum)', 'value' => '']];
         sort($finalRooms);
         foreach ($finalRooms as $r) {
@@ -1201,18 +1204,16 @@ PROMPT;
                     'caption' => 'Räume verwalten',
                     'items' => [
                         [
-                            'type' => 'List',
-                            'name' => 'RoomMapping',
-                            'caption' => 'Räume verwalten (Automatisch gefunden & Manuell)',
+                                                        'type' => 'List',
+                            'name' => 'Rooms',
+                            'caption' => 'Räume verwalten',
                             'rowCount' => 10,
                             'add' => true,
                             'delete' => true,
                             'columns' => [
-                                ['caption' => 'Symcon-Ordner (Original)', 'name' => 'Original', 'width' => '250px', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Anzeigename (Umbenannt)', 'name' => 'Mapped', 'width' => 'auto', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Ausblenden', 'name' => 'Hide', 'width' => '100px', 'edit' => ['type' => 'CheckBox']]
+                                ['caption' => 'Raumname', 'name' => 'RoomName', 'width' => 'auto', 'add' => 'Neuer Raum', 'edit' => ['type' => 'ValidationTextBox']]
                             ],
-                            'values' => $roomMapping
+                            'values' => $roomsProp
                         ]
                     ]
                 ]
@@ -1511,30 +1512,27 @@ PROMPT;
             if ($userRoom !== '') return $userRoom;
         }
 
-        // Fallback: Path
+        // Fallback: Path (only if exact match with our Rooms list)
         $path = IPS_GetLocation($id);
         $segments = explode('\\', $path);
         $segmentIndex = @$this->ReadPropertyInteger('RoomPathSegment') ?: 2;
         $idx = count($segments) - $segmentIndex;
         if ($idx >= 0 && $idx < count($segments)) {
-            $rawRoom = $segments[$idx];
+            $rawRoom = trim($segments[$idx]);
             
-            static $roomMapCache = null;
-            if ($roomMapCache === null) {
-                $roomMapCache = [];
-                $map = json_decode(@$this->ReadPropertyString('RoomMapping') ?: '[]', true) ?: [];
-                foreach ($map as $m) {
-                    if (!empty($m['Original'])) {
-                        $roomMapCache[$m['Original']] = $m;
-                    }
+            static $validRoomsCache = null;
+            if ($validRoomsCache === null) {
+                $validRoomsCache = [];
+                $roomsProp = json_decode(@$this->ReadPropertyString('Rooms') ?: '[]', true) ?: [];
+                foreach ($roomsProp as $r) {
+                    $name = trim($r['RoomName'] ?? '');
+                    if ($name !== '') $validRoomsCache[$name] = true;
                 }
             }
             
-            if (isset($roomMapCache[$rawRoom])) {
-                if ($roomMapCache[$rawRoom]['Hide'] ?? false) return '';
-                if (trim($roomMapCache[$rawRoom]['Mapped'] ?? '') !== '') return trim($roomMapCache[$rawRoom]['Mapped']);
+            if (isset($validRoomsCache[$rawRoom])) {
+                return $rawRoom;
             }
-            return $rawRoom;
         }
         return '';
     }
