@@ -966,14 +966,14 @@ PROMPT;
         usort($catListValues, function($a, $b) { return strcmp($a['tag'], $b['tag']); });
         $threshold = $this->ReadPropertyInteger('BatteryThreshold');
 
-                // Räume sammeln für Dropdown und Nutzung zählen
+                        // Räume zählen (exakt so wie sie als Zeilen im UI auftauchen)
         $roomCounts = [];
         foreach ($inventory as $device) {
-            $r = $device['room'] ?? '';
-            if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
             foreach ($device['variables'] as $v) {
-                $r2 = $v['room'] ?? '';
-                if ($r2 !== '') $roomCounts[$r2] = ($roomCounts[$r2] ?? 0) + 1;
+                if (str_starts_with($v['tag'] ?? '', 'SI:')) {
+                    $r = $v['room'] ?? $device['room'] ?? '';
+                    if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
+                }
             }
         }
         foreach ($untagged as $device) {
