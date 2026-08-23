@@ -969,10 +969,13 @@ PROMPT;
                         // Räume zählen (exakt so wie sie als Zeilen im UI auftauchen)
         $roomCounts = [];
         foreach ($inventory as $device) {
+            $r = $device['room'] ?? '';
+            if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
+            
             foreach ($device['variables'] as $v) {
                 if (str_starts_with($v['tag'] ?? '', 'SI:')) {
-                    $r = $v['room'] ?? $device['room'] ?? '';
-                    if ($r !== '') $roomCounts[$r] = ($roomCounts[$r] ?? 0) + 1;
+                    $r2 = $v['room'] ?? $device['room'] ?? '';
+                    if ($r2 !== '') $roomCounts[$r2] = ($roomCounts[$r2] ?? 0) + 1;
                 }
             }
         }
@@ -1176,6 +1179,17 @@ PROMPT;
 
         $initialCatalogList = [];
         foreach ($inventory as $device) {
+            // Device row
+            $initialCatalogList[] = [
+                'instanceName' => '[Gerät] ' . $device['instanceName'],
+                'room'         => $device['room'],
+                'tagBase'      => '',
+                'normalState'  => '',
+                'disabled'     => false,
+                'value'        => count($device['variables']) . ' getaggte Variablen',
+                'ObjectID'     => $device['instanceID'],
+                'instanceID'   => $device['instanceID'],
+            ];
             foreach ($device['variables'] as $v) {
                 $parsed  = $this->parseTag($v['tag']);
                 if ($parsed['disabled']) continue;
@@ -1380,7 +1394,7 @@ PROMPT;
                     if ($parsed['disabled']) {
                         $tagBase = $parsed['category'] !== '' ? 'SI:' . $parsed['category'] . ($parsed['subcategory'] !== '' ? ':' . $parsed['subcategory'] : '') : '';
                         $list[] = [
-                                                    'instanceName' => $device['instanceName'],
+                                                    'instanceName' => ($category === 'all' ? '   ↳ ' : '') . $device['instanceName'] . ' - ' . $v['name'],
                             'room'         => $v['room'] ?? $device['room'],
                             'tagBase'      => $tagBase,
                             'normalState'  => $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '',
@@ -1411,6 +1425,18 @@ PROMPT;
         } else {
             // Variablen-zentrische Filter (all, SI:...)
             foreach ($inventory as $device) {
+                if ($category === 'all') {
+                    $list[] = [
+                        'instanceName' => '[Gerät] ' . $device['instanceName'],
+                        'room'         => $device['room'],
+                        'tagBase'      => '',
+                        'normalState'  => '',
+                        'disabled'     => false,
+                        'value'        => count($device['variables']) . ' getaggte Variablen',
+                        'ObjectID'     => $device['instanceID'],
+                        'instanceID'   => $device['instanceID'],
+                    ];
+                }
                 foreach ($device['variables'] as $v) {
                     $parsed  = $this->parseTag($v['tag']);
                     
@@ -1431,7 +1457,7 @@ PROMPT;
                     if ($match) {
                         $normalStateStr = $parsed['normalState'] !== null ? $parsed['normalState']['value'] : '';
                         $list[] = [
-                            'instanceName' => $device['instanceName'],
+                            'instanceName' => ($category === 'all' ? '   ↳ ' : '') . $device['instanceName'] . ' - ' . $v['name'],
                             'room'         => $v['room'] ?? $device['room'],
                             'tagBase'      => $tagBase,
                             'normalState'  => $normalStateStr,
