@@ -76,11 +76,15 @@ class SmartInventory extends IPSModuleStrict
         
         // Restore TagDatabase from backup if file exists
         $backupFile = __DIR__ . '/../tag_backup_raw.txt';
-        if (file_exists($backupFile)) {
-            $json = file_get_contents($backupFile);
+        $fallbackFile = __DIR__ . '/../../../tag_backup_raw.txt'; // /opt/symcon/data/tag_backup_raw.txt
+        
+        $fileToUse = file_exists($backupFile) ? $backupFile : (file_exists($fallbackFile) ? $fallbackFile : '');
+        
+        if ($fileToUse !== '') {
+            $json = file_get_contents($fileToUse);
             if (strlen($json) > 100) {
                 $this->WriteAttributeString('TagDatabase', $json);
-                unlink($backupFile);
+                unlink($fileToUse);
                 $this->SendDebug('Restore', 'TagDatabase restored from backup!', 0);
             }
         }
