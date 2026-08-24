@@ -74,6 +74,16 @@ class SmartInventory extends IPSModuleStrict
     {
         parent::ApplyChanges();
         
+        // Restore TagDatabase from backup if file exists
+        $backupFile = __DIR__ . '/../tag_backup_raw.txt';
+        if (file_exists($backupFile)) {
+            $json = file_get_contents($backupFile);
+            if (strlen($json) > 100) {
+                $this->WriteAttributeString('TagDatabase', $json);
+                unlink($backupFile);
+                $this->SendDebug('Restore', 'TagDatabase restored from backup!', 0);
+            }
+        }
 
         // Timer setzen
         $interval = $this->ReadPropertyInteger('ScanInterval');
@@ -215,12 +225,15 @@ class SmartInventory extends IPSModuleStrict
 
             if (count($instanceVars) === 0) continue;
 
-            $inventory[] = [
-                'instanceID'   => $instanceID,
-                'instanceName' => $instanceName,
-                'room'         => $room,
-                'variables'    => $instanceVars,
-            ];
+            if ($hasTaggedVar) {
+                $taggedVarsOnly = array_filter($instanceVars, fn($v) => str_starts_with($v['tag'] ?? '', self::TAG_PREFIX));
+                $inventory[] = [
+                    'instanceID'   => $instanceID,
+                    'instanceName' => $instanceName,
+                    'room'         => $room,
+                    'variables'    => array_values($taggedVarsOnly),
+                ];
+            }
             
             if (!$hasTaggedVar) {
                 $untaggedInstances[] = [
