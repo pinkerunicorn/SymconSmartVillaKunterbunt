@@ -1605,6 +1605,21 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
             ];
         }
 
+        // --- Switch Triggers columns (dynamic based on registry) ---
+        $switchTriggersColumns = [];
+        if ($hasRegistry) {
+            $switchTriggersColumns[] = ['caption' => 'Schalter/Taster (Registry)', 'name' => 'SwitchID', 'width' => '250px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $switchOptions]];
+            $switchTriggersColumns[] = ['caption' => 'Oder: Variable (manuell)', 'name' => 'ManualSwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+        } else {
+            $switchTriggersColumns[] = ['caption' => 'Schalter/Taster (Variable)', 'name' => 'SwitchID', 'width' => '250px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']];
+        }
+        $switchTriggersColumns = array_merge($switchTriggersColumns, [
+            ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
+            ['caption' => 'Ausloese-Wert (leer = Registry)', 'name' => 'TriggerValue', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
+            ['caption' => 'Toggle', 'name' => 'Toggle', 'width' => '60px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+            ['caption' => 'Setzt Override', 'name' => 'SetsOverride', 'width' => '100px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
+        ]);
+
         // Build complete form
         $form = [
             'elements' => [
@@ -1707,14 +1722,7 @@ $regId = (int)@$this->ReadPropertyInteger('RegistryID');
                             'rowCount' => 5,
                             'add' => true,
                             'delete' => true,
-                            'columns' => [
-                                ['caption' => 'Schalter/Taster (Registry)', 'name' => 'SwitchID', 'width' => '250px', 'add' => 0, 'edit' => ['type' => 'Select', 'options' => $switchOptions]],
-                                ['caption' => 'Oder: Variable (manuell)', 'name' => 'ManualSwitchID', 'width' => '200px', 'add' => 0, 'edit' => ['type' => 'SelectVariable']],
-                                ['caption' => 'Szene', 'name' => 'SceneName', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'Select', 'options' => $sceneOptions]],
-                                ['caption' => 'Ausloese-Wert (leer = Registry)', 'name' => 'TriggerValue', 'width' => '150px', 'add' => '', 'edit' => ['type' => 'ValidationTextBox']],
-                                ['caption' => 'Toggle', 'name' => 'Toggle', 'width' => '60px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
-                                ['caption' => 'Setzt Override', 'name' => 'SetsOverride', 'width' => '100px', 'add' => true, 'edit' => ['type' => 'CheckBox']],
-                            ],
+                            'columns' => $switchTriggersColumns,
                         ],
                     ],
                 ],
